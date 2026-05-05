@@ -10,22 +10,22 @@ from django.template import loader
 
 def index(request):
     template = loader.get_template("home/index.html")
-    
-    
+
     students = [
-        {"name": "Jane Doe", "matriculation": "123456"},
-        {"name": "John Smith", "matriculation": "654321"},
-        {"name": "Alex Johnson", "matriculation": "789012"},
+        {"name": "Sofiia Budilova", "matriculation": "675972"},
+        {"name": "Ashutosh Chatterjee", "matriculation": "672405"},
+        {"name": "Gauri Gajanan Amin", "matriculation": "670328"},
     ]
-    
+
     projects = [
         {"name": "Home", "url_name": "home:index"},
         {"name": "Home 2", "url_name": "home:index"},
+        {"name": "Project 1", "url_name": "project1:index"},
     ]
-    
-    context = { 
-        "students": students, 
-        "projects": projects, 
+
+    context = {
+        "students": students,
+        "projects": projects,
     }
-    
+
     return HttpResponse(template.render(context, request))
