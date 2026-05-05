@@ -2,6 +2,11 @@ import csv
 import io
 import os
 import numpy as np
+
+import matplotlib
+
+matplotlib.use("Agg")
+
 from matplotlib import pyplot as plt
 
 
@@ -9,6 +14,7 @@ from django.conf import settings
 from django.shortcuts import render
 from .forms import CSVUploadForm
 from django.http import HttpResponse, JsonResponse
+
 
 def index(request):
     return HttpResponse("Welcome to Project 1!")
@@ -18,11 +24,11 @@ def upload_csv(request):
     result = None
     error = None
 
-    if request.method == 'POST':
+    if request.method == "POST":
         form = CSVUploadForm(request.POST, request.FILES)
         if form.is_valid():
-            file = request.FILES['file']
-            decoded_file = file.read().decode('utf-8')
+            file = request.FILES["file"]
+            decoded_file = file.read().decode("utf-8")
             io_string = io.StringIO(decoded_file)
 
             try:
@@ -45,35 +51,32 @@ def upload_csv(request):
     else:
         form = CSVUploadForm()
 
-    return render(request, 'demos/upload.html', {
-        'form': form,
-        'result': result,
-        'error': error
-    })
+    return render(
+        request, "demos/upload.html", {"form": form, "result": result, "error": error}
+    )
 
 
 def save_plot(filename):
     image_path = os.path.join(settings.MEDIA_ROOT, filename)
-    
+
     x = np.random.rand(10)
     y = np.random.rand(10)
     plt.figure()
     plt.scatter(x, y)
     plt.savefig(image_path)
-    
+
     image_url = settings.MEDIA_URL + filename
     return image_url
 
 
-
 def generate_plot(request):
-    filename = 'myplot.png'
+    filename = "myplot.png"
     image_url = save_plot(filename)
-    return render(request, 'demos/show_plot.html', {'image_url': image_url})
+    return render(request, "demos/show_plot.html", {"image_url": image_url})
 
 
 def generate_plot_ajax(request):
     if request.method == "POST":
-        filename = 'myplot.png'
+        filename = "myplot.png"
         image_url = save_plot(filename)
-        return JsonResponse({'image_url': image_url})
+        return JsonResponse({"image_url": image_url})
