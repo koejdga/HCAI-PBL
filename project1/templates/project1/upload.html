@@ -48,6 +48,7 @@
       <a href="#overview-section">Overview</a>
       <a href="#feature-section">Feature plots</a>
       <a href="#scatter-section">Scatter plots</a>
+      <a href="#training-section">Model training</a>
     </div>
   </nav>
   {% endif %}
@@ -212,6 +213,90 @@
         </div>
         {% endfor %}
       </div>
+    </section>
+    {% endif %}
+    {% if dataset_summary %}
+    <section class="plot-section" id="training-section">
+      <h2>Model Training</h2>
+      <p>
+        Detected task:
+        <strong>{{ task_type|title }}</strong>.
+        The score is computed on a held-out test set.
+      </p>
+
+      <form method="post" class="training-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="train_model" />
+
+        <label for="model">Model</label>
+        <select id="model" name="model" required>
+          {% for option in model_options %}
+          <option
+            value="{{ option.value }}"
+            {% if option.value == selected_model %}selected{% endif %}
+          >
+            {{ option.label }}
+          </option>
+          {% endfor %}
+        </select>
+
+        <label for="test_size">Test split</label>
+        <select id="test_size" name="test_size" required>
+          <option value="20" {% if test_size_percent == 20 %}selected{% endif %}>
+            20%
+          </option>
+          <option value="30" {% if test_size_percent == 30 %}selected{% endif %}>
+            30%
+          </option>
+          <option value="40" {% if test_size_percent == 40 %}selected{% endif %}>
+            40%
+          </option>
+        </select>
+
+        <button type="submit">Train model</button>
+      </form>
+
+      {% if training_result %}
+      <div class="training-result">
+        <p>
+          Best {{ training_result.model }} setting:
+          <strong>{{ training_result.best.parameter }}</strong>
+          with {{ training_result.metric }} =
+          <strong>{{ training_result.best.score }}</strong>.
+        </p>
+        <p>
+          Train rows: {{ training_result.train_rows }}.
+          Test rows: {{ training_result.test_rows }}.
+        </p>
+
+        <table class="training-table">
+          <thead>
+            <tr>
+              <th>{{ training_result.hyperparameter }}</th>
+              <th>{{ training_result.metric }}</th>
+              {% if training_result.task_type == "regression" %}
+              <th>RMSE</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in training_result.rows %}
+            <tr
+              {% if row.parameter == training_result.best.parameter %}
+              class="best-training-row"
+              {% endif %}
+            >
+              <td>{{ row.parameter }}</td>
+              <td>{{ row.score }}</td>
+              {% if training_result.task_type == "regression" %}
+              <td>{{ row.rmse }}</td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
     </section>
     {% endif %}
     <br /><br />

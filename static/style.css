@@ -326,6 +326,57 @@ button.remove-plot-button:hover {
   margin: 0 auto;
 }
 
+.training-form {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) minmax(180px, 280px);
+  gap: 12px 16px;
+  align-items: center;
+  max-width: 620px;
+  margin: 18px 0 24px;
+}
+
+.training-form button {
+  grid-column: 2;
+  width: 100%;
+  margin: 4px 0 0;
+}
+
+.training-form select {
+  min-height: 40px;
+  border: 1px solid #b8c2d3;
+  border-radius: 2px;
+  padding: 6px 10px;
+  font-size: 17px;
+}
+
+.training-result {
+  max-width: 720px;
+}
+
+.training-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 17px;
+}
+
+.training-table th,
+.training-table td {
+  border: 1px solid #d7dfec;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.training-table th {
+  background-color: #eef3fb;
+  color: #1f3356;
+}
+
+.best-training-row {
+  background-color: #eaf7ef;
+  font-weight: 600;
+}
+
 @media (max-width: 1100px) {
   .plot-card {
     flex-basis: calc((100% - 20px) / 2);
@@ -341,6 +392,14 @@ button.remove-plot-button:hover {
 
   .plot-card {
     flex-basis: 100%;
+  }
+
+  .training-form {
+    grid-template-columns: 1fr;
+  }
+
+  .training-form button {
+    grid-column: 1;
   }
 }
 

@@ -9,6 +9,17 @@ import matplotlib
 matplotlib.use("Agg")
 
 from matplotlib import pyplot as plt
+try:
+    from sklearn.compose import ColumnTransformer
+    from sklearn.impute import SimpleImputer
+    from sklearn.linear_model import LogisticRegression, Ridge
+    from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
+    from sklearn.model_selection import train_test_split
+    from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import OneHotEncoder, StandardScaler
+except ImportError:
+    ColumnTransformer = None
 
 
 from django.conf import settings
@@ -383,6 +394,250 @@ def calculate_average_target(dataset):
     return None
 
 
+def infer_task_type(dataset):
+    target_column = dataset["columns"][dataset["target"]]
+    if target_column["type"] == "categorical":
+        return "classification"
+
+    values = numeric_values(target_column["values"])
+    values = values[~np.isnan(values)]
+    unique_values = np.unique(values)
+    integer_coded = np.all(np.isclose(unique_values, np.round(unique_values)))
+
+    if (
+        integer_coded
+        and len(unique_values) <= 10
+        and len(unique_values) <= len(values) / 2
+    ):
+        return "classification"
+
+    return "regression"
+
+
+def training_model_options(task_type):
+    if task_type == "classification":
+        return [
+            {
+                "value": "logistic_regression",
+                "label": "Logistic Regression",
+                "hyperparameter": "C",
+            },
+            {
+                "value": "knn_classifier",
+                "label": "K-Nearest Neighbors",
+                "hyperparameter": "n_neighbors",
+            },
+        ]
+
+    return [
+        {
+            "value": "ridge_regression",
+            "label": "Ridge Regression",
+            "hyperparameter": "alpha",
+        },
+        {
+            "value": "knn_regressor",
+            "label": "K-Nearest Neighbors",
+            "hyperparameter": "n_neighbors",
+        },
+    ]
+
+
+def get_model_choice(model_options, selected_model):
+    if selected_model:
+        for option in model_options:
+            if option["value"] == selected_model:
+                return option
+
+    return model_options[0]
+
+
+def clean_numeric_value(value):
+    return np.nan if value == "" else float(value)
+
+
+def build_training_arrays(dataset):
+    features = dataset["features"]
+    columns = dataset["columns"]
+    row_count = dataset["row_count"]
+    numeric_feature_indexes = []
+    categorical_feature_indexes = []
+
+    rows = []
+    for row_index in range(row_count):
+        row = []
+        for feature_index, feature in enumerate(features):
+            column = columns[feature]
+            value = column["values"][row_index]
+            if column["type"] == "numeric":
+                row.append(clean_numeric_value(value))
+                if feature_index not in numeric_feature_indexes:
+                    numeric_feature_indexes.append(feature_index)
+            else:
+                row.append(value if value != "" else "(missing)")
+                if feature_index not in categorical_feature_indexes:
+                    categorical_feature_indexes.append(feature_index)
+        rows.append(row)
+
+    return rows, numeric_feature_indexes, categorical_feature_indexes
+
+
+def build_target_values(dataset, task_type):
+    target_column = dataset["columns"][dataset["target"]]
+    if task_type == "regression":
+        values = numeric_values(target_column["values"])
+        if np.isnan(values).any():
+            raise ValueError("Regression targets cannot contain missing values.")
+        return values
+
+    return np.array(categorical_values(target_column["values"]))
+
+
+def build_preprocessor(numeric_feature_indexes, categorical_feature_indexes):
+    transformers = []
+    if numeric_feature_indexes:
+        numeric_pipeline = Pipeline(
+            [
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+            ]
+        )
+        transformers.append(("numeric", numeric_pipeline, numeric_feature_indexes))
+
+    if categorical_feature_indexes:
+        categorical_pipeline = Pipeline(
+            [
+                ("imputer", SimpleImputer(strategy="most_frequent")),
+                ("encoder", OneHotEncoder(handle_unknown="ignore")),
+            ]
+        )
+        transformers.append(
+            ("categorical", categorical_pipeline, categorical_feature_indexes)
+        )
+
+    return ColumnTransformer(transformers)
+
+
+def model_candidates(model_name, train_size=None):
+    max_neighbors = max(1, train_size or 7)
+
+    if model_name == "logistic_regression":
+        return [
+            ("C=0.1", LogisticRegression(C=0.1, max_iter=1000)),
+            ("C=1", LogisticRegression(C=1, max_iter=1000)),
+            ("C=10", LogisticRegression(C=10, max_iter=1000)),
+        ]
+    if model_name == "knn_classifier":
+        neighbor_values = [k for k in (3, 5, 7) if k <= max_neighbors]
+        if not neighbor_values:
+            neighbor_values = [1]
+        return [
+            (f"k={k}", KNeighborsClassifier(n_neighbors=k))
+            for k in neighbor_values
+        ]
+    if model_name == "ridge_regression":
+        return [
+            ("alpha=0.1", Ridge(alpha=0.1)),
+            ("alpha=1", Ridge(alpha=1)),
+            ("alpha=10", Ridge(alpha=10)),
+        ]
+    if model_name == "knn_regressor":
+        neighbor_values = [k for k in (3, 5, 7) if k <= max_neighbors]
+        if not neighbor_values:
+            neighbor_values = [1]
+        return [
+            (f"k={k}", KNeighborsRegressor(n_neighbors=k))
+            for k in neighbor_values
+        ]
+
+    raise ValueError("Please select a valid model.")
+
+
+def train_model(dataset, model_name, test_size_percent):
+    if ColumnTransformer is None:
+        raise ValueError("scikit-learn is required for model training.")
+
+    task_type = infer_task_type(dataset)
+    model_options = training_model_options(task_type)
+    model_choice = get_model_choice(model_options, model_name)
+    test_size = int(test_size_percent) / 100
+
+    if test_size < 0.1 or test_size > 0.5:
+        raise ValueError("The test split must be between 10% and 50%.")
+
+    X, numeric_indexes, categorical_indexes = build_training_arrays(dataset)
+    y = build_target_values(dataset, task_type)
+
+    stratify = y if task_type == "classification" and len(np.unique(y)) > 1 else None
+    try:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X,
+            y,
+            test_size=test_size,
+            random_state=42,
+            stratify=stratify,
+        )
+    except ValueError:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X,
+            y,
+            test_size=test_size,
+            random_state=42,
+        )
+
+    rows = []
+    best_row = None
+    higher_is_better = True
+    for parameter_label, estimator in model_candidates(
+        model_choice["value"], len(X_train)
+    ):
+        pipeline = Pipeline(
+            [
+                (
+                    "preprocess",
+                    build_preprocessor(numeric_indexes, categorical_indexes),
+                ),
+                ("model", estimator),
+            ]
+        )
+        pipeline.fit(X_train, y_train)
+        predictions = pipeline.predict(X_test)
+
+        if task_type == "classification":
+            score = accuracy_score(y_test, predictions)
+            metric = "Accuracy"
+        else:
+            score = r2_score(y_test, predictions)
+            metric = "R2 score"
+
+        row = {
+            "parameter": parameter_label,
+            "score": round(float(score), 4),
+        }
+        if task_type == "regression":
+            row["rmse"] = round(
+                float(np.sqrt(mean_squared_error(y_test, predictions))), 4
+            )
+
+        rows.append(row)
+        if best_row is None or row["score"] > best_row["score"]:
+            best_row = row
+
+    return {
+        "task_type": task_type,
+        "model": model_choice["label"],
+        "model_value": model_choice["value"],
+        "hyperparameter": model_choice["hyperparameter"],
+        "metric": metric,
+        "test_size_percent": int(test_size_percent),
+        "train_rows": len(X_train),
+        "test_rows": len(X_test),
+        "rows": rows,
+        "best": best_row,
+        "higher_is_better": higher_is_better,
+    }
+
+
 def selected_features_from_options(feature_options, selected_feature, x_feature, y_feature):
     if feature_options:
         selected_feature = selected_feature or feature_options[0]
@@ -444,6 +699,11 @@ def upload_csv(request):
     selected_feature = None
     selected_x_feature = None
     selected_y_feature = None
+    task_type = None
+    model_options = []
+    selected_model = None
+    test_size_percent = 20
+    training_result = None
 
     if request.method == "POST":
         action = request.POST.get("action", "upload")
@@ -458,10 +718,13 @@ def upload_csv(request):
                     request.session["project1_dataset"] = dataset
                     request.session["project1_feature_specs"] = []
                     request.session["project1_scatter_specs"] = []
+                    request.session["project1_training_result"] = None
 
                     result = calculate_average_target(dataset)
                     dataset_summary = get_dataset_summary(dataset)
                     feature_options = dataset["features"]
+                    task_type = infer_task_type(dataset)
+                    model_options = training_model_options(task_type)
                     overview_visualizations = save_overview_visualizations(dataset)
                 except Exception as e:
                     error = f"Error processing file: {str(e)}"
@@ -479,7 +742,10 @@ def upload_csv(request):
             else:
                 dataset_summary = get_dataset_summary(dataset)
                 feature_options = dataset["features"]
+                task_type = infer_task_type(dataset)
+                model_options = training_model_options(task_type)
                 result = calculate_average_target(dataset)
+                training_result = request.session.get("project1_training_result")
 
                 if action == "feature_target":
                     selected_feature = request.POST.get("feature")
@@ -603,6 +869,20 @@ def upload_csv(request):
                                     ),
                                 }
                             )
+                elif action == "train_model":
+                    selected_model = request.POST.get("model")
+                    test_size_percent = request.POST.get("test_size", "20")
+                    try:
+                        training_result = train_model(
+                            dataset,
+                            selected_model,
+                            test_size_percent,
+                        )
+                        request.session["project1_training_result"] = training_result
+                        selected_model = training_result["model_value"]
+                        test_size_percent = training_result["test_size_percent"]
+                    except Exception as e:
+                        error = f"Error training model: {str(e)}"
                 else:
                     error = "Unknown plot action."
 
@@ -633,7 +913,10 @@ def upload_csv(request):
         if dataset:
             dataset_summary = get_dataset_summary(dataset)
             feature_options = dataset["features"]
+            task_type = infer_task_type(dataset)
+            model_options = training_model_options(task_type)
             result = calculate_average_target(dataset)
+            training_result = request.session.get("project1_training_result")
             feature_specs = request.session.get("project1_feature_specs", [])
             scatter_specs = request.session.get("project1_scatter_specs", [])
             overview_visualizations = save_overview_visualizations(dataset)
@@ -666,5 +949,12 @@ def upload_csv(request):
             "selected_feature": selected_feature,
             "selected_x_feature": selected_x_feature,
             "selected_y_feature": selected_y_feature,
+            "task_type": task_type,
+            "model_options": model_options,
+            "selected_model": selected_model or (
+                model_options[0]["value"] if model_options else None
+            ),
+            "test_size_percent": test_size_percent,
+            "training_result": training_result,
         },
     )

@@ -1,0 +1,4 @@
+Django>=5.0
+matplotlib
+numpy
+scikit-learn
