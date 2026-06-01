@@ -10,10 +10,17 @@
         <style></style>
     </head>
     <body>
-        <div class="grid-parent">
+        <header class="site-header">
+            <a class="site-brand" href="{% url 'home:index' %}">
+                <img src="{% static 'images/tuhh-logo.svg' %}" alt="TUHH logo" class="site-logo">
+                <span>Human-Centric AI PBL</span>
+            </a>
+            <span class="site-context">Supervised learning interface</span>
+        </header>
+        <main class="grid-parent">
             {% block content %}
             {%  endblock %}
-        </div>
+        </main>
 
         {% block script %}
         {% endblock script %}

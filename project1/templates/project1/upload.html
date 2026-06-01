@@ -45,7 +45,9 @@
       Contents
     </button>
     <div class="section-nav-links" id="section-nav-links">
+      <a href="#setup-section">Dataset setup</a>
       <a href="#overview-section">Overview</a>
+      <a href="#assumptions-section">Assumptions</a>
       <a href="#feature-section">Feature plots</a>
       <a href="#scatter-section">Scatter plots</a>
       <a href="#training-section">Model training</a>
@@ -54,27 +56,178 @@
   {% endif %}
 
   <div class="title-container">
-    <div class="title">Upload a CSV File</div>
+    <div class="title">Supervised Learning Interface</div>
   </div>
 
   <div class="main-text">
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" class="upload-form">
       {% csrf_token %}
       <input type="hidden" name="action" value="upload" />
       {{ form.as_p }}
       <button type="submit">Visualize</button>
     </form>
 
-    {% if dataset_summary %}
-    <p>
-      Loaded {{ dataset_summary.rows }} rows with {{ dataset_summary.feature_count }}
-      feature columns. Target:
-      <strong>{{ dataset_summary.target }}</strong>
-      ({{ dataset_summary.target_type }})
-    </p>
+	    {% if dataset_summary %}
+	    <div class="session-summary">
+	      <div>
+	        <p>
+	          {% if dataset_summary.drop_missing_rows %}
+	          Using {{ dataset_summary.rows }} of {{ dataset_summary.source_rows }} uploaded rows
+	          after dropping missing values. Target:
+	          {% else %}
+	          Loaded {{ dataset_summary.rows }} rows with {{ dataset_summary.feature_count }}
+	          feature columns. Target:
+	          {% endif %}
+	          <strong>{{ dataset_summary.target }}</strong>
+	          ({{ dataset_summary.target_type }})
+	        </p>
+	        <p class="session-note">
+	          This dataset is saved for this browser session.
+	        </p>
+	      </div>
+	      <form method="post" class="clear-session-form">
+	        {% csrf_token %}
+	        <input type="hidden" name="action" value="clear_dataset" />
+	        <button type="submit">Start over</button>
+	      </form>
+	    </div>
 
-    {% if result is not None %}
-    <p>Average target value: <strong>{{ result }}</strong></p>
+	    <section class="dataset-config-panel" id="setup-section">
+	      <div class="dataset-config-heading">
+	        <div>
+	          <h2>Dataset Setup</h2>
+	          <p>Defaults follow the project brief, but you can review and adjust them here.</p>
+	        </div>
+	      </div>
+	      <form method="post" class="dataset-config-form">
+	        {% csrf_token %}
+	        <input type="hidden" name="action" value="configure_dataset" />
+	        <div class="dataset-config-grid">
+	          <label for="target">Prediction target</label>
+	          <select id="target" name="target">
+	            {% for column in column_config_options %}
+	            <option value="{{ column.name }}" {% if column.is_target %}selected{% endif %}>
+	              {{ column.name }} ({{ column.type }})
+	            </option>
+	            {% endfor %}
+	          </select>
+
+	          <label for="task_type">Task type</label>
+	          <select id="task_type" name="task_type">
+	            {% for option in task_options %}
+	            <option value="{{ option.value }}" {% if option.value == task_type %}selected{% endif %}>
+	              {{ option.label }}
+	            </option>
+	            {% endfor %}
+	          </select>
+	        </div>
+
+	        <fieldset class="missing-policy-fieldset">
+	          <legend>Missing-value handling</legend>
+	          <label class="missing-policy-option">
+	            <input
+	              type="radio"
+	              name="missing_policy"
+	              value="impute"
+	              {% if not dataset_summary.drop_missing_rows %}checked{% endif %}
+	            />
+	            <span>
+	              <strong>Keep rows</strong>
+	              <small>Impute missing feature values during training.</small>
+	            </span>
+	          </label>
+	          <label class="missing-policy-option">
+	            <input
+	              type="radio"
+	              name="missing_policy"
+	              value="drop"
+	              {% if dataset_summary.drop_missing_rows %}checked{% endif %}
+	            />
+	            <span>
+	              <strong>Drop missing rows</strong>
+	              <small>Remove rows with any missing value before visualization and training.</small>
+	            </span>
+	          </label>
+	        </fieldset>
+
+	        <fieldset class="feature-fieldset">
+	          <legend>Feature columns used for training</legend>
+	          <div class="feature-option-grid">
+	            {% for column in column_config_options %}
+	            {% if not column.is_target %}
+	            <label class="feature-option {% if column.likely_id %}feature-option-warning{% endif %}">
+	              <input
+	                type="checkbox"
+	                name="features"
+	                value="{{ column.name }}"
+	                {% if column.is_feature %}checked{% endif %}
+	              />
+	              <span>
+	                <strong>{{ column.name }}</strong>
+	                <small>
+	                  {{ column.type }},
+	                  {{ column.unique_count }} unique{% if column.missing_count %},
+	                  {{ column.missing_count }} missing{% endif %}{% if column.likely_id %},
+	                  likely ID{% endif %}
+	                </small>
+	              </span>
+	            </label>
+	            {% endif %}
+	            {% endfor %}
+	          </div>
+	        </fieldset>
+
+	        <p class="configuration-note">
+	          Applying a new setup refreshes plots and clears previous model results.
+	        </p>
+	        <button type="submit">Apply dataset setup</button>
+	      </form>
+	    </section>
+
+	    {% if result is not None %}
+	    <p>Average target value: <strong>{{ result }}</strong></p>
+    {% endif %}
+    {% if assumption_panel %}
+    <section class="assumption-panel" id="assumptions-section">
+      <div class="assumption-heading">
+        <div>
+          <h2>Dataset & Assumptions</h2>
+          <p>Review what the system inferred before comparing model scores.</p>
+        </div>
+      </div>
+      <div class="assumption-grid">
+        {% for card in assumption_panel.cards %}
+        <article class="assumption-card">
+          <span class="assumption-label">{{ card.label }}</span>
+          <strong>{{ card.value }}</strong>
+          <p>{{ card.detail }}</p>
+        </article>
+        {% endfor %}
+      </div>
+      {% if assumption_panel.missing_columns %}
+      <p class="assumption-inline">
+        Columns with empty values:
+        {% for column in assumption_panel.missing_columns %}
+        <strong>{{ column.name }}</strong> ({{ column.count }}){% if not forloop.last %}, {% endif %}
+        {% endfor %}
+      </p>
+      {% endif %}
+	      <ul class="assumption-notes">
+	        {% for note in assumption_panel.notes %}
+	        <li>{{ note }}</li>
+	        {% endfor %}
+	      </ul>
+	      {% if assumption_panel.quality_warnings %}
+	      <div class="quality-warning-list">
+	        {% for warning in assumption_panel.quality_warnings %}
+	        <article class="quality-warning">
+	          <strong>{{ warning.title }}</strong>
+	          <p>{{ warning.message }}</p>
+	        </article>
+	        {% endfor %}
+	      </div>
+	      {% endif %}
+	    </section>
     {% endif %} {% endif %} {% if error %}
     <p id="plot-error" style="color: red">{{ error }}</p>
     {% else %}
