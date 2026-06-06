@@ -11,6 +11,7 @@ matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 try:
     from sklearn.compose import ColumnTransformer
+    from sklearn.dummy import DummyClassifier, DummyRegressor
     from sklearn.impute import SimpleImputer
     from sklearn.linear_model import LogisticRegression, Ridge
     from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
@@ -748,6 +749,54 @@ def model_candidates(model_name, train_size=None):
     raise ValueError("Please select a valid model.")
 
 
+def build_baseline_comparison(task_type, model_score, baseline_score):
+    difference = float(model_score) - float(baseline_score)
+    tolerance = 0.0001
+
+    # Keep the verdict descriptive so users do not mistake one score for proof
+    # that a model is reliable or suitable for a real-world application.
+    if difference > tolerance:
+        status = "better"
+        headline = "Model beats the baseline"
+        message = (
+            "The trained model found more predictive signal than the naive "
+            "reference on this test split."
+        )
+    elif difference < -tolerance:
+        status = "worse"
+        headline = "Model is below the baseline"
+        message = (
+            "The naive reference performed better on this test split. Review "
+            "the data, selected features, model, and split before relying on it."
+        )
+    else:
+        status = "similar"
+        headline = "Model is similar to the baseline"
+        message = (
+            "The trained model did not show a meaningful improvement over the "
+            "naive reference on this test split."
+        )
+
+    if task_type == "classification":
+        difference_label = f"{difference * 100:+.2f} percentage points"
+    else:
+        difference_label = f"{difference:+.4f} R2"
+
+    return {
+        "difference": round(difference, 4),
+        "difference_label": difference_label,
+        "status": status,
+        "headline": headline,
+        "message": message,
+    }
+
+
+def format_metric_value(task_type, score):
+    if task_type == "classification":
+        return f"{float(score) * 100:.2f}%"
+    return f"{float(score):.4f}"
+
+
 def train_model(dataset, model_name, test_size_percent):
     if ColumnTransformer is None:
         raise ValueError("scikit-learn is required for model training.")
@@ -780,6 +829,37 @@ def train_model(dataset, model_name, test_size_percent):
             random_state=42,
         )
 
+    # Evaluate a deliberately simple predictor on the same split as the ML models.
+    # This gives users a fair reference for deciding whether training adds value.
+    if task_type == "classification":
+        baseline_name = "Most-frequent class"
+        baseline_estimator = DummyClassifier(strategy="most_frequent")
+    else:
+        baseline_name = "Training-target mean"
+        baseline_estimator = DummyRegressor(strategy="mean")
+
+    baseline_pipeline = Pipeline(
+        [
+            (
+                "preprocess",
+                build_preprocessor(numeric_indexes, categorical_indexes),
+            ),
+            ("model", baseline_estimator),
+        ]
+    )
+    baseline_pipeline.fit(X_train, y_train)
+    baseline_predictions = baseline_pipeline.predict(X_test)
+
+    # Use the same task-specific metrics as the trained models for comparison.
+    if task_type == "classification":
+        baseline_score = accuracy_score(y_test, baseline_predictions)
+        baseline_rmse = None
+    else:
+        baseline_score = r2_score(y_test, baseline_predictions)
+        baseline_rmse = np.sqrt(
+            mean_squared_error(y_test, baseline_predictions)
+        )
+
     rows = []
     best_row = None
     higher_is_better = True
@@ -808,6 +888,7 @@ def train_model(dataset, model_name, test_size_percent):
         row = {
             "parameter": parameter_label,
             "score": round(float(score), 4),
+            "display_score": format_metric_value(task_type, score),
         }
         if task_type == "regression":
             row["rmse"] = round(
@@ -817,6 +898,12 @@ def train_model(dataset, model_name, test_size_percent):
         rows.append(row)
         if best_row is None or row["score"] > best_row["score"]:
             best_row = row
+
+    comparison = build_baseline_comparison(
+        task_type,
+        best_row["score"],
+        baseline_score,
+    )
 
     return {
         "task_type": task_type,
@@ -828,7 +915,35 @@ def train_model(dataset, model_name, test_size_percent):
         "train_rows": len(X_train),
         "test_rows": len(X_test),
         "rows": rows,
-        "best": best_row,
+        "best": {
+            **best_row,
+            "display_score": format_metric_value(task_type, best_row["score"]),
+        },
+        "baseline": {
+            "name": baseline_name,
+            "score": round(float(baseline_score), 4),
+            "display_score": format_metric_value(task_type, baseline_score),
+            "rmse": (
+                round(float(baseline_rmse), 4)
+                if baseline_rmse is not None
+                else None
+            ),
+            "description": (
+                "Always predicts the most common class from the training data."
+                if task_type == "classification"
+                else "Always predicts the average target value from the training data."
+            ),
+        },
+        "comparison": comparison,
+        "metric_explanation": (
+            "Accuracy is the percentage of test rows predicted correctly."
+            if task_type == "classification"
+            else (
+                "R2 measures improvement over predicting the mean. Higher is "
+                "better; 1 is perfect, 0 matches the mean baseline, and a "
+                "negative value is worse than that baseline."
+            )
+        ),
         "higher_is_better": higher_is_better,
     }
 

@@ -411,15 +411,74 @@
 
       {% if training_result %}
       <div class="training-result">
-        <p>
-          Best {{ training_result.model }} setting:
-          <strong>{{ training_result.best.parameter }}</strong>
-          with {{ training_result.metric }} =
-          <strong>{{ training_result.best.score }}</strong>.
+        <div class="result-summary result-summary-{{ training_result.comparison.status }}">
+          <span class="result-summary-label">Result at a glance</span>
+          <strong>{{ training_result.comparison.headline }}</strong>
+          <p>{{ training_result.comparison.message }}</p>
+        </div>
+
+        <div class="baseline-explanation">
+          <strong>What is the baseline?</strong>
+          <p>
+            It is the simplest reasonable prediction rule:
+            {% if training_result.task_type == "classification" %}
+            always choose the most common class.
+            {% else %}
+            always predict the average target value.
+            {% endif %}
+            The trained model should beat this reference before its score is
+            considered useful.
+          </p>
+        </div>
+
+        <div class="model-comparison-grid">
+          <article class="comparison-card">
+            <span class="comparison-label">Trained model</span>
+            <strong>{{ training_result.best.display_score }}</strong>
+            <p>{{ training_result.metric }}</p>
+            <small>
+              {{ training_result.model }},
+              {{ training_result.best.parameter }}
+            </small>
+          </article>
+
+          <article class="comparison-card baseline-card">
+            <span class="comparison-label">Simple baseline</span>
+            <strong>{{ training_result.baseline.display_score }}</strong>
+            <p>{{ training_result.metric }}</p>
+            <small>
+              {{ training_result.baseline.name }}:
+              {{ training_result.baseline.description }}
+            </small>
+          </article>
+
+          <article
+            class="comparison-card comparison-status comparison-status-{{ training_result.comparison.status }}"
+          >
+            <span class="comparison-label">Observed difference</span>
+            <strong>{{ training_result.comparison.difference_label }}</strong>
+            <p>{{ training_result.comparison.headline }}</p>
+            <small>{{ training_result.comparison.message }}</small>
+          </article>
+        </div>
+
+        <p class="metric-explanation">
+          <strong>How to read {{ training_result.metric }}:</strong>
+          {{ training_result.metric_explanation }}
         </p>
-        <p>
-          Train rows: {{ training_result.train_rows }}.
-          Test rows: {{ training_result.test_rows }}.
+
+        {% if training_result.task_type == "regression" %}
+        <p class="regression-baseline-detail">
+          Baseline RMSE:
+          <strong>{{ training_result.baseline.rmse }}</strong>.
+          Lower RMSE indicates smaller prediction errors.
+        </p>
+        {% endif %}
+
+        <p class="training-split-note">
+          Both approaches used the same split:
+          {{ training_result.train_rows }} training rows and
+          {{ training_result.test_rows }} test rows.
         </p>
 
         <table class="training-table">
@@ -440,7 +499,7 @@
               {% endif %}
             >
               <td>{{ row.parameter }}</td>
-              <td>{{ row.score }}</td>
+              <td>{{ row.display_score }}</td>
               {% if training_result.task_type == "regression" %}
               <td>{{ row.rmse }}</td>
               {% endif %}

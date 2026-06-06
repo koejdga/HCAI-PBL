@@ -736,7 +736,149 @@ button.remove-plot-button:hover {
 }
 
 .training-result {
-  max-width: 720px;
+  max-width: 980px;
+}
+
+.result-summary {
+  margin: 8px 0 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-left: 6px solid var(--tuhh-navy);
+  border-radius: 6px;
+  background-color: var(--surface);
+}
+
+.result-summary-better {
+  border-left-color: #27834b;
+  background-color: #f1faf4;
+}
+
+.result-summary-similar {
+  border-left-color: #b07900;
+  background-color: #fff9e8;
+}
+
+.result-summary-worse {
+  border-left-color: var(--tuhh-red);
+  background-color: #fff2f2;
+}
+
+.result-summary-label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.result-summary > strong {
+  color: var(--tuhh-navy);
+  font-size: 21px;
+}
+
+.result-summary p {
+  margin: 5px 0 0;
+  line-height: 1.45;
+}
+
+.baseline-explanation {
+  margin: 8px 0 18px;
+  padding: 14px 16px;
+  border-left: 5px solid var(--tuhh-cyan);
+  border-radius: 4px;
+  background-color: #eef9fb;
+}
+
+.baseline-explanation strong {
+  color: var(--tuhh-navy);
+}
+
+.baseline-explanation p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.model-comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.comparison-card {
+  min-height: 175px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-top: 5px solid var(--tuhh-navy);
+  border-radius: 6px;
+  background-color: var(--surface);
+  box-shadow: 0 2px 8px rgba(27, 39, 64, 0.08);
+}
+
+.comparison-card > strong {
+  display: block;
+  margin: 10px 0 2px;
+  color: var(--tuhh-navy);
+  font-size: 29px;
+  line-height: 1.1;
+}
+
+.comparison-card p {
+  margin: 4px 0 10px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.comparison-card small {
+  display: block;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.comparison-label {
+  color: #007684;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.baseline-card {
+  border-top-color: var(--tuhh-cyan);
+}
+
+.comparison-status-better {
+  border-top-color: #27834b;
+  background-color: #f1faf4;
+}
+
+.comparison-status-similar {
+  border-top-color: #b07900;
+  background-color: #fff9e8;
+}
+
+.comparison-status-worse {
+  border-top-color: var(--tuhh-red);
+  background-color: #fff2f2;
+}
+
+.training-split-note,
+.regression-baseline-detail,
+.metric-explanation {
+  margin: 10px 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.metric-explanation {
+  padding: 10px 12px;
+  border-radius: 4px;
+  background-color: #f5f7fa;
 }
 
 .training-table {
@@ -836,5 +978,9 @@ button.remove-plot-button:hover {
 
   .training-form button {
     grid-column: 1;
+  }
+
+  .model-comparison-grid {
+    grid-template-columns: 1fr;
   }
 }
