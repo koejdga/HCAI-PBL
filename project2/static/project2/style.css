@@ -1,0 +1,156 @@
+.centered-text {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.centered-text p {
+  width: 100%;
+  margin: 0;
+  text-align: center !important;
+}
+
+.project2-box {
+  padding-bottom: 36px;
+}
+
+.tree-section {
+  margin: 30px 5%;
+}
+
+.tree-section h2 {
+  color: var(--tuhh-navy);
+  text-align: center;
+}
+
+.section-intro,
+.split-note {
+  text-align: center !important;
+}
+
+.section-intro {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.split-note {
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.transparency-panel {
+  margin: 28px 0;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fbfc;
+}
+
+.transparency-panel h3 {
+  margin: 0;
+  color: var(--tuhh-navy);
+}
+
+.transparency-intro {
+  margin: 6px 0 18px;
+  color: var(--muted);
+}
+
+.transparency-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+
+.transparency-grid div {
+  padding: 15px;
+  border-left: 4px solid var(--tuhh-cyan);
+  background: white;
+}
+
+.transparency-grid dt {
+  margin-bottom: 6px;
+  color: var(--tuhh-navy);
+  font-weight: 700;
+}
+
+.transparency-grid dd {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.transparency-warning {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  background: #fff7e6;
+}
+
+.tree-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.metric-card {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-top: 5px solid var(--tuhh-cyan);
+  border-radius: 6px;
+  background: white;
+  text-align: center;
+}
+
+.metric-card span {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.metric-card strong {
+  display: block;
+  margin: 10px 0;
+  color: var(--tuhh-navy);
+  font-size: 30px;
+}
+
+.metric-card p {
+  margin: 0;
+  text-align: center !important;
+}
+
+.tree-explanation {
+  margin: 24px 0;
+  padding: 16px;
+  border-left: 5px solid var(--tuhh-cyan);
+  background: #eef9fb;
+}
+
+.tree-explanation p {
+  margin-bottom: 0;
+}
+
+.tree-image-container {
+  overflow-x: auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: white;
+}
+
+.tree-image {
+  display: block;
+  width: 100%;
+  min-width: 900px;
+  height: auto;
+}
+
+@media (max-width: 700px) {
+  .tree-metrics,
+  .transparency-grid {
+    grid-template-columns: 1fr;
+  }
+}

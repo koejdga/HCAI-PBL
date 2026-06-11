@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block site_context %}Project 2: Explainability{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'project2/style.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="box project2-box">
+  <div class="title-container">
+    <div class="title">Explainability</div>
+  </div>
+
+  <div class="centered-text">
+    <p>
+      Exploring model complexity and explanations using the Palmer Penguins
+      dataset
+    </p>
+  </div>
+
+  <section class="tree-section">
+    <h2>Decision Tree</h2>
+
+    <p class="section-intro">
+      This first model predicts penguin species from seven input features.
+      20% of the cleaned dataset is kept aside for testing.
+    </p>
+
+    <div class="tree-metrics">
+      <article class="metric-card">
+        <span>Clean dataset</span>
+        <strong>{{ row_count }}</strong>
+        <p>rows without missing values</p>
+      </article>
+
+      <article class="metric-card">
+        <span>Test accuracy</span>
+        <strong>{{ accuracy_percent }}%</strong>
+        <p>test penguins predicted correctly</p>
+      </article>
+
+      <article class="metric-card">
+        <span>Tree complexity</span>
+        <strong>{{ leaf_count }}</strong>
+        <p>leaf nodes</p>
+      </article>
+    </div>
+
+    <p class="split-note">
+      Training rows: <strong>{{ train_rows }}</strong>.
+      Test rows: <strong>{{ test_rows }}</strong>.
+    </p>
+
+    <section class="transparency-panel" aria-labelledby="data-transparency-title">
+      <h3 id="data-transparency-title">Data Transparency</h3>
+      <p class="transparency-intro">
+        These are the data and preprocessing choices behind the displayed
+        result.
+      </p>
+
+      <dl class="transparency-grid">
+        <div>
+          <dt>Prediction target</dt>
+          <dd>{{ target_column }}</dd>
+        </div>
+        <div>
+          <dt>Possible classes</dt>
+          <dd>{{ target_classes|join:", " }}</dd>
+        </div>
+        <div>
+          <dt>Numeric features</dt>
+          <dd>{{ numeric_features|join:", " }}</dd>
+        </div>
+        <div>
+          <dt>Categorical features</dt>
+          <dd>{{ categorical_features|join:", " }}</dd>
+        </div>
+        <div>
+          <dt>Missing-value handling</dt>
+          <dd>
+            {{ removed_row_count }} of {{ original_row_count }} rows are
+            removed because at least one required feature or the target is
+            missing. The model is trained on the remaining {{ row_count }}
+            complete rows.
+          </dd>
+        </div>
+        <div>
+          <dt>Why categories are encoded</dt>
+          <dd>
+            The model needs numeric input. One-hot encoding creates a separate
+            yes/no indicator for each island and sex category without implying
+            that one category is greater than another.
+          </dd>
+        </div>
+      </dl>
+
+      <p class="transparency-warning">
+        <strong>Important:</strong> Removing incomplete rows is simple and
+        reproducible, but it may reduce representativeness if missing data is
+        concentrated in a particular group.
+      </p>
+    </section>
+
+    <div class="tree-explanation">
+      <strong>How to read the tree</strong>
+      <p>
+        Start at the top and follow the branch that matches a penguin's
+        feature value. Each final leaf gives a species prediction. Fewer leaves
+        usually make a tree easier to inspect, while more leaves allow more
+        detailed decision rules.
+      </p>
+    </div>
+
+    <div class="tree-image-container">
+      <img
+        src="{{ tree_image_url }}"
+        alt="Decision tree trained on the Palmer Penguins dataset"
+        class="tree-image"
+      >
+    </div>
+  </section>
+</div>
+{% endblock %}
