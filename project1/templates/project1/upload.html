@@ -59,6 +59,55 @@
     <div class="title">Supervised Learning Interface</div>
   </div>
 
+  <nav class="workflow-progress" aria-label="Project 1 workflow">
+    <ol>
+      <li
+        id="workflow-step-1"
+        class="workflow-step {% if progress_state.upload_complete %}workflow-step-complete{% elif progress_state.current_step == 1 %}workflow-step-active{% endif %}"
+        {% if progress_state.current_step == 1 %}aria-current="step"{% endif %}
+      >
+        <span class="workflow-marker">
+          <span class="workflow-number">1</span>
+          <span class="workflow-check" aria-hidden="true">&#10003;</span>
+        </span>
+        <span class="workflow-label">Upload</span>
+      </li>
+      <li
+        id="workflow-step-2"
+        class="workflow-step {% if progress_state.review_complete %}workflow-step-complete{% elif progress_state.current_step == 2 %}workflow-step-active{% endif %}"
+        {% if progress_state.current_step == 2 %}aria-current="step"{% endif %}
+      >
+        <span class="workflow-marker">
+          <span class="workflow-number">2</span>
+          <span class="workflow-check" aria-hidden="true">&#10003;</span>
+        </span>
+        <span class="workflow-label">Review data</span>
+      </li>
+      <li
+        id="workflow-step-3"
+        class="workflow-step {% if progress_state.visualize_complete %}workflow-step-complete{% elif progress_state.current_step == 3 %}workflow-step-active{% endif %}"
+        {% if progress_state.current_step == 3 %}aria-current="step"{% endif %}
+      >
+        <span class="workflow-marker">
+          <span class="workflow-number">3</span>
+          <span class="workflow-check" aria-hidden="true">&#10003;</span>
+        </span>
+        <span class="workflow-label">Visualize</span>
+      </li>
+      <li
+        id="workflow-step-4"
+        class="workflow-step {% if progress_state.training_complete %}workflow-step-complete workflow-step-active{% elif progress_state.current_step == 4 %}workflow-step-active{% endif %}"
+        {% if progress_state.current_step == 4 %}aria-current="step"{% endif %}
+      >
+        <span class="workflow-marker">
+          <span class="workflow-number">4</span>
+          <span class="workflow-check" aria-hidden="true">&#10003;</span>
+        </span>
+        <span class="workflow-label">Train &amp; compare</span>
+      </li>
+    </ol>
+  </nav>
+
   <div class="main-text">
     <form method="post" enctype="multipart/form-data" class="upload-form">
       {% csrf_token %}
@@ -603,6 +652,21 @@
     }
   }
 
+  function markVisualizationStepComplete() {
+    const visualizeStep = document.getElementById("workflow-step-3");
+    const trainingStep = document.getElementById("workflow-step-4");
+
+    if (visualizeStep) {
+      visualizeStep.classList.remove("workflow-step-active");
+      visualizeStep.classList.add("workflow-step-complete");
+      visualizeStep.removeAttribute("aria-current");
+    }
+    if (trainingStep && !trainingStep.classList.contains("workflow-step-complete")) {
+      trainingStep.classList.add("workflow-step-active");
+      trainingStep.setAttribute("aria-current", "step");
+    }
+  }
+
   function csrfToken() {
     const input = document.querySelector("input[name='csrfmiddlewaretoken']");
     return input ? input.value : "";
@@ -673,6 +737,7 @@
     image.alt = plot.title;
     image.className = "generated-plot";
     card.appendChild(image);
+    markVisualizationStepComplete();
     return card;
   }
 

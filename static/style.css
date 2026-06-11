@@ -129,6 +129,119 @@ label {
   font-size: 20px;
 }
 
+.workflow-progress {
+  width: min(1180px, calc(100% - 64px));
+  margin: 6px auto 24px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f8fbff 0%, #f1f8fb 100%);
+  box-shadow: 0 3px 12px rgba(27, 39, 64, 0.07);
+}
+
+.workflow-progress ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workflow-step {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: #637083;
+  font-weight: 650;
+}
+
+.workflow-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: calc(50px + 50%);
+  right: 14px;
+  height: 3px;
+  border-radius: 3px;
+  background-color: #cad4e1;
+  transform: translateY(-50%);
+}
+
+.workflow-marker {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 2px solid #91a3bd;
+  border-radius: 50%;
+  background-color: #ffffff;
+  color: var(--tuhh-navy);
+  font-size: 20px;
+  font-weight: 800;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.workflow-check {
+  position: absolute;
+  right: -5px;
+  bottom: -2px;
+  display: none;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background-color: #008da2;
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.workflow-label {
+  position: relative;
+  z-index: 1;
+  padding-right: 12px;
+  background-color: #f5fafc;
+  white-space: nowrap;
+}
+
+.workflow-step-complete {
+  color: var(--tuhh-navy);
+}
+
+.workflow-step-complete .workflow-marker {
+  border-color: #54759d;
+}
+
+.workflow-step-complete .workflow-check {
+  display: grid;
+}
+
+.workflow-step-complete:not(:last-child)::after {
+  background-color: #7da6b7;
+}
+
+.workflow-step-active {
+  color: #007f93;
+}
+
+.workflow-step-active .workflow-marker {
+  border-color: #008da2;
+  background-color: #008da2;
+  color: #ffffff;
+  box-shadow: 0 0 0 5px rgba(0, 141, 162, 0.12);
+}
+
+.workflow-step-active .workflow-label {
+  font-weight: 800;
+}
+
 .title-note {
   line-height: 1.55;
   text-align: left;
@@ -930,6 +1043,37 @@ button.remove-plot-button:hover {
 
   .grid-parent {
     padding: 1px 10px;
+  }
+
+  .workflow-progress {
+    width: calc(100% - 28px);
+    padding: 14px;
+  }
+
+  .workflow-progress ol {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .workflow-step:not(:last-child)::after {
+    top: 42px;
+    bottom: -14px;
+    left: 20px;
+    right: auto;
+    width: 3px;
+    height: auto;
+    transform: none;
+  }
+
+  .workflow-marker {
+    flex-basis: 42px;
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+  }
+
+  .workflow-label {
+    white-space: normal;
   }
 
   .box {

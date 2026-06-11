@@ -958,6 +958,24 @@ def selected_features_from_options(feature_options, selected_feature, x_feature,
     return selected_feature, x_feature, y_feature
 
 
+def build_progress_state(dataset_loaded, visualizations_created, training_complete):
+    # Show progress without preventing users from revisiting any workflow section.
+    if training_complete or visualizations_created:
+        current_step = 4
+    elif dataset_loaded:
+        current_step = 3
+    else:
+        current_step = 1
+
+    return {
+        "current_step": current_step,
+        "upload_complete": bool(dataset_loaded),
+        "review_complete": bool(dataset_loaded),
+        "visualize_complete": bool(visualizations_created or training_complete),
+        "training_complete": bool(training_complete),
+    }
+
+
 def get_dataset_summary(dataset):
     target = dataset["target"]
     target_column = dataset["columns"][target]
@@ -1563,6 +1581,12 @@ def upload_csv(request):
         )
         column_config_options = build_column_config_options(dataset)
 
+    progress_state = build_progress_state(
+        dataset_loaded=bool(dataset_summary),
+        visualizations_created=bool(feature_target_plots or scatter_plots),
+        training_complete=bool(training_result),
+    )
+
     return render(
         request,
         "project1/upload.html",
@@ -1589,5 +1613,6 @@ def upload_csv(request):
             "assumption_panel": assumption_panel,
             "column_config_options": column_config_options,
             "task_options": TASK_OPTIONS,
+            "progress_state": progress_state,
         },
     )
