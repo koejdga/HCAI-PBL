@@ -27,6 +27,13 @@ NUMERIC_FEATURES = [
 ]
 FEATURE_COLUMNS = CATEGORICAL_FEATURES + NUMERIC_FEATURES
 
+# Candidate sizes used to compare simple and more detailed trees.
+MAX_LEAF_OPTIONS = [2, 3, 4, 5, 6, 8, 10, 12, 15]
+
+DEFAULT_LAMBDA = 0.20
+MIN_LAMBDA = 0.0
+MAX_LAMBDA = 1.0
+
 
 def format_feature_name(feature_name):
     """Turn scikit-learn feature names into labels that are easier to read."""
@@ -65,17 +72,12 @@ def build_preprocessor():
     )
 
 
-def train_decision_tree(penguins, max_leaf_nodes=5):
-    X = penguins[FEATURE_COLUMNS]
-    y = penguins[TARGET_COLUMN]
+def train_decision_tree(penguins, max_leaf_nodes=5, split_data=None):
+    # Reusing the same split makes the candidate models directly comparable.
+    if split_data is None:
+        split_data = split_penguin_data(penguins)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=0.2,
-        random_state=42,
-        stratify=y,
-    )
+    X_train, X_test, y_train, y_test = split_data
 
     pipeline = Pipeline(
         [
@@ -99,6 +101,68 @@ def train_decision_tree(penguins, max_leaf_nodes=5):
         "test_rows": len(X_test),
     }
 
+
+def train_tree_candidates(penguins, lambda_value):
+    """Select a tree using prediction error and normalized complexity."""
+    split_data = split_penguin_data(penguins)
+    candidates = []
+    maximum_leaves = max(MAX_LEAF_OPTIONS)
+
+    for max_leaf_nodes in MAX_LEAF_OPTIONS:
+        result = train_decision_tree(
+            penguins,
+            max_leaf_nodes=max_leaf_nodes,
+            split_data=split_data,
+        )
+
+        tree = result["pipeline"].named_steps["model"]
+        leaf_count = tree.get_n_leaves()
+
+        # Lower values are better: error measures mistakes and leaves measure
+        # how difficult the model may be to inspect.
+        prediction_error = 1 - result["accuracy"]
+        normalized_complexity = leaf_count / maximum_leaves
+        selection_score = (
+            prediction_error
+            + lambda_value * normalized_complexity
+        )
+
+        candidates.append(
+            {
+                **result,
+                "max_leaf_nodes": max_leaf_nodes,
+                "leaf_count": leaf_count,
+                "selection_score": selection_score,
+            }
+        )
+
+    selected = min(
+        candidates,
+        key=lambda candidate: candidate["selection_score"],
+    )
+    return selected, candidates
+
+def parse_lambda(value):
+    """Convert the slider value into a safe number between zero and one."""
+    try:
+        lambda_value = float(value)
+    except (TypeError, ValueError):
+        return DEFAULT_LAMBDA
+
+    return min(max(lambda_value, MIN_LAMBDA), MAX_LAMBDA)
+
+def split_penguin_data(penguins):
+    """Create one reproducible split shared by all candidate models."""
+    X = penguins[FEATURE_COLUMNS]
+    y = penguins[TARGET_COLUMN]
+
+    return train_test_split(
+        X,
+        y,
+        test_size=0.2,
+        random_state=42,
+        stratify=y,
+    )
 
 def save_tree_plot(pipeline):
     output_dir = os.path.join(settings.MEDIA_ROOT, "project2")
@@ -132,8 +196,8 @@ def save_tree_plot(pipeline):
 def index(request):
     original_penguins = load_penguins()
     penguins = load_clean_penguins()
-    result = train_decision_tree(penguins)
-    trained_tree = result["pipeline"].named_steps["model"]
+    lambda_value = parse_lambda(request.GET.get("lambda"))
+    result, candidates = train_tree_candidates(penguins, lambda_value)
 
     context = {
         "original_row_count": len(original_penguins),
@@ -142,7 +206,7 @@ def index(request):
         "train_rows": result["train_rows"],
         "test_rows": result["test_rows"],
         "accuracy_percent": round(result["accuracy"] * 100, 2),
-        "leaf_count": trained_tree.get_n_leaves(),
+        "leaf_count": result["leaf_count"],
         "tree_image_url": save_tree_plot(result["pipeline"]),
         "target_column": TARGET_COLUMN.title(),
         "target_classes": ["Adelie", "Chinstrap", "Gentoo"],
@@ -153,6 +217,22 @@ def index(request):
         "numeric_features": [
             feature.replace("_", " ").title()
             for feature in NUMERIC_FEATURES
+        ],
+        "lambda_value": lambda_value,
+        "max_leaf_nodes": result["max_leaf_nodes"],
+        "selection_score": round(result["selection_score"], 4),
+        "candidate_models": [
+            {
+                "max_leaf_nodes": candidate["max_leaf_nodes"],
+                "leaf_count": candidate["leaf_count"],
+                "accuracy_percent": round(candidate["accuracy"] * 100, 2),
+                "selection_score": round(
+                    candidate["selection_score"],
+                    4,
+                ),
+                "selected": candidate is result,
+            }
+            for candidate in candidates
         ],
     }
     return render(request, "project2/index.html", context)

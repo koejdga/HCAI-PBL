@@ -28,6 +28,49 @@
       20% of the cleaned dataset is kept aside for testing.
     </p>
 
+    <section class="task-two-panel" aria-labelledby="task-two-title">
+      <h3 id="task-two-title">Accuracy and Simplicity</h3>
+
+      <form method="get" class="lambda-control">
+        <div class="lambda-heading">
+          <label for="lambda">Simplicity preference &lambda;:</label>
+          <output id="lambda-value" for="lambda">{{ lambda_value }}</output>
+        </div>
+
+        <div class="lambda-slider">
+          <input
+            id="lambda"
+            name="lambda"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value="{{ lambda_value }}"
+            aria-describedby="lambda-help"
+            oninput="document.getElementById('lambda-value').value =
+              Number(this.value).toFixed(2)"
+          >
+
+          <div class="lambda-labels">
+            <span>Focus on accuracy</span>
+            <span>Focus on simplicity</span>
+          </div>
+        </div>
+
+        <button type="submit">Apply preference</button>
+      </form>
+
+      <div class="lambda-explanation" id="lambda-help">
+        <strong>What does &lambda; mean?</strong>
+        <p>
+          A low value prioritizes test accuracy. A high value gives more
+          importance to a smaller tree that may be easier to understand.
+          Lambda selects between trained trees; it is not the tree's training
+          parameter.
+        </p>
+      </div>
+    </section>
+
     <div class="tree-metrics">
       <article class="metric-card">
         <span>Clean dataset</span>
@@ -48,10 +91,40 @@
       </article>
     </div>
 
-    <p class="split-note">
-      Training rows: <strong>{{ train_rows }}</strong>.
-      Test rows: <strong>{{ test_rows }}</strong>.
-    </p>
+    <div class="split-note">
+      <span>Data split</span>
+      <span>Training rows: <strong>{{ train_rows }}</strong></span>
+      <span>Test rows: <strong>{{ test_rows }}</strong></span>
+    </div>
+
+    <div class="selected-model-note">
+      Selected tree: maximum {{ max_leaf_nodes }} leaves,
+      {{ leaf_count }} actual leaves, with a selection score of
+      {{ selection_score }}.
+    </div>
+
+    <div class="candidate-table-container">
+      <table class="candidate-table">
+        <thead>
+          <tr>
+            <th>Maximum leaves</th>
+            <th>Actual leaves</th>
+            <th>Test accuracy</th>
+            <th>Selection score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for candidate in candidate_models %}
+            <tr {% if candidate.selected %}class="selected-candidate"{% endif %}>
+              <td>{{ candidate.max_leaf_nodes }}</td>
+              <td>{{ candidate.leaf_count }}</td>
+              <td>{{ candidate.accuracy_percent }}%</td>
+              <td>{{ candidate.selection_score }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
 
     <section class="transparency-panel" aria-labelledby="data-transparency-title">
       <h3 id="data-transparency-title">Data Transparency</h3>
