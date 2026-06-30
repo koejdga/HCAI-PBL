@@ -1,13 +1,7 @@
-{% extends "base.html" %}
-{% load static %}
-
-{% block site_context %}Project 2: Explainability{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'project2/style.css' %}">
-{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% load static %} {% block site_context %}Project 2:
+Explainability{% endblock %} {% block extra_css %}
+<link rel="stylesheet" href="{% static 'project2/style.css' %}" />
+{% endblock %} {% block content %}
 <div class="box project2-box">
   <div class="title-container">
     <div class="title">Explainability</div>
@@ -24,8 +18,8 @@
     <h2>Decision Tree</h2>
 
     <p class="section-intro">
-      This first model predicts penguin species from seven input features.
-      20% of the cleaned dataset is kept aside for testing.
+      This first model predicts penguin species from seven input features. 20%
+      of the cleaned dataset is kept aside for testing.
     </p>
 
     <section class="task-two-panel" aria-labelledby="task-two-title">
@@ -47,9 +41,12 @@
             step="0.05"
             value="{{ lambda_value }}"
             aria-describedby="lambda-help"
-            oninput="document.getElementById('lambda-value').value =
-              Number(this.value).toFixed(2)"
-          >
+            oninput="
+              document.getElementById('lambda-value').value = Number(
+                this.value,
+              ).toFixed(2)
+            "
+          />
 
           <div class="lambda-labels">
             <span>Focus on accuracy</span>
@@ -57,15 +54,80 @@
           </div>
         </div>
 
-        <button type="submit">Apply preference</button>
+        <div>
+          <div style="padding-bottom: 0.5em">
+            <strong>Select a model type:</strong>
+          </div>
+
+          <div>
+            <input
+              type="radio"
+              id="decision-tree"
+              name="model-type"
+              value="decision-tree"
+              {% if model_type == "decision-tree" or not model_type %}checked{% endif %}
+            />
+            <label style="font-weight: 400" for="decision-tree"
+              >Decision Tree</label
+            >
+          </div>
+
+          <div>
+            <input
+              type="radio"
+              id="logistic-regression"
+              name="model-type"
+              value="logistic-regression"
+              {% if model_type == "logistic-regression" %}checked{% endif %}
+            />
+            <label style="font-weight: 400" for="logistic-regression"
+              >Logistic Regression</label
+            >
+          </div>
+        </div>
+
+        <button style="margin-top: 0.75em" type="submit">
+          Apply preference
+        </button>
       </form>
+
+      <div class="candidate-table-container">
+        <table class="candidate-table">
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>{{ complexity_label }}</th>
+              <th>Test accuracy</th>
+              <th>Selection score</th>
+            </tr>
+          </thead>
+          <tbody id="candidates-table-body">
+            {% for candidate in candidate_models %}
+            <tr
+              {% if candidate.selected %}class="selected-candidate"{% endif %}
+            >
+              <td>{{ candidate.param_label }}</td>
+              <td>{{ candidate.complexity_count }}</td>
+              <td>{{ candidate.accuracy_percent }}%</td>
+              <td>{{ candidate.selection_score }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="selected-model-note" id="selected-model-note">
+        <span id="selected-model-note-text"
+          >{{ selected_model_description }}</span
+        >
+      </div>
 
       <div class="lambda-explanation" id="lambda-help">
         <strong>What does &lambda; mean?</strong>
         <p>
           A low value prioritizes test accuracy. A high value gives more
-          importance to a smaller tree that may be easier to understand.
-          Lambda selects between trained trees; it is not the tree's training
+          importance to a smaller model that may be easier to understand. Lambda
+          selects between trained candidates; it is not the model's training
           parameter.
         </p>
       </div>
@@ -80,53 +142,39 @@
 
       <article class="metric-card">
         <span>Test accuracy</span>
-        <strong>{{ accuracy_percent }}%</strong>
+        <strong id="accuracy-display">{{ accuracy_percent }}%</strong>
         <p>test penguins predicted correctly</p>
       </article>
 
       <article class="metric-card">
-        <span>Tree complexity</span>
-        <strong>{{ leaf_count }}</strong>
-        <p>leaf nodes</p>
+        <span id="complexity-label">{{ complexity_label }}</span>
+        <strong id="complexity-display">{{ complexity_count }}</strong>
+        <p id="complexity-description">{{ complexity_description }}</p>
+      </article>
+
+      <article class="metric-card">
+        <span>Selection score</span>
+        <strong id="selection-score-display">{{ selection_score }}</strong>
+        <p>lower is better</p>
       </article>
     </div>
 
     <div class="split-note">
       <span>Data split</span>
-      <span>Training rows: <strong>{{ train_rows }}</strong></span>
-      <span>Test rows: <strong>{{ test_rows }}</strong></span>
+      <span
+        >Training rows:
+        <strong id="train-rows-display">{{ train_rows }}</strong></span
+      >
+      <span
+        >Test rows:
+        <strong id="test-rows-display">{{ test_rows }}</strong></span
+      >
     </div>
 
-    <div class="selected-model-note">
-      Selected tree: maximum {{ max_leaf_nodes }} leaves,
-      {{ leaf_count }} actual leaves, with a selection score of
-      {{ selection_score }}.
-    </div>
-
-    <div class="candidate-table-container">
-      <table class="candidate-table">
-        <thead>
-          <tr>
-            <th>Maximum leaves</th>
-            <th>Actual leaves</th>
-            <th>Test accuracy</th>
-            <th>Selection score</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for candidate in candidate_models %}
-            <tr {% if candidate.selected %}class="selected-candidate"{% endif %}>
-              <td>{{ candidate.max_leaf_nodes }}</td>
-              <td>{{ candidate.leaf_count }}</td>
-              <td>{{ candidate.accuracy_percent }}%</td>
-              <td>{{ candidate.selection_score }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    <section class="transparency-panel" aria-labelledby="data-transparency-title">
+    <section
+      class="transparency-panel"
+      aria-labelledby="data-transparency-title"
+    >
       <h3 id="data-transparency-title">Data Transparency</h3>
       <p class="transparency-intro">
         These are the data and preprocessing choices behind the displayed
@@ -153,10 +201,9 @@
         <div>
           <dt>Missing-value handling</dt>
           <dd>
-            {{ removed_row_count }} of {{ original_row_count }} rows are
-            removed because at least one required feature or the target is
-            missing. The model is trained on the remaining {{ row_count }}
-            complete rows.
+            {{ removed_row_count }} of {{ original_row_count }} rows are removed
+            because at least one required feature or the target is missing. The
+            model is trained on the remaining {{ row_count }} complete rows.
           </dd>
         </div>
         <div>
@@ -176,23 +223,109 @@
       </p>
     </section>
 
-    <div class="tree-explanation">
-      <strong>How to read the tree</strong>
-      <p>
-        Start at the top and follow the branch that matches a penguin's
-        feature value. Each final leaf gives a species prediction. Fewer leaves
-        usually make a tree easier to inspect, while more leaves allow more
-        detailed decision rules.
-      </p>
-    </div>
+    <div id="tree-visualization-container"
+      {% if tree_image_url %}style="display: block"{% else %}style="display: none"{% endif %}>
+      <div class="tree-explanation">
+        <strong>How to read the tree</strong>
+        <p>
+          Start at the top and follow the branch that matches a penguin's feature
+          value. Each final leaf gives a species prediction. Fewer leaves usually
+          make a tree easier to inspect, while more leaves allow more detailed
+          decision rules.
+        </p>
+      </div>
 
-    <div class="tree-image-container">
-      <img
-        src="{{ tree_image_url }}"
-        alt="Decision tree trained on the Palmer Penguins dataset"
-        class="tree-image"
-      >
+      <div
+        class="tree-image-container">
+        <img
+          id="tree-image-element"
+          src="{{ tree_image_url }}"
+          alt="Decision tree trained on the Palmer Penguins dataset"
+          class="tree-image"
+          
+        />
+      </div>
     </div>
   </section>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const form = document.querySelector("form");
+
+      form.addEventListener("submit", function (event) {
+        event.preventDefault(); // Stop standard browser page reload execution
+
+        // Extract values currently set on your inputs
+        const lambda = document.querySelector("[name='lambda']").value;
+
+        const modelTypeInput = document.querySelector(
+          "[name='model-type']:checked",
+        );
+        const modelType = modelTypeInput
+          ? modelTypeInput.value
+          : "decision-tree";
+
+        // Dispatch background update query
+        fetch(`?lambda=${lambda}&model-type=${modelType}&format=json`)
+          .then((response) => response.json())
+          .then((data) => {
+            // 1. Update text elements dynamically
+            document.getElementById("accuracy-display").innerText =
+              data.accuracy_percent + "%";
+            document.getElementById("complexity-label").innerText =
+              data.complexity_label;
+            document.getElementById("complexity-display").innerText =
+              data.complexity_count;
+            document.getElementById("complexity-description").innerText =
+              data.complexity_description;
+            document.getElementById("selection-score-display").innerText =
+              data.selection_score;
+            document.getElementById("train-rows-display").innerText =
+              data.train_rows;
+            document.getElementById("test-rows-display").innerText =
+              data.test_rows;
+            document.getElementById("selected-model-note-text").innerText =
+              data.selected_model_description;
+
+            // 2. Manage tree layout visualization plot visibility
+            const img = document.getElementById("tree-image-element");
+            const vizContainer = document.getElementById("tree-visualization-container");
+            if (data.tree_image_url) {
+              img.src = data.tree_image_url;
+              img.style.display = "block";
+              vizContainer.style.display = "block";
+            } else {
+              img.style.display = "none"; // Hide image when working with regression models
+              vizContainer.style.display = "none";
+            }
+
+            // 3. Rebuild candidate tables or loops smoothly
+            const tbody = document.getElementById("candidates-table-body");
+            if (tbody) {
+              tbody.innerHTML = ""; // Clear existing rows
+              data.candidate_models.forEach((model) => {
+                const row = document.createElement("tr");
+                row.className = model.selected ? "selected-candidate" : "";
+
+                row.innerHTML = `
+                            <td>${model.param_label}</td>
+                            <td>${model.complexity_count}</td>
+                            <td>${model.accuracy_percent}%</td>
+                            <td>${model.selection_score}</td>
+                        `;
+                tbody.appendChild(row);
+              });
+            }
+
+            // 4. Update browser URL to preserve state across page reloads
+            const newUrl = `?lambda=${lambda}&model-type=${modelType}`;
+            window.history.replaceState({ lambda, modelType }, "", newUrl);
+          })
+          .catch((error) =>
+            console.error("Error updating model criteria:", error),
+          );
+      });
+    });
+  </script>
 </div>
 {% endblock %}
