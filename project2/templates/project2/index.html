@@ -1,0 +1,514 @@
+{% extends "base.html" %} {% load static %} {% block site_context %}Project 2:
+Explainability{% endblock %} {% block extra_css %}
+<link rel="stylesheet" href="{% static 'project2/style.css' %}" />
+{% endblock %} {% block content %}
+<div class="box project2-box">
+  <div class="title-container">
+    <div class="title">Explainability</div>
+  </div>
+
+  <div class="centered-text">
+    <p>
+      Exploring model complexity and explanations using the Palmer Penguins
+      dataset
+    </p>
+  </div>
+
+  <section class="tree-section">
+    <h2>Decision Tree</h2>
+
+    <p class="section-intro">
+      This first model predicts penguin species from seven input features. 20%
+      of the cleaned dataset is kept aside for testing.
+    </p>
+
+    <section class="task-two-panel" aria-labelledby="task-two-title">
+      <h3 id="task-two-title">Accuracy and Simplicity</h3>
+
+      <form method="get" id="model-settings-form" class="lambda-control">
+        <input type="hidden" name="selected-row" value="{{ selected_row_id }}" />
+        <input
+          type="hidden"
+          name="dataset-page"
+          value="{{ dataset_page.number }}"
+        />
+
+        <div class="lambda-heading">
+          <label for="lambda">Simplicity preference &lambda;:</label>
+          <output id="lambda-value" for="lambda">{{ lambda_value }}</output>
+        </div>
+
+        <div class="lambda-slider">
+          <input
+            id="lambda"
+            name="lambda"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value="{{ lambda_value }}"
+            aria-describedby="lambda-help"
+            oninput="
+              document.getElementById('lambda-value').value = Number(
+                this.value,
+              ).toFixed(2)
+            "
+          />
+
+          <div class="lambda-labels">
+            <span>Focus on accuracy</span>
+            <span>Focus on simplicity</span>
+          </div>
+        </div>
+
+        <div>
+          <div style="padding-bottom: 0.5em">
+            <strong>Select a model type:</strong>
+          </div>
+
+          <div>
+            <input
+              type="radio"
+              id="decision-tree"
+              name="model-type"
+              value="decision-tree"
+              {% if model_type == "decision-tree" or not model_type %}checked{% endif %}
+            />
+            <label style="font-weight: 400" for="decision-tree"
+              >Decision Tree</label
+            >
+          </div>
+
+          <div>
+            <input
+              type="radio"
+              id="logistic-regression"
+              name="model-type"
+              value="logistic-regression"
+              {% if model_type == "logistic-regression" %}checked{% endif %}
+            />
+            <label style="font-weight: 400" for="logistic-regression"
+              >Logistic Regression</label
+            >
+          </div>
+        </div>
+
+        <button style="margin-top: 0.75em" type="submit">
+          Apply preference
+        </button>
+      </form>
+
+      <div class="candidate-table-container">
+        <table class="candidate-table">
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>{{ complexity_label }}</th>
+              <th>Test accuracy</th>
+              <th>Selection score</th>
+            </tr>
+          </thead>
+          <tbody id="candidates-table-body">
+            {% for candidate in candidate_models %}
+            <tr
+              {% if candidate.selected %}class="selected-candidate"{% endif %}
+            >
+              <td>{{ candidate.param_label }}</td>
+              <td>{{ candidate.complexity_count }}</td>
+              <td>{{ candidate.accuracy_percent }}%</td>
+              <td>{{ candidate.selection_score }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="selected-model-note" id="selected-model-note">
+        <span id="selected-model-note-text"
+          >{{ selected_model_description }}</span
+        >
+      </div>
+
+      <div class="lambda-explanation" id="lambda-help">
+        <strong>What does &lambda; mean?</strong>
+        <p>
+          A low value prioritizes test accuracy. A high value gives more
+          importance to a smaller model that may be easier to understand. Lambda
+          selects between trained candidates; it is not the model's training
+          parameter.
+        </p>
+      </div>
+    </section>
+
+    <div class="tree-metrics">
+      <article class="metric-card">
+        <span>Clean dataset</span>
+        <strong>{{ row_count }}</strong>
+        <p>rows without missing values</p>
+      </article>
+
+      <article class="metric-card">
+        <span>Test accuracy</span>
+        <strong id="accuracy-display">{{ accuracy_percent }}%</strong>
+        <p>test penguins predicted correctly</p>
+      </article>
+
+      <article class="metric-card">
+        <span id="complexity-label">{{ complexity_label }}</span>
+        <strong id="complexity-display">{{ complexity_count }}</strong>
+        <p id="complexity-description">{{ complexity_description }}</p>
+      </article>
+
+      <article class="metric-card">
+        <span>Selection score</span>
+        <strong id="selection-score-display">{{ selection_score }}</strong>
+        <p>lower is better</p>
+      </article>
+    </div>
+
+    <div class="split-note">
+      <span>Data split</span>
+      <span
+        >Training rows:
+        <strong id="train-rows-display">{{ train_rows }}</strong></span
+      >
+      <span
+        >Test rows:
+        <strong id="test-rows-display">{{ test_rows }}</strong></span
+      >
+    </div>
+
+    <section
+      class="transparency-panel"
+      aria-labelledby="data-transparency-title"
+    >
+      <h3 id="data-transparency-title">Data Transparency</h3>
+      <p class="transparency-intro">
+        These are the data and preprocessing choices behind the displayed
+        result.
+      </p>
+
+      <dl class="transparency-grid">
+        <div>
+          <dt>Prediction target</dt>
+          <dd>{{ target_column }}</dd>
+        </div>
+        <div>
+          <dt>Possible classes</dt>
+          <dd>{{ target_classes|join:", " }}</dd>
+        </div>
+        <div>
+          <dt>Numeric features</dt>
+          <dd>{{ numeric_features|join:", " }}</dd>
+        </div>
+        <div>
+          <dt>Categorical features</dt>
+          <dd>{{ categorical_features|join:", " }}</dd>
+        </div>
+        <div>
+          <dt>Missing-value handling</dt>
+          <dd>
+            {{ removed_row_count }} of {{ original_row_count }} rows are removed
+            because at least one required feature or the target is missing. The
+            model is trained on the remaining {{ row_count }} complete rows.
+          </dd>
+        </div>
+        <div>
+          <dt>Why categories are encoded</dt>
+          <dd>
+            The model needs numeric input. One-hot encoding creates a separate
+            yes/no indicator for each island and sex category without implying
+            that one category is greater than another.
+          </dd>
+        </div>
+      </dl>
+
+      <p class="transparency-warning">
+        <strong>Important:</strong> Removing incomplete rows is simple and
+        reproducible, but it may reduce representativeness if missing data is
+        concentrated in a particular group.
+      </p>
+    </section>
+
+    <div id="tree-visualization-container"
+      {% if tree_image_url %}style="display: block"{% else %}style="display: none"{% endif %}>
+      <div class="tree-explanation">
+        <strong>How to read the tree</strong>
+        <p>
+          Start at the top and follow the branch that matches a penguin's
+          feature value. Each final leaf gives a species prediction. Fewer
+          leaves usually make a tree easier to inspect, while more leaves allow
+          more detailed decision rules.
+        </p>
+      </div>
+
+      <div class="tree-image-container">
+        <img
+          id="tree-image-element"
+          src="{{ tree_image_url }}"
+          alt="Decision tree trained on the Palmer Penguins dataset"
+          class="tree-image"
+        />
+      </div>
+    </div>
+
+    <div id="counterfactuals">
+      <h2>Counterfactuals</h2>
+
+      <form method="get" id="counterfactuals-form" class="counterfactuals-form task-two-panel">
+        {% include "components/radio_buttons_set.html" with header_text="Select a desired class:" group_name="desired-class" current_value=desired_class options=output_classes %}
+
+        {% if selected_dataset_row %}
+          {% for column, value in selected_dataset_row.values.items %}
+            <input type="hidden" name="selected_{{ column }}" value="{{ value }}" />
+          {% endfor %}
+        {% endif %}
+
+        <div class="selected-row-note">
+          Selected dataset row:
+          <strong>#{{ selected_row_id }}</strong>
+        </div>
+
+        <div class="penguin-table-container">
+          <table class="penguin-table">
+            <thead>
+              <tr>
+                <th scope="col">Use</th>
+                {% for label in dataset_column_labels %}
+                  <th scope="col">{{ label }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody id="dataset-table-body">
+              {% for row in dataset_page.object_list %}
+                <tr class="{% if row.selected %}selected-row{% endif %}">
+                  <td>
+                    <input
+                      type="radio"
+                      name="selected-row"
+                      value="{{ row.id }}"
+                      aria-label="Select dataset row {{ row.id }}"
+                      {% if row.selected %}checked{% endif %}
+                    />
+                  </td>
+                  {% for column, value in row.display_values.items %}
+                    <td>{{ value }}</td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <nav class="dataset-pagination" aria-label="Penguin dataset pages">
+          {% if dataset_previous_url %}
+            <a href="{{ dataset_previous_url }}" aria-label="Previous page">Back</a>
+          {% else %}
+            <span class="disabled-page-control">Back</span>
+          {% endif %}
+
+          <div class="page-number-list">
+            {% for page_link in dataset_page_links %}
+              {% if page_link.is_ellipsis %}
+                <span class="page-ellipsis">{{ page_link.number }}</span>
+              {% elif page_link.is_current %}
+                <span class="current-page" aria-current="page">{{ page_link.number }}</span>
+              {% else %}
+                <a href="{{ page_link.url }}">{{ page_link.number }}</a>
+              {% endif %}
+            {% endfor %}
+          </div>
+
+          {% if dataset_next_url %}
+            <a href="{{ dataset_next_url }}" aria-label="Next page">Forward</a>
+          {% else %}
+            <span class="disabled-page-control">Forward</span>
+          {% endif %}
+        </nav>
+
+        <div id="pagination-form" class="dataset-page-jump">
+          <label for="dataset-page">Go to page</label>
+          <input
+            id="dataset-page"
+            name="dataset-page"
+            type="number"
+            min="1"
+            max="{{ dataset_page.paginator.num_pages }}"
+            value="{{ dataset_page.number }}"
+          />
+          <span>of {{ dataset_page.paginator.num_pages }}</span>
+        </div>
+
+        <button type="submit" class="counterfactuals-submit">
+          Find counterfactuals
+        </button>
+      </form>
+
+      <div class="selected-row-panel">
+        <h3>Selected row</h3>
+        <div id="selected-row-summary" class="selected-row-summary">
+          {% if selected_dataset_row_display_values %}
+            {% for item in selected_dataset_row_display_values %}
+              <div><strong>{{ item.label }}</strong>: {{ item.value }}</div>
+            {% endfor %}
+          {% else %}
+            <div>No row selected.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <h3>Closest Counterfactual Explanations</h3>
+      <div class="penguin-table-container">
+        <table class="penguin-table">
+          <thead>
+            <tr>
+              {% for label in dataset_column_labels %}
+              <th scope="col">{{ label }}</th>
+              {% endfor %}
+              <th scope="col">Distance</th>
+            </tr>
+          </thead>
+          <tbody id="cf-table-body">
+            {% if counterfactual_rows %}
+              {% for row in counterfactual_rows %}
+                <tr>
+                  {% for column, value in row.display_values.items %}
+                    <td>{{ value }}</td>
+                  {% endfor %}
+                  <td><strong>{{ row.distance }}</strong></td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="{{ dataset_column_labels|length|add:'1' }}">No counterfactuals found.</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const modelSettingForm = document.getElementById("model-settings-form");
+
+      modelSettingForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        updateDashboard();
+      });
+
+      const counterfactualsForm = document.getElementById("counterfactuals-form");
+      const datasetPageInput = document.getElementById("dataset-page");
+
+      if (datasetPageInput) {
+        datasetPageInput.addEventListener("keydown", function (event) {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            updateDashboard();
+          }
+        });
+        datasetPageInput.addEventListener("blur", updateDashboard);
+      }
+
+      function updateDashboard() {
+        const lambda = document.getElementById("lambda").value;
+        const modelType = document.querySelector("[name='model-type']:checked")?.value || "decision-tree";
+        const desiredClass = document.querySelector("[name='desired-class']:checked")?.value || "adelie";
+        const selectedRow = document.querySelector("[name='selected-row']:checked")?.value || "{{ selected_row_id }}";
+        const datasetPage = datasetPageInput?.value || "{{ dataset_page.number }}";
+
+        fetch(`?lambda=${lambda}&model-type=${modelType}&desired-class=${desiredClass}&selected-row=${selectedRow}&dataset-page=${datasetPage}&format=json`)
+          .then((response) => response.json())
+          .then((data) => {
+            document.getElementById("accuracy-display").innerText = data.accuracy_percent + "%";
+            document.getElementById("complexity-display").innerText = data.complexity_count;
+            document.getElementById("selection-score-display").innerText = data.selection_score;
+            document.getElementById("selected-model-note-text").innerText = data.selected_model_description;
+
+            const datasetTableBody = document.getElementById("dataset-table-body");
+            if (datasetTableBody && data.dataset_page_rows) {
+              datasetTableBody.innerHTML = "";
+              data.dataset_page_rows.forEach((row) => {
+                const tr = document.createElement("tr");
+                tr.className = row.selected ? "selected-row" : "";
+
+                let rowHtml = `
+                  <td>
+                    <input
+                      type="radio"
+                      name="selected-row"
+                      value="${row.id}"
+                      aria-label="Select dataset row ${row.id}"
+                      ${row.selected ? "checked" : ""}
+                    />
+                  </td>`;
+
+                Object.values(row.display_values).forEach((value) => {
+                  rowHtml += `<td>${value}</td>`;
+                });
+                tr.innerHTML = rowHtml;
+                datasetTableBody.appendChild(tr);
+              });
+
+              datasetTableBody.querySelectorAll("[name='selected-row']").forEach((input) => {
+                input.addEventListener("change", updateDashboard);
+              });
+
+              const selectedRowData = data.dataset_page_rows.find((row) => row.selected);
+              if (selectedRowData) {
+                updateSelectedRowSummary(selectedRowData, data);
+              }
+            }
+
+            const cfTableBody = document.getElementById("cf-table-body");
+            if (cfTableBody) {
+              cfTableBody.innerHTML = "";
+              if (!data.counterfactual_rows || data.counterfactual_rows.length === 0) {
+                cfTableBody.innerHTML = `<tr><td colspan="${data.dataset_column_labels.length + 1}">No counterfactual variations found. Try adjusting parameters.</td></tr>`;
+              } else {
+                data.counterfactual_rows.forEach((row) => {
+                  const tr = document.createElement("tr");
+                  let rowHtml = "";
+                  Object.values(row.display_values).forEach((value) => {
+                    rowHtml += `<td>${value}</td>`;
+                  });
+                  rowHtml += `<td><strong>${row.distance}</strong></td>`;
+                  tr.innerHTML = rowHtml;
+                  cfTableBody.appendChild(tr);
+                });
+              }
+            }
+
+            window.history.replaceState({}, "", `?lambda=${lambda}&model-type=${modelType}&desired-class=${desiredClass}&selected-row=${selectedRow}&dataset-page=${datasetPage}`);
+          });
+      }
+
+      counterfactualsForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        updateDashboard();
+      });
+
+      counterfactualsForm.addEventListener("change", function (event) {
+        event.preventDefault();
+        updateDashboard();
+      });
+
+      function updateSelectedRowSummary(selectedRowData, data) {
+        const summary = document.getElementById("selected-row-summary");
+        if (!summary) return;
+
+        summary.innerHTML = "";
+        data.dataset_columns.forEach((column) => {
+          const label = data.dataset_column_labels[data.dataset_columns.indexOf(column)];
+          const value = selectedRowData.display_values[column];
+          const rowDiv = document.createElement("div");
+          rowDiv.innerHTML = `<strong>${label}</strong>: ${value}`;
+          summary.appendChild(rowDiv);
+        });
+      }
+
+    });
+  </script>
+</div>
+{% endblock %}
