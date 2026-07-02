@@ -25,7 +25,14 @@ Explainability{% endblock %} {% block extra_css %}
     <section class="task-two-panel" aria-labelledby="task-two-title">
       <h3 id="task-two-title">Accuracy and Simplicity</h3>
 
-      <form method="get" class="lambda-control">
+      <form method="get" id="model-settings-form" class="lambda-control">
+        <input type="hidden" name="selected-row" value="{{ selected_row_id }}" />
+        <input
+          type="hidden"
+          name="dataset-page"
+          value="{{ dataset_page.number }}"
+        />
+
         <div class="lambda-heading">
           <label for="lambda">Simplicity preference &lambda;:</label>
           <output id="lambda-value" for="lambda">{{ lambda_value }}</output>
@@ -228,103 +235,279 @@ Explainability{% endblock %} {% block extra_css %}
       <div class="tree-explanation">
         <strong>How to read the tree</strong>
         <p>
-          Start at the top and follow the branch that matches a penguin's feature
-          value. Each final leaf gives a species prediction. Fewer leaves usually
-          make a tree easier to inspect, while more leaves allow more detailed
-          decision rules.
+          Start at the top and follow the branch that matches a penguin's
+          feature value. Each final leaf gives a species prediction. Fewer
+          leaves usually make a tree easier to inspect, while more leaves allow
+          more detailed decision rules.
         </p>
       </div>
 
-      <div
-        class="tree-image-container">
+      <div class="tree-image-container">
         <img
           id="tree-image-element"
           src="{{ tree_image_url }}"
           alt="Decision tree trained on the Palmer Penguins dataset"
           class="tree-image"
-          
         />
+      </div>
+    </div>
+
+    <div id="counterfactuals">
+      <h2>Counterfactuals</h2>
+
+      <form method="get" id="counterfactuals-form" class="counterfactuals-form task-two-panel">
+        {% include "components/radio_buttons_set.html" with header_text="Select a desired class:" group_name="desired-class" current_value=desired_class options=output_classes %}
+
+        {% if selected_dataset_row %}
+          {% for column, value in selected_dataset_row.values.items %}
+            <input type="hidden" name="selected_{{ column }}" value="{{ value }}" />
+          {% endfor %}
+        {% endif %}
+
+        <div class="selected-row-note">
+          Selected dataset row:
+          <strong>#{{ selected_row_id }}</strong>
+        </div>
+
+        <div class="penguin-table-container">
+          <table class="penguin-table">
+            <thead>
+              <tr>
+                <th scope="col">Use</th>
+                {% for label in dataset_column_labels %}
+                  <th scope="col">{{ label }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody id="dataset-table-body">
+              {% for row in dataset_page.object_list %}
+                <tr class="{% if row.selected %}selected-row{% endif %}">
+                  <td>
+                    <input
+                      type="radio"
+                      name="selected-row"
+                      value="{{ row.id }}"
+                      aria-label="Select dataset row {{ row.id }}"
+                      {% if row.selected %}checked{% endif %}
+                    />
+                  </td>
+                  {% for column, value in row.display_values.items %}
+                    <td>{{ value }}</td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <nav class="dataset-pagination" aria-label="Penguin dataset pages">
+          {% if dataset_previous_url %}
+            <a href="{{ dataset_previous_url }}" aria-label="Previous page">Back</a>
+          {% else %}
+            <span class="disabled-page-control">Back</span>
+          {% endif %}
+
+          <div class="page-number-list">
+            {% for page_link in dataset_page_links %}
+              {% if page_link.is_ellipsis %}
+                <span class="page-ellipsis">{{ page_link.number }}</span>
+              {% elif page_link.is_current %}
+                <span class="current-page" aria-current="page">{{ page_link.number }}</span>
+              {% else %}
+                <a href="{{ page_link.url }}">{{ page_link.number }}</a>
+              {% endif %}
+            {% endfor %}
+          </div>
+
+          {% if dataset_next_url %}
+            <a href="{{ dataset_next_url }}" aria-label="Next page">Forward</a>
+          {% else %}
+            <span class="disabled-page-control">Forward</span>
+          {% endif %}
+        </nav>
+
+        <div id="pagination-form" class="dataset-page-jump">
+          <label for="dataset-page">Go to page</label>
+          <input
+            id="dataset-page"
+            name="dataset-page"
+            type="number"
+            min="1"
+            max="{{ dataset_page.paginator.num_pages }}"
+            value="{{ dataset_page.number }}"
+          />
+          <span>of {{ dataset_page.paginator.num_pages }}</span>
+        </div>
+
+        <button type="submit" class="counterfactuals-submit">
+          Find counterfactuals
+        </button>
+      </form>
+
+      <div class="selected-row-panel">
+        <h3>Selected row</h3>
+        <div id="selected-row-summary" class="selected-row-summary">
+          {% if selected_dataset_row_display_values %}
+            {% for item in selected_dataset_row_display_values %}
+              <div><strong>{{ item.label }}</strong>: {{ item.value }}</div>
+            {% endfor %}
+          {% else %}
+            <div>No row selected.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <h3>Closest Counterfactual Explanations</h3>
+      <div class="penguin-table-container">
+        <table class="penguin-table">
+          <thead>
+            <tr>
+              {% for label in dataset_column_labels %}
+              <th scope="col">{{ label }}</th>
+              {% endfor %}
+              <th scope="col">Distance</th>
+            </tr>
+          </thead>
+          <tbody id="cf-table-body">
+            {% if counterfactual_rows %}
+              {% for row in counterfactual_rows %}
+                <tr>
+                  {% for column, value in row.display_values.items %}
+                    <td>{{ value }}</td>
+                  {% endfor %}
+                  <td><strong>{{ row.distance }}</strong></td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="{{ dataset_column_labels|length|add:'1' }}">No counterfactuals found.</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
       </div>
     </div>
   </section>
 
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      const form = document.querySelector("form");
+      const modelSettingForm = document.getElementById("model-settings-form");
 
-      form.addEventListener("submit", function (event) {
-        event.preventDefault(); // Stop standard browser page reload execution
+      modelSettingForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        updateDashboard();
+      });
 
-        // Extract values currently set on your inputs
-        const lambda = document.querySelector("[name='lambda']").value;
+      const counterfactualsForm = document.getElementById("counterfactuals-form");
+      const datasetPageInput = document.getElementById("dataset-page");
 
-        const modelTypeInput = document.querySelector(
-          "[name='model-type']:checked",
-        );
-        const modelType = modelTypeInput
-          ? modelTypeInput.value
-          : "decision-tree";
+      if (datasetPageInput) {
+        datasetPageInput.addEventListener("keydown", function (event) {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            updateDashboard();
+          }
+        });
+        datasetPageInput.addEventListener("blur", updateDashboard);
+      }
 
-        // Dispatch background update query
-        fetch(`?lambda=${lambda}&model-type=${modelType}&format=json`)
+      function updateDashboard() {
+        const lambda = document.getElementById("lambda").value;
+        const modelType = document.querySelector("[name='model-type']:checked")?.value || "decision-tree";
+        const desiredClass = document.querySelector("[name='desired-class']:checked")?.value || "adelie";
+        const selectedRow = document.querySelector("[name='selected-row']:checked")?.value || "{{ selected_row_id }}";
+        const datasetPage = datasetPageInput?.value || "{{ dataset_page.number }}";
+
+        fetch(`?lambda=${lambda}&model-type=${modelType}&desired-class=${desiredClass}&selected-row=${selectedRow}&dataset-page=${datasetPage}&format=json`)
           .then((response) => response.json())
           .then((data) => {
-            // 1. Update text elements dynamically
-            document.getElementById("accuracy-display").innerText =
-              data.accuracy_percent + "%";
-            document.getElementById("complexity-label").innerText =
-              data.complexity_label;
-            document.getElementById("complexity-display").innerText =
-              data.complexity_count;
-            document.getElementById("complexity-description").innerText =
-              data.complexity_description;
-            document.getElementById("selection-score-display").innerText =
-              data.selection_score;
-            document.getElementById("train-rows-display").innerText =
-              data.train_rows;
-            document.getElementById("test-rows-display").innerText =
-              data.test_rows;
-            document.getElementById("selected-model-note-text").innerText =
-              data.selected_model_description;
+            document.getElementById("accuracy-display").innerText = data.accuracy_percent + "%";
+            document.getElementById("complexity-display").innerText = data.complexity_count;
+            document.getElementById("selection-score-display").innerText = data.selection_score;
+            document.getElementById("selected-model-note-text").innerText = data.selected_model_description;
 
-            // 2. Manage tree layout visualization plot visibility
-            const img = document.getElementById("tree-image-element");
-            const vizContainer = document.getElementById("tree-visualization-container");
-            if (data.tree_image_url) {
-              img.src = data.tree_image_url;
-              img.style.display = "block";
-              vizContainer.style.display = "block";
-            } else {
-              img.style.display = "none"; // Hide image when working with regression models
-              vizContainer.style.display = "none";
-            }
+            const datasetTableBody = document.getElementById("dataset-table-body");
+            if (datasetTableBody && data.dataset_page_rows) {
+              datasetTableBody.innerHTML = "";
+              data.dataset_page_rows.forEach((row) => {
+                const tr = document.createElement("tr");
+                tr.className = row.selected ? "selected-row" : "";
 
-            // 3. Rebuild candidate tables or loops smoothly
-            const tbody = document.getElementById("candidates-table-body");
-            if (tbody) {
-              tbody.innerHTML = ""; // Clear existing rows
-              data.candidate_models.forEach((model) => {
-                const row = document.createElement("tr");
-                row.className = model.selected ? "selected-candidate" : "";
+                let rowHtml = `
+                  <td>
+                    <input
+                      type="radio"
+                      name="selected-row"
+                      value="${row.id}"
+                      aria-label="Select dataset row ${row.id}"
+                      ${row.selected ? "checked" : ""}
+                    />
+                  </td>`;
 
-                row.innerHTML = `
-                            <td>${model.param_label}</td>
-                            <td>${model.complexity_count}</td>
-                            <td>${model.accuracy_percent}%</td>
-                            <td>${model.selection_score}</td>
-                        `;
-                tbody.appendChild(row);
+                Object.values(row.display_values).forEach((value) => {
+                  rowHtml += `<td>${value}</td>`;
+                });
+                tr.innerHTML = rowHtml;
+                datasetTableBody.appendChild(tr);
               });
+
+              datasetTableBody.querySelectorAll("[name='selected-row']").forEach((input) => {
+                input.addEventListener("change", updateDashboard);
+              });
+
+              const selectedRowData = data.dataset_page_rows.find((row) => row.selected);
+              if (selectedRowData) {
+                updateSelectedRowSummary(selectedRowData, data);
+              }
             }
 
-            // 4. Update browser URL to preserve state across page reloads
-            const newUrl = `?lambda=${lambda}&model-type=${modelType}`;
-            window.history.replaceState({ lambda, modelType }, "", newUrl);
-          })
-          .catch((error) =>
-            console.error("Error updating model criteria:", error),
-          );
+            const cfTableBody = document.getElementById("cf-table-body");
+            if (cfTableBody) {
+              cfTableBody.innerHTML = "";
+              if (!data.counterfactual_rows || data.counterfactual_rows.length === 0) {
+                cfTableBody.innerHTML = `<tr><td colspan="${data.dataset_column_labels.length + 1}">No counterfactual variations found. Try adjusting parameters.</td></tr>`;
+              } else {
+                data.counterfactual_rows.forEach((row) => {
+                  const tr = document.createElement("tr");
+                  let rowHtml = "";
+                  Object.values(row.display_values).forEach((value) => {
+                    rowHtml += `<td>${value}</td>`;
+                  });
+                  rowHtml += `<td><strong>${row.distance}</strong></td>`;
+                  tr.innerHTML = rowHtml;
+                  cfTableBody.appendChild(tr);
+                });
+              }
+            }
+
+            window.history.replaceState({}, "", `?lambda=${lambda}&model-type=${modelType}&desired-class=${desiredClass}&selected-row=${selectedRow}&dataset-page=${datasetPage}`);
+          });
+      }
+
+      counterfactualsForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        updateDashboard();
       });
+
+      counterfactualsForm.addEventListener("change", function (event) {
+        event.preventDefault();
+        updateDashboard();
+      });
+
+      function updateSelectedRowSummary(selectedRowData, data) {
+        const summary = document.getElementById("selected-row-summary");
+        if (!summary) return;
+
+        summary.innerHTML = "";
+        data.dataset_columns.forEach((column) => {
+          const label = data.dataset_column_labels[data.dataset_columns.indexOf(column)];
+          const value = selectedRowData.display_values[column];
+          const rowDiv = document.createElement("div");
+          rowDiv.innerHTML = `<strong>${label}</strong>: ${value}`;
+          summary.appendChild(rowDiv);
+        });
+      }
+
     });
   </script>
 </div>

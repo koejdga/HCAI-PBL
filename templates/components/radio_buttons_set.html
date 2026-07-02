@@ -1,0 +1,20 @@
+<div>
+  <div style="padding-bottom: 0.5em">
+    <strong>{{ header_text }}</strong>
+  </div>
+
+  {% for option in options %}
+  <div>
+    <input
+      type="radio"
+      id="{{ option.value }}"
+      name="{{ group_name }}"
+      value="{{ option.value }}"
+      {% if current_value == option.value or not current_value and forloop.first %}checked{% endif %}
+    />
+    <label style="font-weight: 400" for="{{ option.value }}">
+      {{ option.label }}
+    </label>
+  </div>
+  {% endfor %}
+</div>

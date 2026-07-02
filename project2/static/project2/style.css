@@ -305,6 +305,170 @@
   font-weight: 700;
 }
 
+.counterfactuals-form {
+  margin: 18px 0 0;
+}
+
+.selected-row-note {
+  margin: 16px 0 10px;
+  padding: 11px 13px;
+  border-left: 5px solid var(--tuhh-cyan);
+  background: #eef9fb;
+}
+
+.penguin-table-container {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  background: white;
+}
+
+.penguin-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.penguin-table th,
+.penguin-table td {
+  padding: 9px 10px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.penguin-table th:last-child,
+.penguin-table td:last-child {
+  border-right: 0;
+}
+
+.penguin-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.penguin-table th {
+  background: var(--tuhh-navy);
+  color: white;
+}
+
+.penguin-table tbody tr:nth-child(even) {
+  background: #f8fbfc;
+}
+
+.penguin-table tbody tr:hover {
+  background: #eef9fb;
+}
+
+.penguin-table .selected-row {
+  background: #dff5f8 !important;
+  font-weight: 700;
+}
+
+.penguin-table input[type="radio"] {
+  accent-color: var(--tuhh-cyan);
+  cursor: pointer;
+}
+
+.counterfactuals-submit,
+.dataset-page-jump button {
+  padding: 9px 16px;
+  border: 0;
+  background: var(--tuhh-navy);
+  color: white;
+  cursor: pointer;
+}
+
+.counterfactuals-submit {
+  margin-top: 12px;
+}
+
+.dataset-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 18px 0 12px;
+}
+
+.dataset-pagination a,
+.dataset-pagination span {
+  display: inline-flex;
+  min-width: 30px;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--tuhh-navy);
+  text-decoration: none;
+  font-size: 0.92rem;
+}
+
+.dataset-pagination a:hover {
+  border-color: var(--tuhh-cyan);
+  background: #eef9fb;
+}
+
+.dataset-pagination .current-page {
+  border-color: var(--tuhh-navy);
+  background: var(--tuhh-navy);
+  color: white;
+  font-weight: 700;
+}
+
+.dataset-pagination .disabled-page-control {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.page-number-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.dataset-page-jump {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.dataset-page-jump input[type="number"] {
+  width: 64px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+}
+
+.selected-row-panel {
+  margin-top: 18px;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  background: #f7fcfd;
+  border-radius: 10px;
+}
+
+.selected-row-panel h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.selected-row-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  font-size: 0.95rem;
+}
+
+.selected-row-summary div {
+  line-height: 1.5;
+}
+
 @media (max-width: 700px) {
   .tree-metrics,
   .transparency-grid {
