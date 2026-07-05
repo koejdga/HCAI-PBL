@@ -30,6 +30,12 @@ NUMERIC_FEATURES = [
     "flipper_length_mm",
     "body_mass_g",
 ]
+FEATURE_EFFECT_NUMERIC_FEATURES = [
+    "bill_length_mm",
+    "bill_depth_mm",
+    "flipper_length_mm",
+    "body_mass_g",
+]
 FEATURE_COLUMNS = CATEGORICAL_FEATURES + NUMERIC_FEATURES
 DISPLAY_COLUMN_LABELS = {
     "island": "Island",
@@ -50,6 +56,7 @@ DEFAULT_LAMBDA = 0.20
 MIN_LAMBDA = 0.0
 MAX_LAMBDA = 1.0
 DATASET_PAGE_SIZE = 12
+CLASS_NAMES = ["Adelie", "Chinstrap", "Gentoo"]
 
 
 def format_feature_name(feature_name):
@@ -182,6 +189,12 @@ def parse_lambda(value):
         return DEFAULT_LAMBDA
 
     return min(max(lambda_value, MIN_LAMBDA), MAX_LAMBDA)
+
+
+def parse_feature_effect_feature(value):
+    if value in FEATURE_EFFECT_NUMERIC_FEATURES:
+        return value
+    return FEATURE_EFFECT_NUMERIC_FEATURES[0]
 
 
 def split_penguin_data(penguins):
@@ -360,6 +373,113 @@ def calculate_mad_l1_distance(original_x, synthetic_df, penguins_df):
     return distances
 
 
+def compute_pdp(pipeline, penguins, feature_name, grid_size=30):
+    """Compute partial dependence values for each species without a PDP library."""
+    feature_values = penguins[feature_name]
+    grid = np.linspace(feature_values.min(), feature_values.max(), grid_size)
+    curves = {class_name: [] for class_name in pipeline.classes_}
+
+    for value in grid:
+        modified = penguins[FEATURE_COLUMNS].copy()
+        modified[feature_name] = value
+        probabilities = pipeline.predict_proba(modified)
+        average_probabilities = probabilities.mean(axis=0)
+
+        for class_index, class_name in enumerate(pipeline.classes_):
+            curves[class_name].append(float(average_probabilities[class_index]))
+
+    return {
+        "feature": feature_name,
+        "x_values": [float(value) for value in grid],
+        "curves": curves,
+    }
+
+
+def compute_ale(pipeline, penguins, feature_name, bins=10):
+    """Compute accumulated local effects for each species without an ALE library."""
+    feature_values = penguins[feature_name]
+    quantiles = np.linspace(0, 1, bins + 1)
+    bin_edges = np.unique(np.quantile(feature_values, quantiles))
+
+    if len(bin_edges) < 2:
+        return {
+            "feature": feature_name,
+            "x_values": [float(feature_values.iloc[0])],
+            "curves": {class_name: [0.0] for class_name in pipeline.classes_},
+        }
+
+    local_effects = []
+    x_values = []
+
+    for lower, upper in zip(bin_edges[:-1], bin_edges[1:]):
+        in_bin = (feature_values >= lower) & (feature_values <= upper)
+        bin_rows = penguins.loc[in_bin, FEATURE_COLUMNS].copy()
+
+        if bin_rows.empty:
+            local_effects.append(np.zeros(len(pipeline.classes_)))
+        else:
+            lower_rows = bin_rows.copy()
+            upper_rows = bin_rows.copy()
+            lower_rows[feature_name] = lower
+            upper_rows[feature_name] = upper
+            probability_delta = (
+                pipeline.predict_proba(upper_rows) - pipeline.predict_proba(lower_rows)
+            )
+            local_effects.append(probability_delta.mean(axis=0))
+
+        x_values.append(float((lower + upper) / 2))
+
+    accumulated = np.cumsum(np.vstack(local_effects), axis=0)
+    centered = accumulated - accumulated.mean(axis=0)
+
+    curves = {
+        class_name: [float(value) for value in centered[:, class_index]]
+        for class_index, class_name in enumerate(pipeline.classes_)
+    }
+    return {
+        "feature": feature_name,
+        "x_values": x_values,
+        "curves": curves,
+    }
+
+
+def save_feature_effect_plot(effect_data, plot_kind, feature_name, model_type, lambda_value):
+    output_dir = os.path.join(settings.MEDIA_ROOT, "project2")
+    os.makedirs(output_dir, exist_ok=True)
+
+    safe_lambda = f"{lambda_value:.2f}".replace(".", "_")
+    image_name = f"{plot_kind}_{model_type}_{feature_name}_{safe_lambda}.png"
+    image_path = os.path.join(output_dir, image_name)
+
+    figure, axis = plt.subplots(figsize=(9, 5))
+    for class_name in CLASS_NAMES:
+        if class_name in effect_data["curves"]:
+            axis.plot(
+                effect_data["x_values"],
+                effect_data["curves"][class_name],
+                marker="o",
+                linewidth=2,
+                label=class_name,
+            )
+
+    feature_label = DISPLAY_COLUMN_LABELS[feature_name]
+    if plot_kind == "pdp":
+        axis.set_title(f"PDP for {feature_label}")
+        axis.set_ylabel("Average predicted probability")
+    else:
+        axis.set_title(f"ALE for {feature_label}")
+        axis.set_ylabel("Centered probability effect")
+
+    axis.set_xlabel(feature_label)
+    axis.grid(True, alpha=0.25)
+    axis.legend(title="Species")
+    figure.tight_layout()
+    figure.savefig(image_path, dpi=150, bbox_inches="tight")
+    plt.close(figure)
+
+    return settings.MEDIA_URL + f"project2/{image_name}"
+
+
 def save_tree_plot(pipeline):
     output_dir = os.path.join(settings.MEDIA_ROOT, "project2")
     os.makedirs(output_dir, exist_ok=True)
@@ -456,6 +576,9 @@ def index(request):
     lambda_value = parse_lambda(request.GET.get("lambda"))
     model_type = request.GET.get("model-type", "decision-tree")
     counterfactuals_desired_class = request.GET.get("desired-class", "adelie")
+    feature_effect_feature = parse_feature_effect_feature(
+        request.GET.get("feature-effect-feature")
+    )
 
     regression_result, regression_candidates = train_regression_candidates(
         penguins, lambda_value
@@ -464,8 +587,16 @@ def index(request):
 
     active_result = regression_result if model_type == "logistic-regression" else tree_result
     active_pipeline = active_result["pipeline"]
+    dataset_context = build_dataset_page(penguins, request)
 
-    original_x = penguins.iloc[0].to_dict()
+    if dataset_context["selected_dataset_row"] is not None:
+        original_x = {
+            column: dataset_context["selected_dataset_row"]["values"][column]
+            for column in FEATURE_COLUMNS
+        }
+    else:
+        original_x = penguins.iloc[0][FEATURE_COLUMNS].to_dict()
+
     synthetic_points = sample_local_points(penguins, original_x, N=2000)
     predictions = active_pipeline.predict(synthetic_points)
     synthetic_points["predicted_species"] = predictions
@@ -479,7 +610,22 @@ def index(request):
         top_cfs = successful_cfs.sort_values(by="distance").head(5)
         counterfactual_rows = build_counterfactual_rows(top_cfs)
 
-    dataset_context = build_dataset_page(penguins, request)
+    pdp_data = compute_pdp(active_pipeline, penguins, feature_effect_feature)
+    ale_data = compute_ale(active_pipeline, penguins, feature_effect_feature)
+    pdp_image_url = save_feature_effect_plot(
+        pdp_data,
+        "pdp",
+        feature_effect_feature,
+        model_type,
+        lambda_value,
+    )
+    ale_image_url = save_feature_effect_plot(
+        ale_data,
+        "ale",
+        feature_effect_feature,
+        model_type,
+        lambda_value,
+    )
 
     if model_type == "logistic-regression":
         selected_model_description = (
@@ -548,6 +694,12 @@ def index(request):
     model_data["dataset_columns"] = dataset_context["dataset_columns"]
     model_data["dataset_column_labels"] = dataset_context["dataset_column_labels"]
     model_data["dataset_page_rows"] = list(dataset_context["dataset_page"].object_list)
+    model_data["feature_effect_feature"] = feature_effect_feature
+    model_data["feature_effect_feature_label"] = DISPLAY_COLUMN_LABELS[
+        feature_effect_feature
+    ]
+    model_data["pdp_image_url"] = pdp_image_url
+    model_data["ale_image_url"] = ale_image_url
 
     if request.GET.get("format") == "json":
         return JsonResponse(model_data)
@@ -557,11 +709,23 @@ def index(request):
         "row_count": len(penguins),
         "removed_row_count": len(original_penguins) - len(penguins),
         "target_column": TARGET_COLUMN.title(),
-        "target_classes": ["Adelie", "Chinstrap", "Gentoo"],
+        "target_classes": CLASS_NAMES,
         "categorical_features": [
             f.replace("_", " ").title() for f in CATEGORICAL_FEATURES
         ],
         "numeric_features": [f.replace("_", " ").title() for f in NUMERIC_FEATURES],
+        "feature_effect_options": [
+            {
+                "value": feature,
+                "label": DISPLAY_COLUMN_LABELS[feature],
+                "selected": feature == feature_effect_feature,
+            }
+            for feature in FEATURE_EFFECT_NUMERIC_FEATURES
+        ],
+        "feature_effect_feature": feature_effect_feature,
+        "feature_effect_feature_label": DISPLAY_COLUMN_LABELS[feature_effect_feature],
+        "pdp_image_url": pdp_image_url,
+        "ale_image_url": ale_image_url,
         "lambda_value": lambda_value,
         "model_type": model_type,
         "selected_model_description": selected_model_description,

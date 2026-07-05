@@ -32,6 +32,11 @@ Explainability{% endblock %} {% block extra_css %}
           name="dataset-page"
           value="{{ dataset_page.number }}"
         />
+        <input
+          type="hidden"
+          name="feature-effect-feature"
+          value="{{ feature_effect_feature }}"
+        />
 
         <div class="lambda-heading">
           <label for="lambda">Simplicity preference &lambda;:</label>
@@ -256,6 +261,13 @@ Explainability{% endblock %} {% block extra_css %}
       <h2>Counterfactuals</h2>
 
       <form method="get" id="counterfactuals-form" class="counterfactuals-form task-two-panel">
+        <input type="hidden" name="lambda" value="{{ lambda_value }}" />
+        <input type="hidden" name="model-type" value="{{ model_type }}" />
+        <input
+          type="hidden"
+          name="feature-effect-feature"
+          value="{{ feature_effect_feature }}"
+        />
         {% include "components/radio_buttons_set.html" with header_text="Select a desired class:" group_name="desired-class" current_value=desired_class options=output_classes %}
 
         {% if selected_dataset_row %}
@@ -387,6 +399,57 @@ Explainability{% endblock %} {% block extra_css %}
         </table>
       </div>
     </div>
+
+    <section class="feature-effects-panel" id="feature-effects">
+      <h2>Feature Effect Plots</h2>
+      <p class="section-intro">
+        These global explanations use the currently selected model type and
+        lambda value. Each plot shows one curve per species.
+      </p>
+
+      <form method="get" id="feature-effects-form" class="task-two-panel feature-effects-form">
+        <input type="hidden" name="lambda" value="{{ lambda_value }}" />
+        <input type="hidden" name="model-type" value="{{ model_type }}" />
+        <input type="hidden" name="desired-class" value="{{ desired_class }}" />
+        <input type="hidden" name="selected-row" value="{{ selected_row_id }}" />
+        <input
+          type="hidden"
+          name="dataset-page"
+          value="{{ dataset_page.number }}"
+        />
+
+        <label for="feature-effect-feature">Numeric feature</label>
+        <select id="feature-effect-feature" name="feature-effect-feature">
+          {% for option in feature_effect_options %}
+            <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>
+              {{ option.label }}
+            </option>
+          {% endfor %}
+        </select>
+
+        <button type="submit">Update plots</button>
+      </form>
+
+      <div class="feature-effects-grid">
+        <article class="effect-plot-card">
+          <h3>Partial Dependence Plot</h3>
+          <img
+            id="pdp-image-element"
+            src="{{ pdp_image_url }}"
+            alt="Partial dependence plot for {{ feature_effect_feature_label }}"
+          />
+        </article>
+
+        <article class="effect-plot-card">
+          <h3>Accumulated Local Effects Plot</h3>
+          <img
+            id="ale-image-element"
+            src="{{ ale_image_url }}"
+            alt="Accumulated local effects plot for {{ feature_effect_feature_label }}"
+          />
+        </article>
+      </div>
+    </section>
   </section>
 
   <script>
@@ -400,6 +463,8 @@ Explainability{% endblock %} {% block extra_css %}
 
       const counterfactualsForm = document.getElementById("counterfactuals-form");
       const datasetPageInput = document.getElementById("dataset-page");
+      const featureEffectsForm = document.getElementById("feature-effects-form");
+      const featureEffectSelect = document.getElementById("feature-effect-feature");
 
       if (datasetPageInput) {
         datasetPageInput.addEventListener("keydown", function (event) {
@@ -417,14 +482,26 @@ Explainability{% endblock %} {% block extra_css %}
         const desiredClass = document.querySelector("[name='desired-class']:checked")?.value || "adelie";
         const selectedRow = document.querySelector("[name='selected-row']:checked")?.value || "{{ selected_row_id }}";
         const datasetPage = datasetPageInput?.value || "{{ dataset_page.number }}";
+        const featureEffectFeature = featureEffectSelect?.value || "{{ feature_effect_feature }}";
 
-        fetch(`?lambda=${lambda}&model-type=${modelType}&desired-class=${desiredClass}&selected-row=${selectedRow}&dataset-page=${datasetPage}&format=json`)
+        fetch(`?lambda=${lambda}&model-type=${modelType}&desired-class=${desiredClass}&selected-row=${selectedRow}&dataset-page=${datasetPage}&feature-effect-feature=${featureEffectFeature}&format=json`)
           .then((response) => response.json())
           .then((data) => {
             document.getElementById("accuracy-display").innerText = data.accuracy_percent + "%";
             document.getElementById("complexity-display").innerText = data.complexity_count;
             document.getElementById("selection-score-display").innerText = data.selection_score;
             document.getElementById("selected-model-note-text").innerText = data.selected_model_description;
+
+            const pdpImage = document.getElementById("pdp-image-element");
+            const aleImage = document.getElementById("ale-image-element");
+            if (pdpImage && data.pdp_image_url) {
+              pdpImage.src = data.pdp_image_url + "?v=" + Date.now();
+              pdpImage.alt = `Partial dependence plot for ${data.feature_effect_feature_label}`;
+            }
+            if (aleImage && data.ale_image_url) {
+              aleImage.src = data.ale_image_url + "?v=" + Date.now();
+              aleImage.alt = `Accumulated local effects plot for ${data.feature_effect_feature_label}`;
+            }
 
             const datasetTableBody = document.getElementById("dataset-table-body");
             if (datasetTableBody && data.dataset_page_rows) {
@@ -480,7 +557,7 @@ Explainability{% endblock %} {% block extra_css %}
               }
             }
 
-            window.history.replaceState({}, "", `?lambda=${lambda}&model-type=${modelType}&desired-class=${desiredClass}&selected-row=${selectedRow}&dataset-page=${datasetPage}`);
+            window.history.replaceState({}, "", `?lambda=${lambda}&model-type=${modelType}&desired-class=${desiredClass}&selected-row=${selectedRow}&dataset-page=${datasetPage}&feature-effect-feature=${featureEffectFeature}`);
           });
       }
 
@@ -493,6 +570,17 @@ Explainability{% endblock %} {% block extra_css %}
         event.preventDefault();
         updateDashboard();
       });
+
+      if (featureEffectsForm) {
+        featureEffectsForm.addEventListener("submit", function (event) {
+          event.preventDefault();
+          updateDashboard();
+        });
+      }
+
+      if (featureEffectSelect) {
+        featureEffectSelect.addEventListener("change", updateDashboard);
+      }
 
       function updateSelectedRowSummary(selectedRowData, data) {
         const summary = document.getElementById("selected-row-summary");
