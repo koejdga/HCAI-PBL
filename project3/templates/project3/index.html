@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block site_context %}Project 3: Active Learning for Learning-to-Defer{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'project3/style.css' %}" />
+{% endblock %}
+
+{% block content %}
+<div class="box project3-box">
+  <div class="title-container">
+    <div class="title">Active Learning for Learning-to-Defer</div>
+  </div>
+
+  <section class="project3-section controls-section">
+    <form class="experiment-form" method="get">
+      <label for="train-size">Training examples</label>
+      <input id="train-size" name="train-size" value="{{ train_size }}" />
+
+      <label for="test-size">Test examples</label>
+      <input id="test-size" name="test-size" value="{{ test_size }}" />
+
+      <label for="defer-rate">Deferral rate</label>
+      <input id="defer-rate" name="defer-rate" value="{{ defer_rate }}" />
+
+      <label for="query-budget">Expert queries</label>
+      <input id="query-budget" name="query-budget" value="{{ query_budget }}" />
+
+      <button type="submit">Run experiment</button>
+    </form>
+
+    <div class="dataset-summary">
+      <span>Source: <strong>{{ dataset_source }}</strong></span>
+      <span>Training rows used: <strong>{{ train_rows }}</strong> of {{ full_train_rows }}</span>
+      <span>Test rows used: <strong>{{ test_rows }}</strong> of {{ full_test_rows }}</span>
+      <a class="report-link" href="{% url 'project3:report' %}?train-size={{ train_size }}&test-size={{ test_size }}&defer-rate={{ defer_rate }}&query-budget={{ query_budget }}">Download report</a>
+    </div>
+  </section>
+
+  <section class="metrics-grid">
+    <article class="metric-card">
+      <span>Baseline Classifier</span>
+      <strong>{{ baseline_accuracy_percent }}%</strong>
+      <p>Test accuracy using TF-IDF features and a linear SVM.</p>
+    </article>
+
+    <article class="metric-card">
+      <span>Simulated Expert</span>
+      <strong>{{ expert_accuracy_percent }}%</strong>
+      <p>Test accuracy for a deliberately imperfect topic-specialist expert.</p>
+    </article>
+
+    <article class="metric-card">
+      <span>Team Policy</span>
+      <strong>{{ team_accuracy_percent }}%</strong>
+      <p>{{ defer_rate_percent }}% of low-confidence cases deferred to the expert.</p>
+    </article>
+
+    <article class="metric-card">
+      <span>Expert Queries</span>
+      <strong>{{ active_learning.query_budget }}</strong>
+      <p>Uncertain training examples selected to estimate expert competence.</p>
+    </article>
+  </section>
+
+  <section class="project3-section">
+    <h2>Baseline Classifier</h2>
+    <p>
+      The baseline uses all available labels in the selected training subset. It
+      represents the standard automated classifier that the later human-AI team
+      should aim to match or improve.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Class</th>
+            <th>Accuracy</th>
+            <th>Correct / Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in baseline_class_rows %}
+          <tr>
+            <td>{{ row.class_name }}</td>
+            <td>{{ row.accuracy_percent }}%</td>
+            <td>{{ row.correct }} / {{ row.total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="project3-section">
+    <h2>Simulated Expert</h2>
+    <p>
+      The simulated expert is intentionally uneven: it is strongest on sports,
+      fairly strong on science and technology, moderate on world news, and weaker
+      on business. This models a human collaborator with real expertise and real
+      limits.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Class</th>
+            <th>Expert accuracy</th>
+            <th>Correct / Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in expert_class_rows %}
+          <tr>
+            <td>{{ row.class_name }}</td>
+            <td>{{ row.accuracy_percent }}%</td>
+            <td>{{ row.correct }} / {{ row.total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="project3-section">
+    <h2>Team Policy: {{ team_policy_name }}</h2>
+    <div class="team-summary-grid">
+      <article>
+        <span>Handled by AI</span>
+        <strong>{{ team_non_deferred_total }}</strong>
+      </article>
+      <article>
+        <span>Sent to expert</span>
+        <strong>{{ team_deferred_total }}</strong>
+      </article>
+      <article>
+        <span>Useful deferrals</span>
+        <strong>{{ team_useful_defer }}</strong>
+      </article>
+      <article>
+        <span>Harmful deferrals</span>
+        <strong>{{ team_harmful_defer }}</strong>
+      </article>
+    </div>
+  </section>
+
+  <section class="project3-section">
+    <h2>Policy Comparison</h2>
+    <div class="plot-panel">
+      <img src="{{ model_plot_url }}" alt="Model and team accuracy comparison" />
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Policy</th>
+            <th>Accuracy</th>
+            <th>Deferred</th>
+            <th>Deferral rate</th>
+            <th>Useful deferrals</th>
+            <th>Harmful deferrals</th>
+            <th>Net benefit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in policy_rows %}
+          <tr>
+            <td>{{ row.name }}</td>
+            <td>{{ row.accuracy_percent }}%</td>
+            <td>{{ row.deferred_total }}</td>
+            <td>{{ row.deferral_rate_percent }}%</td>
+            <td>{{ row.useful_defer }}</td>
+            <td>{{ row.harmful_defer }}</td>
+            <td>{{ row.net_defer }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="project3-section">
+    <h2>Expert Queries</h2>
+    <p>
+      The query policy selects low-margin classifier examples while balancing
+      across predicted classes. The queried labels are used to estimate where the
+      expert is likely to help.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Class</th>
+            <th>Estimated expert accuracy</th>
+            <th>Correct / Queried</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in active_learning.estimated_competence_rows %}
+          <tr>
+            <td>{{ row.class_name }}</td>
+            <td>{{ row.accuracy_percent }}%</td>
+            <td>{{ row.correct }} / {{ row.total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="project3-section">
+    <h2>Query Strategy Comparison</h2>
+    <div class="plot-panel">
+      <img src="{{ strategy_plot_url }}" alt="Active learning strategy comparison" />
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Strategy</th>
+            <th>Expert agreement</th>
+            <th>Average competence</th>
+            <th>Weakest class estimate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in strategy_rows %}
+          <tr>
+            <td>{{ row.label }}</td>
+            <td>{{ row.agreement_percent }}%</td>
+            <td>{{ row.average_competence_percent }}%</td>
+            <td>{{ row.min_competence_percent }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="project3-section">
+    <h2>Queried Examples</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Expert</th>
+            <th>True</th>
+            <th>Margin</th>
+            <th>Text</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in active_learning.queried_rows %}
+          <tr>
+            <td>{{ row.model_class }}</td>
+            <td>{{ row.expert_class }}</td>
+            <td>{{ row.true_class }}</td>
+            <td>{{ row.margin }}</td>
+            <td class="text-cell">{{ row.text }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="project3-section">
+    <h2>Human Expert</h2>
+    <div class="human-expert-summary">
+      <span>Answered: <strong>{{ human_expert.answered }}</strong> / {{ human_expert.total }}</span>
+      <span>Correct: <strong>{{ human_expert.correct }}</strong></span>
+      <span>Accuracy: <strong>{{ human_expert.accuracy_percent }}%</strong></span>
+    </div>
+
+    <form method="post" class="human-label-form">
+      {% csrf_token %}
+      <div class="human-label-list">
+        {% for row in human_expert.rows %}
+        <article class="human-label-card">
+          <p>{{ row.text }}</p>
+          <label for="human-label-{{ row.key }}">Your label</label>
+          <select id="human-label-{{ row.key }}" name="human_label_{{ row.key }}">
+            <option value="">Choose a class</option>
+            {% for option in human_expert.class_options %}
+              <option value="{{ option.value }}" {% if row.selected_label == option.value %}selected{% endif %}>
+                {{ option.label }}
+              </option>
+            {% endfor %}
+          </select>
+          {% if row.answered %}
+            <span class="{% if row.correct %}label-result-correct{% else %}label-result-wrong{% endif %}">
+              Reference: {{ row.true_class }}
+            </span>
+          {% endif %}
+        </article>
+        {% endfor %}
+      </div>
+
+      <div class="human-label-actions">
+        <button type="submit">Submit labels</button>
+        <button type="submit" name="action" value="clear-human-labels" class="secondary-button">
+          Clear labels
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="project3-section">
+    <h2>Sample Test Examples</h2>
+    <div class="examples-list">
+      {% for example in sample_examples %}
+      <article>
+        <strong>{{ example.label }}</strong>
+        <p>{{ example.text }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}
