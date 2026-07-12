@@ -1,4 +1,6 @@
-{% extends 'base.html' %} {% load static %} {% block extra_css %}
+{% extends 'base.html' %} {% load static %} {% block site_context %}{% endblock %}
+{% block extra_css %}
+
 <style>
   .plot-card > button.remove-plot-button {
     position: absolute !important;

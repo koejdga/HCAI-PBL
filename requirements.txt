@@ -2,3 +2,4 @@ Django>=5.0
 matplotlib
 numpy
 scikit-learn
+palmerpenguins>=0.1.4 #required for project 2

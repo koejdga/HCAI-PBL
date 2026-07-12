@@ -15,7 +15,9 @@
                 <img src="{% static 'images/tuhh-logo.svg' %}" alt="TUHH logo" class="site-logo">
                 <span>Human-Centric AI PBL</span>
             </a>
-            <span class="site-context">Supervised learning interface</span>
+            <span class="site-context">
+                {% block site_context %}Course project hub{% endblock %}
+            </span>
         </header>
         <main class="grid-parent">
             {% block content %}
