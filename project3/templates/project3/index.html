@@ -9,6 +9,8 @@
 
 {% block content %}
 <div class="box project3-box">
+  {% include "components/content_menu.html" with menu_items=content_menu_items %}
+
   <div class="title-container">
     <div class="title">Active Learning for Learning-to-Defer</div>
   </div>
@@ -64,7 +66,7 @@
     </article>
   </section>
 
-  <section class="project3-section">
+  <section id="baseline-classifier" class="project3-section">
     <h2>Baseline Classifier</h2>
     <p>
       The baseline uses all available labels in the selected training subset. It
@@ -94,7 +96,7 @@
     </div>
   </section>
 
-  <section class="project3-section">
+  <section id="simulated-expert" class="project3-section">
     <h2>Simulated Expert</h2>
     <p>
       The simulated expert is intentionally uneven: it is strongest on sports,
@@ -102,6 +104,11 @@
       on business. This models a human collaborator with real expertise and real
       limits.
     </p>
+
+    <form id="expert-choice-form" action="get">
+      {% include "components/radio_buttons_set.html" with options=expert_options group_name="expert-type" %}
+      <button type="button">Show expert's accuracy</button>
+    </form>
 
     <div class="table-wrap">
       <table>
@@ -125,7 +132,7 @@
     </div>
   </section>
 
-  <section class="project3-section">
+  <section id="team-policy" class="project3-section">
     <h2>Team Policy: {{ team_policy_name }}</h2>
     <div class="team-summary-grid">
       <article>
@@ -147,7 +154,7 @@
     </div>
   </section>
 
-  <section class="project3-section">
+  <section id="policy-comparison" class="project3-section">
     <h2>Policy Comparison</h2>
     <div class="plot-panel">
       <img src="{{ model_plot_url }}" alt="Model and team accuracy comparison" />
@@ -182,7 +189,7 @@
     </div>
   </section>
 
-  <section class="project3-section">
+  <section id="expert-queries" class="project3-section">
     <h2>Expert Queries</h2>
     <p>
       The query policy selects low-margin classifier examples while balancing
@@ -321,5 +328,24 @@
       {% endfor %}
     </div>
   </section>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const expertChoiceForm = document.getElementById("expert-choice-form");
+
+      expertChoiceForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        const expertType = document.querySelector("[name='expert-type']:checked")?.value || "always-correct";
+
+        fetch(`?expert=${expertType}&format=json`)
+          .then((response) => response.json())
+          .then((data) => {
+
+            document.getElementById("accuracy-display").innerText = data.accuracy_percent + "%";
+
+          });
+      })
+    });
+  </script>
 </div>
 {% endblock %}

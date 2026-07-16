@@ -1,0 +1,10 @@
+<nav class="section-nav" aria-label="Plot sections">
+  <button type="button" class="section-nav-toggle" onclick="toggleSectionNav()">
+    Contents
+  </button>
+  <div class="section-nav-links" id="section-nav-links">
+    {% for item in menu_items %}
+    <a href="{{ item.href }}">{{ item.label }}</a>
+    {% endfor %}
+</div>
+</nav>
