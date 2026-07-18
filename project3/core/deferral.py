@@ -5,11 +5,26 @@ from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
 from .utils import CLASS_IDS, CLASS_NAMES
-from enum import Enum
 
 DEFAULT_DEFER_RATE = 0.30
 DEFAULT_QUERY_BUDGET = 120
 DEFAULT_EXPERT_ADVANTAGE = 0.08
+
+# Realistic per-class difficulty tweaks (World/Business are often harder for lay readers).
+CLASS_DIFFICULTY = {1: -0.04, 2: 0.05, 3: -0.03, 4: 0.02}
+
+DOMAIN_KEYWORDS = {
+    1: ["government", "minister", "election", "diplomat", "war", "peace", "un ", "nato"],
+    2: ["team", "game", "match", "coach", "season", "win", "player", "league", "score"],
+    3: ["stocks", "market", "bank", "profit", "prices", "earnings", "company", "trade"],
+    4: ["software", "technology", "space", "chip", "research", "security", "internet", "computer"],
+}
+
+COMPETENCE_PROFILES = {
+    "more-competent": {"in_field": 0.86, "out_field": 0.54, "keyword_boost": 0.08},
+    "less-competent": {"in_field": 0.71, "out_field": 0.41, "keyword_boost": 0.06},
+}
+
 
 def deterministic_score(text, salt):
     digest = hashlib.sha256(f"{salt}:{text}".encode("utf-8")).hexdigest()
@@ -38,28 +53,46 @@ def train_baseline_classifier(train_examples, test_examples):
         "confusion": build_confusion_rows(y_test, predictions),
     }
 
-def simulated_expert_predict(example):
+def _normalize_competence_level(competence_level):
+    if competence_level in COMPETENCE_PROFILES:
+        return competence_level
+    return "more-competent"
+
+
+def _normalize_expert_fields(expert_fields):
+    if expert_fields is None:
+        return list(CLASS_IDS)
+    normalized = [field_id for field_id in expert_fields if field_id in CLASS_IDS]
+    return normalized or list(CLASS_IDS)
+
+
+def _has_domain_cues(text, label):
+    lower_text = text.lower()
+    return any(keyword in lower_text for keyword in DOMAIN_KEYWORDS.get(label, []))
+
+
+def _correctness_probability(label, expert_fields, competence_level, text):
+    fields = _normalize_expert_fields(expert_fields)
+    profile = COMPETENCE_PROFILES[_normalize_competence_level(competence_level)]
+    in_field = label in fields
+
+    competence = profile["in_field"] if in_field else profile["out_field"]
+    competence += CLASS_DIFFICULTY.get(label, 0)
+
+    if in_field and _has_domain_cues(text, label):
+        competence += profile["keyword_boost"]
+
+    return min(0.97, max(0.22, competence))
+
+
+def simulated_expert_predict(example, expert_fields=None, competence_level=None):
     label = example["label"]
     text = example["text"]
-    lower_text = text.lower()
-    strengths = {1: 0.70, 2: 0.90, 3: 0.58, 4: 0.78}
-    
-    sports_words = ["team", "game", "match", "coach", "season", "win", "player"]
-    science_words = ["software", "technology", "space", "chip", "research", "security"]
-    business_words = ["stocks", "market", "bank", "profit", "prices", "earnings"]
-
-    if label == 2 and any(word in lower_text for word in sports_words):
-        competence = 0.96
-    elif label == 4 and any(word in lower_text for word in science_words):
-        competence = 0.88
-    elif label == 3 and any(word in lower_text for word in business_words):
-        competence = 0.68
-    else:
-        competence = strengths[label]
+    competence = _correctness_probability(label, expert_fields, competence_level, text)
 
     if deterministic_score(text, "expert-correctness") < competence:
         return label
-    
+
     return choose_wrong_label_deterministic(text, label, CLASS_IDS)
 
 
@@ -69,41 +102,19 @@ def choose_wrong_label_deterministic(text, correct_label, classes=CLASS_IDS):
     return alternatives[min(wrong_index, len(alternatives) - 1)]
 
 
-class TrivialExpert(Enum):
-    ALWAYS_CORRECT = 1
-    ALWAYS_INCORRECT = 2
-    ALWAYS_CORRECT_IN_ONE_FIELD = 3
-    ALWAYS_CORRECT_IN_TWO_FIELDS = 4
-
-
-def trivial_expert_predict(example, expert_type: TrivialExpert, expert_field=None, second_expert_field=None):
+def trivial_expert_predict(example, expert_fields=None):
     label = example["label"]
     text = example["text"]
-
-    match expert_type:
-        case TrivialExpert.ALWAYS_CORRECT:
-            return label
-        case TrivialExpert.ALWAYS_INCORRECT:
-            return choose_wrong_label_deterministic(text, label, CLASS_IDS)
-        case TrivialExpert.ALWAYS_CORRECT_IN_ONE_FIELD:
-            if expert_field is None:
-                raise "Expert field must be specified for an expert with one expert field"
-            if label == expert_field:
-                return label
-            else:
-                return choose_wrong_label_deterministic(text, label, CLASS_IDS)
-        case TrivialExpert.ALWAYS_CORRECT_IN_TWO_FIELDS:
-            if expert_field is None or second_expert_field is None:
-                raise "Two expert fields must be specified for an expert with two expert fields"
-            if label == expert_field or label == second_expert_field:
-                return label
-            else:
-                return choose_wrong_label_deterministic(text, label, CLASS_IDS)
+    
+    if label in expert_fields:
+        return label
+    else:
+        return choose_wrong_label_deterministic(text, label, CLASS_IDS)
 
 
-def evaluate_trivial_expert(test_examples, expert_type: TrivialExpert, expert_field=None, second_expert_field=None):
+def evaluate_trivial_expert(test_examples, expert_fields=None):
     y_true = [example["label"] for example in test_examples]
-    predictions = [trivial_expert_predict(example, expert_type, expert_field, second_expert_field) for example in test_examples]
+    predictions = [trivial_expert_predict(example, expert_fields) for example in test_examples]
     return {
         "accuracy": accuracy_score(y_true, predictions),
         "predictions": predictions,
@@ -112,18 +123,22 @@ def evaluate_trivial_expert(test_examples, expert_type: TrivialExpert, expert_fi
     }
 
 
-def evaluate_simulated_expert(test_examples):
+def evaluate_simulated_expert(test_examples, expert_fields=None, competence_level=None):
     y_true = [example["label"] for example in test_examples]
-    predictions = [simulated_expert_predict(example) for example in test_examples]
+    predictions = [
+        simulated_expert_predict(
+            example,
+            expert_fields=expert_fields,
+            competence_level=competence_level,
+        )
+        for example in test_examples
+    ]
     return {
         "accuracy": accuracy_score(y_true, predictions),
         "predictions": predictions,
         "per_class": per_class_accuracy(y_true, predictions),
         "confusion": build_confusion_rows(y_true, predictions),
     }
-
-
-
 
 
 def per_class_accuracy(y_true, predictions):
@@ -159,26 +174,96 @@ def prediction_margins(decision_scores):
     sorted_scores = np.sort(decision_scores, axis=1)
     return sorted_scores[:, -1] - sorted_scores[:, -2]
 
-def evaluate_learning_to_defer(test_examples, baseline, expert, defer_rate):
+def predict_expert(example, settings):
+    if not settings or settings.get("type") == "TRIVIAL":
+        fields = settings.get("fields", []) if settings else None
+        return trivial_expert_predict(example, expert_fields=fields)
+    return simulated_expert_predict(
+        example,
+        expert_fields=settings.get("fields"),
+        competence_level=settings.get("competence_level"),
+    )
+
+def get_expert_cost(config):
+    if not config:
+        return 0.0
+    if config.get("cost_presence") == "present" and config.get("cost") is not None:
+        try:
+            return float(config["cost"])
+        except (ValueError, TypeError):
+            return 0.0
+    return 0.0
+
+def evaluate_confidence_threshold_defer(test_examples, baseline, expert, defer_rate, expert_configs=None):
     y_true = np.array([example["label"] for example in test_examples])
     baseline_predictions = np.array(baseline["predictions"])
-    expert_predictions = np.array(expert["predictions"])
     margins = prediction_margins(baseline["decision_scores"])
+
+    if isinstance(expert, list):
+        expert_results_list = expert
+    else:
+        expert_results_list = [expert]
+
+    if not expert_configs:
+        expert_configs = [{"cost_presence": "absent", "cost": 0.0} for _ in expert_results_list]
+
+    num_experts = len(expert_results_list)
+    expert_preds = np.column_stack([np.array(e["predictions"]) for e in expert_results_list])
+    expert_costs = np.array([get_expert_cost(cfg) for cfg in expert_configs])
 
     defer_count = int(round(len(test_examples) * defer_rate))
     defer_count = min(max(defer_count, 0), len(test_examples))
     deferred_mask = np.zeros(len(test_examples), dtype=bool)
+
     if defer_count:
         deferred_indices = np.argsort(margins)[:defer_count]
         deferred_mask[deferred_indices] = True
 
-    team_predictions = np.where(deferred_mask, expert_predictions, baseline_predictions)
+    team_predictions = baseline_predictions.copy()
+    useful_defer = 0
+    harmful_defer = 0
+    both_correct_defer = 0
+    total_cost = 0.0
+
+    query_allocation = {
+        cid: {e_idx: {"correct": 0, "queried": 0} for e_idx in range(num_experts)}
+        for cid in CLASS_IDS
+    }
+
+    for i in range(len(test_examples)):
+        if deferred_mask[i]:
+            if num_experts == 1:
+                chosen_expert_idx = 0
+            else:
+                pred_label = baseline_predictions[i]
+                class_name = CLASS_NAMES.get(int(pred_label))
+                scores = []
+                for e_idx in range(num_experts):
+                    acc = expert_results_list[e_idx]["per_class"].get(class_name, {}).get("accuracy", 0.5)
+                    score = acc - expert_costs[e_idx]
+                    scores.append(score)
+                chosen_expert_idx = int(np.argmax(scores))
+
+            chosen_pred = expert_preds[i, chosen_expert_idx]
+            team_predictions[i] = chosen_pred
+            total_cost += expert_costs[chosen_expert_idx]
+
+            true_label = int(y_true[i])
+            query_allocation[true_label][chosen_expert_idx]["queried"] += 1
+            if chosen_pred == true_label:
+                query_allocation[true_label][chosen_expert_idx]["correct"] += 1
+
+            b_corr = (baseline_predictions[i] == y_true[i])
+            e_corr = (chosen_pred == y_true[i])
+            if not b_corr and e_corr:
+                useful_defer += 1
+            elif b_corr and not e_corr:
+                harmful_defer += 1
+            elif b_corr and e_corr:
+                both_correct_defer += 1
+
     deferred_total = int(deferred_mask.sum())
     non_deferred_total = len(test_examples) - deferred_total
-
-    useful_defer = int(np.sum(deferred_mask & (baseline_predictions != y_true) & (expert_predictions == y_true)))
-    harmful_defer = int(np.sum(deferred_mask & (baseline_predictions == y_true) & (expert_predictions != y_true)))
-    both_correct_defer = int(np.sum(deferred_mask & (baseline_predictions == y_true) & (expert_predictions == y_true)))
 
     return {
         "policy_name": "Confidence threshold",
@@ -189,24 +274,85 @@ def evaluate_learning_to_defer(test_examples, baseline, expert, defer_rate):
         "useful_defer": useful_defer,
         "harmful_defer": harmful_defer,
         "both_correct_defer": both_correct_defer,
+        "total_cost": round(total_cost, 2),
+        "query_allocation": query_allocation,
         "confusion": build_confusion_rows(y_true, team_predictions),
     }
 
-def evaluate_competence_aware_defer(test_examples, baseline, expert, competence_by_class):
+def evaluate_competence_aware_defer(test_examples, baseline, expert, competence_by_class, expert_configs=None):
     y_true = np.array([example["label"] for example in test_examples])
     baseline_predictions = np.array(baseline["predictions"])
-    expert_predictions = np.array(expert["predictions"])
     margins = prediction_margins(baseline["decision_scores"])
+
+    if isinstance(expert, list):
+        expert_results_list = expert
+    else:
+        expert_results_list = [expert]
+
+    num_experts = len(expert_results_list)
+    competence_list = []
+    for e_idx in range(num_experts):
+        comp_dict = {}
+        for cid in CLASS_IDS:
+            class_name = CLASS_NAMES[cid]
+            comp_dict[cid] = expert_results_list[e_idx]["per_class"].get(class_name, {}).get("accuracy", 0.5)
+        competence_list.append(comp_dict)
+
+    if not expert_configs:
+        expert_configs = [{"cost_presence": "absent", "cost": 0.0} for _ in expert_results_list]
+
+    num_experts = len(expert_results_list)
+    expert_preds = np.column_stack([np.array(e["predictions"]) for e in expert_results_list])
+    expert_costs = np.array([get_expert_cost(cfg) for cfg in expert_configs])
 
     median_margin = max(float(np.median(margins)), 0.001)
     model_confidence = 1 / (1 + np.exp(-(margins / median_margin)))
-    expert_competence = np.array([competence_by_class.get(int(label), 0.5) for label in baseline_predictions])
-    expert_advantage = expert_competence - model_confidence
-    deferred_mask = expert_advantage > DEFAULT_EXPERT_ADVANTAGE
-    team_predictions = np.where(deferred_mask, expert_predictions, baseline_predictions)
 
-    useful_defer = int(np.sum(deferred_mask & (baseline_predictions != y_true) & (expert_predictions == y_true)))
-    harmful_defer = int(np.sum(deferred_mask & (baseline_predictions == y_true) & (expert_predictions != y_true)))
+    deferred_mask = np.zeros(len(test_examples), dtype=bool)
+    team_predictions = baseline_predictions.copy()
+    useful_defer = 0
+    harmful_defer = 0
+    advantages_list = []
+    total_cost = 0.0
+
+    query_allocation = {
+        cid: {e_idx: {"correct": 0, "queried": 0} for e_idx in range(num_experts)}
+        for cid in CLASS_IDS
+    }
+
+    for i in range(len(test_examples)):
+        label_pred = int(baseline_predictions[i])
+        m_conf = model_confidence[i]
+
+        advantages = []
+        for e_idx in range(num_experts):
+            comp_dict = competence_list[e_idx] if e_idx < len(competence_list) else competence_list[0]
+            e_comp = comp_dict.get(label_pred, 0.5)
+            c_cost = expert_costs[e_idx]
+            adv = e_comp - m_conf - c_cost
+            advantages.append(adv)
+
+        best_e_idx = int(np.argmax(advantages))
+        best_adv = advantages[best_e_idx]
+        advantages_list.append(best_adv)
+
+        if best_adv > DEFAULT_EXPERT_ADVANTAGE:
+            deferred_mask[i] = True
+            chosen_pred = expert_preds[i, best_e_idx]
+            team_predictions[i] = chosen_pred
+            total_cost += expert_costs[best_e_idx]
+
+            true_label = int(y_true[i])
+            query_allocation[true_label][best_e_idx]["queried"] += 1
+            if chosen_pred == true_label:
+                query_allocation[true_label][best_e_idx]["correct"] += 1
+
+            b_corr = (baseline_predictions[i] == y_true[i])
+            e_corr = (chosen_pred == y_true[i])
+            if not b_corr and e_corr:
+                useful_defer += 1
+            elif b_corr and not e_corr:
+                harmful_defer += 1
 
     return {
         "policy_name": "Competence-aware",
@@ -215,6 +361,8 @@ def evaluate_competence_aware_defer(test_examples, baseline, expert, competence_
         "non_deferred_total": int(len(test_examples) - deferred_mask.sum()),
         "useful_defer": useful_defer,
         "harmful_defer": harmful_defer,
-        "average_expert_advantage": float(np.mean(expert_advantage)),
+        "average_expert_advantage": float(np.mean(advantages_list)) if advantages_list else 0.0,
+        "total_cost": round(total_cost, 2),
+        "query_allocation": query_allocation,
         "confusion": build_confusion_rows(y_true, team_predictions),
     }

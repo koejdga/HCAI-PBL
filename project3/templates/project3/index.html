@@ -15,7 +15,7 @@
     <div class="title">Active Learning for Learning-to-Defer</div>
   </div>
 
-  <section class="project3-section controls-section">
+  <section class="controls-section">
     <form class="experiment-form" method="get">
       <label for="train-size">Training examples</label>
       <input id="train-size" name="train-size" value="{{ train_size }}" />
@@ -40,32 +40,6 @@
     </div>
   </section>
 
-  <section class="metrics-grid">
-    <article class="metric-card">
-      <span>Baseline Classifier</span>
-      <strong>{{ baseline_accuracy_percent }}%</strong>
-      <p>Test accuracy using TF-IDF features and a linear SVM.</p>
-    </article>
-
-    <article class="metric-card">
-      <span>Simulated Expert</span>
-      <strong>{{ expert_accuracy_percent }}%</strong>
-      <p>Test accuracy for a deliberately imperfect topic-specialist expert.</p>
-    </article>
-
-    <article class="metric-card">
-      <span>Team Policy</span>
-      <strong>{{ team_accuracy_percent }}%</strong>
-      <p>{{ defer_rate_percent }}% of low-confidence cases deferred to the expert.</p>
-    </article>
-
-    <article class="metric-card">
-      <span>Expert Queries</span>
-      <strong>{{ active_learning.query_budget }}</strong>
-      <p>Uncertain training examples selected to estimate expert competence.</p>
-    </article>
-  </section>
-
   <section id="baseline-classifier" class="project3-section">
     <h2>Baseline Classifier</h2>
     <p>
@@ -73,6 +47,7 @@
       represents the standard automated classifier that the later human-AI team
       should aim to match or improve.
     </p>
+    <p>TF-IDF features and a linear SVM.</p>
 
     <div class="table-wrap">
       <table>
@@ -96,101 +71,200 @@
     </div>
   </section>
 
-  <section id="simulated-expert" class="project3-section">
-    <h2>Simulated Expert</h2>
+  <section id="learning-to-defer" class="project3-section">
+    <h2>Learning to Defer</h2>
+    <h3>Simulated Expert(s)</h3>
     <p>
-      The simulated expert is intentionally uneven: it is strongest on sports,
-      fairly strong on science and technology, moderate on world news, and weaker
-      on business. This models a human collaborator with real expertise and real
-      limits.
+      Configure up to two simulated experts to model different human-AI collaboration scenarios. 
+      You can define each expert's behavioral profile by choosing their type: <strong>Trivial</strong> 
+      (perfectly accurate in selected domains, but completely wrong in others) or <strong>Realistic</strong> 
+      (exhibiting baseline competence levels with natural randomness). Customize their specific 
+      domains of expertise and set an operational cost per query to evaluate how different 
+      deferral policies balance human reliability against query budgets.
     </p>
 
-    <form id="expert-choice-form" action="get">
-      {% include "components/radio_buttons_set.html" with options=expert_options group_name="expert-type" %}
-      <button type="button">Show expert's accuracy</button>
+    <form id="expert-choice-form" method="get">
+      <div id="expert-one-fields-container" class="light-frame">
+        {% include "project3/components/expert_form_fields.html" with expert_id="expert-one" %}
+      </div>
+
+      <button type="button" id="button-add-second-expert">Add second expert</button>
+
+      <div id="expert-two-fields-container" class="light-frame">
+        {% include "project3/components/expert_form_fields.html" with expert_id="expert-two" %}
+      </div>
+
+      <button type="button" id="remove-second-expert-button">Remove second expert</button>
+
+      <button type="button" id="apply-expert-accuracy" style="margin-block:20px">Apply expert's accuracy</button>
     </form>
 
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Class</th>
-            <th>Expert accuracy</th>
-            <th>Correct / Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in expert_class_rows %}
-          <tr>
-            <td>{{ row.class_name }}</td>
-            <td>{{ row.accuracy_percent }}%</td>
-            <td>{{ row.correct }} / {{ row.total }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div id="expert-setup-results">
+      <h3>Expert details</h3>
+
+      <div id="accuracy-preview-card" class="accuracy-preview-card" aria-live="polite">
+        <div class="accuracy-preview-header"><strong>Previewed expert accuracy</strong></div>
+
+        <div class="table-wrap accuracy-preview-table-wrap">
+          <table class="accuracy-preview-table">
+            <thead>
+              <tr>
+                <th>Expert</th>
+                <th>Type</th>
+                <th>Accuracy</th>
+              </tr>
+            </thead>
+            <tbody id="accuracy-preview-body"></tbody>
+          </table>
+        </div>
+
+        <div id="expert-per-class-accuracy" class="table-wrap accuracy-preview-table-wrap">
+          <table>
+            <thead>
+              <tr id="expert-class-accuracy-header">
+                <th>Class</th>
+                <th>Expert accuracy</th>
+                <th>Correct / Total</th>
+              </tr>
+            </thead>
+            <tbody id="expert-class-accuracy-body">
+              {% for row in expert_class_rows %}
+              <tr>
+                <td>{{ row.class_name }}</td>
+                <td>{{ row.accuracy_percent }}%</td>
+                <td>{{ row.correct }} / {{ row.total }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="margin-inline: 5%">
+        <h3>Policy Comparison with Chosen Expert(s)</h3>
+
+        <div class="table-wrap">
+          <table id="policy-comparison-table">
+            <thead>
+              <tr>
+                <th>Group</th>
+                <th>Policy</th>
+                <th>Accuracy</th>
+                <th>Deferred</th>
+                <th>Deferral rate</th>
+                <th>Useful deferrals</th>
+                <th>Harmful deferrals</th>
+                <th>Total cost</th>
+                <th>Net benefit</th>
+              </tr>
+            </thead>
+            <tbody id="policy-comparison-body">
+              {% for row in policy_rows %}
+              <tr>
+                <td><strong>{{ row.group }}</strong></td>
+                <td>{{ row.name }}</td>
+                <td>{{ row.accuracy_percent }}%</td>
+                <td>{{ row.deferred_total }}</td>
+                <td>{{ row.deferral_rate_percent }}%</td>
+                <td>{{ row.useful_defer }}</td>
+                <td>{{ row.harmful_defer }}</td>
+                <td>{{ row.total_cost }}</td>
+                <td>{{ row.net_defer }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top: 30px;">Query Allocation by Class and Expert</h3>
+        
+        <div style="display: flex; gap: 20px; justify-content: center; margin-block: 15px; flex-wrap: wrap;">
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+            <input type="radio" name="allocation-policy" value="confidence" checked style="width: auto; margin: 0;" />
+            Confidence Threshold
+          </label>
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+            <input type="radio" name="allocation-policy" value="competence" style="width: auto; margin: 0;" />
+            Competence-aware
+          </label>
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+            <input type="radio" name="allocation-policy" value="l2d_linear" style="width: auto; margin: 0;" />
+            L2D (Linear Model)
+          </label>
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+            <input type="radio" name="allocation-policy" value="l2d_nn" style="width: auto; margin: 0;" />
+            L2D (Neural Network)
+          </label>
+        </div>
+
+        <div class="table-wrap">
+          <table id="query-allocation-table">
+            <thead>
+              <tr id="query-allocation-header">
+                <th>Class Name</th>
+                <th>Expert 1 Correct / Queried</th>
+                <th>Expert 1 Accuracy</th>
+                {% if expert_count > 1 %}
+                <th>Expert 2 Correct / Queried</th>
+                <th>Expert 2 Accuracy</th>
+                {% endif %}
+              </tr>
+            </thead>
+            <tbody id="query-allocation-body">
+              {% for class_name in class_names %}
+                <tr {% if class_name == 'Total' %}style="background-color: #e6f2ff;"{% endif %}>
+                  <!-- 1. Render the Class Name Row Header -->
+                  <td><strong>{{ class_name }}</strong></td>
+                  
+                  <!-- 2. Loop through each expert in your top-level object -->
+                  {% for expert_name, expert_data in allocation_rows.items %}
+                    <!-- 3. Safe lookup: Find the nested dictionary matching this row's class name -->
+                    {% with class_data=expert_data|dictsort:class_name %}
+                      {% for current_class, metrics in expert_data.items %}
+                        {% if current_class == class_name %}
+                          <td>{{ metrics.corrected_queried }}</td>
+                          <td>{{ metrics.percentage }}</td>
+                        {% endif %}
+                      {% endfor %}
+                    {% endwith %}
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <span id="no-expert-message" class="hightlight-frame" style="display: none">Choose an expert or experts to see a policy comparison table.</span>
+      </div>
+
+      <h3 style="margin-top: 30px;">Visualization</h3>
+
+      {% comment %} plots go somewhere here {% endcomment %}
+      <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px;">
+        <div class="plot-panel" style="flex: 1; min-width: 280px; margin-bottom: 0;">
+          <img id="model-plot-img" src="{{ model_plot_url }}" alt="Model and team accuracy comparison" />
+        </div>
+        <div class="plot-panel" style="flex: 1; min-width: 280px; margin-bottom: 0;">
+          <img id="deferred-plot-img" src="{{ deferred_plot_url }}" alt="Total deferred comparison" />
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px;">
+        <div class="plot-panel" style="flex: 1; min-width: 280px; margin-bottom: 0;">
+          <img id="benefit-plot-img" src="{{ benefit_plot_url }}" alt="Net benefit comparison" />
+        </div>
+        <div id="cost-plot-panel" class="plot-panel" style="flex: 1; min-width: 280px; margin-bottom: 0; {% if not cost_plot_url %}display: none;{% endif %}">
+          <img id="cost-plot-img" src="{{ cost_plot_url|default:'' }}" alt="Total cost comparison" />
+        </div>
+      </div>
     </div>
   </section>
 
-  <section id="team-policy" class="project3-section">
-    <h2>Team Policy: {{ team_policy_name }}</h2>
-    <div class="team-summary-grid">
-      <article>
-        <span>Handled by AI</span>
-        <strong>{{ team_non_deferred_total }}</strong>
-      </article>
-      <article>
-        <span>Sent to expert</span>
-        <strong>{{ team_deferred_total }}</strong>
-      </article>
-      <article>
-        <span>Useful deferrals</span>
-        <strong>{{ team_useful_defer }}</strong>
-      </article>
-      <article>
-        <span>Harmful deferrals</span>
-        <strong>{{ team_harmful_defer }}</strong>
-      </article>
-    </div>
-  </section>
 
-  <section id="policy-comparison" class="project3-section">
-    <h2>Policy Comparison</h2>
-    <div class="plot-panel">
-      <img src="{{ model_plot_url }}" alt="Model and team accuracy comparison" />
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Policy</th>
-            <th>Accuracy</th>
-            <th>Deferred</th>
-            <th>Deferral rate</th>
-            <th>Useful deferrals</th>
-            <th>Harmful deferrals</th>
-            <th>Net benefit</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in policy_rows %}
-          <tr>
-            <td>{{ row.name }}</td>
-            <td>{{ row.accuracy_percent }}%</td>
-            <td>{{ row.deferred_total }}</td>
-            <td>{{ row.deferral_rate_percent }}%</td>
-            <td>{{ row.useful_defer }}</td>
-            <td>{{ row.harmful_defer }}</td>
-            <td>{{ row.net_defer }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
+  <section id="active-learning" class="project3-section">
+    <h2>Active Learning</h2>
 
-  <section id="expert-queries" class="project3-section">
-    <h2>Expert Queries</h2>
+    <h3>Expert Queries</h3>
     <p>
       The query policy selects low-margin classifier examples while balancing
       across predicted classes. The queried labels are used to estimate where the
@@ -220,9 +294,9 @@
   </section>
 
   <section class="project3-section">
-    <h2>Query Strategy Comparison</h2>
-    <div class="plot-panel">
-      <img src="{{ strategy_plot_url }}" alt="Active learning strategy comparison" />
+    <h3>Query Strategy Comparison</h3>
+    <div class="plot-panel" style="max-width: 680px; margin: 0 auto 16px auto;">
+      <img src="{{ strategy_plot_url }}" alt="Active learning strategy comparison" style="max-height: 380px;" />
     </div>
     <div class="table-wrap">
       <table>
@@ -249,7 +323,7 @@
   </section>
 
   <section class="project3-section">
-    <h2>Queried Examples</h2>
+    <h3>Queried Examples</h3>
     <div class="table-wrap">
       <table>
         <thead>
@@ -276,7 +350,7 @@
     </div>
   </section>
 
-  <section class="project3-section">
+  <section id="human-expert" class="project3-section">
     <h2>Human Expert</h2>
     <div class="human-expert-summary">
       <span>Answered: <strong>{{ human_expert.answered }}</strong> / {{ human_expert.total }}</span>
@@ -329,22 +403,339 @@
     </div>
   </section>
 
+  {{ allocation_by_policy|json_script:"allocation-data-initial" }}
+
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       const expertChoiceForm = document.getElementById("expert-choice-form");
+      const showAccuracyBtn = document.getElementById("apply-expert-accuracy");
+      const accuracyDisplay = document.getElementById("accuracy-display");
+      const accuracyPreviewBody = document.getElementById("accuracy-preview-body");
+      const expertClassAccuracyBody = document.getElementById("expert-class-accuracy-body");
+      const expertClassAccuracyHeader = document.getElementById("expert-class-accuracy-header");
 
-      expertChoiceForm.addEventListener("submit", function (event) {
-        event.preventDefault();
-        const expertType = document.querySelector("[name='expert-type']:checked")?.value || "always-correct";
+      const addSecondExpertButton = document.getElementById("button-add-second-expert");
+      const removeSecondExpertButton = document.getElementById("remove-second-expert-button");
+      const expertTwoFields = document.getElementById("expert-two-fields-container");
 
-        fetch(`?expert=${expertType}&format=json`)
+      function getExpertCount() {
+        return Number(localStorage.getItem('expertCount'));
+      }
+
+      function saveExpertCount(value) {
+        localStorage.setItem('expertCount', String(value));
+      }
+
+      function collectExpertSettings(expertId) {
+        const type = document.querySelector(`[name='expert-type-${expertId}']:checked`)?.value || 'TRIVIAL';
+        const competenceLevel = document.querySelector(`[name='competence-level-${expertId}']:checked`)?.value || '';
+        const fields = Array.from(
+          document.querySelectorAll(`.competence-checkbox-${expertId}:checked`)
+        )
+          .map((cb) => cb.value)
+          .filter((value) => value !== 'all');
+        const costPresence = document.querySelector(`[name='cost-presence-${expertId}']:checked`)?.value || 'absent';
+        const cost = document.getElementById(`expert-cost-${expertId}`)?.value || '';
+        return { type, competenceLevel, fields, costPresence, cost };
+      }
+
+      function appendExpertParams(url, prefix, settings) {
+        url.searchParams.set(`${prefix}-type`, settings.type);
+        url.searchParams.set(`${prefix}-fields`, settings.fields.join(','));
+        if (settings.competenceLevel) {
+          url.searchParams.set(`${prefix}-competence-level`, settings.competenceLevel);
+        }
+        url.searchParams.set(`${prefix}-cost-presence`, settings.costPresence);
+        if (settings.cost !== '') {
+          url.searchParams.set(`${prefix}-cost`, settings.cost);
+        }
+        // Keep legacy params for older callers / tests.
+        url.searchParams.set(prefix, settings.type);
+      }
+
+      function renderExpertClassHeader(expertCount) {
+        if (!expertClassAccuracyHeader) {
+          return;
+        }
+        if (expertCount > 1) {
+          expertClassAccuracyHeader.innerHTML = `
+            <th>Class</th>
+            <th>Expert 1 accuracy</th>
+            <th>Expert 1 Correct / Total</th>
+            <th>Expert 2 accuracy</th>
+            <th>Expert 2 Correct / Total</th>
+          `;
+          return;
+        }
+        expertClassAccuracyHeader.innerHTML = `
+          <th>Class</th>
+          <th>Expert accuracy</th>
+          <th>Correct / Total</th>
+        `;
+      }
+
+      function renderExpertClassRows(rows, expertCount) {
+        if (!expertClassAccuracyBody) {
+          return;
+        }
+        renderExpertClassHeader(expertCount);
+        if (!Array.isArray(rows) || rows.length === 0) {
+          const colspan = expertCount > 1 ? 5 : 3;
+          expertClassAccuracyBody.innerHTML = `<tr><td colspan="${colspan}">No class accuracy available yet.</td></tr>`;
+          return;
+        }
+        if (expertCount > 1) {
+          expertClassAccuracyBody.innerHTML = rows.map((row) => `
+            <tr>
+              <td>${row.class_name}</td>
+              <td>${row.accuracy_percent}%</td>
+              <td>${row.correct} / ${row.total}</td>
+              <td>${row.expert_2_accuracy_percent}%</td>
+              <td>${row.expert_2_correct} / ${row.expert_2_total}</td>
+            </tr>
+          `).join('');
+          return;
+        }
+        expertClassAccuracyBody.innerHTML = rows.map((row) => `
+          <tr>
+            <td>${row.class_name}</td>
+            <td>${row.accuracy_percent}%</td>
+            <td>${row.correct} / ${row.total}</td>
+          </tr>
+        `).join('');
+      }
+
+      function renderPolicyComparison(rows) {
+        const body = document.getElementById("policy-comparison-body");
+        if (!body || !Array.isArray(rows)) return;
+        body.innerHTML = rows.map((row) => `
+          <tr>
+            <td><strong>${row.group || ''}</strong></td>
+            <td>${row.name}</td>
+            <td>${row.accuracy_percent}%</td>
+            <td>${row.deferred_total}</td>
+            <td>${row.deferral_rate_percent}%</td>
+            <td>${row.useful_defer}</td>
+            <td>${row.harmful_defer}</td>
+            <td>${row.total_cost}</td>
+            <td>${row.net_defer}</td>
+          </tr>
+        `).join('');
+      }
+
+      function renderQueryAllocation(allocationData, expertCount) {
+        const body = document.getElementById("query-allocation-body");
+        const header = document.getElementById("query-allocation-header");
+        if (!body || !allocationData) return;
+
+        let headerHtml = `<th>Class Name</th><th>Expert 1 Correct / Queried</th><th>Expert 1 Accuracy</th>`;
+        if (expertCount > 1) {
+          headerHtml += `<th>Expert 2 Correct / Queried</th><th>Expert 2 Accuracy</th>`;
+        }
+        if (header) header.innerHTML = headerHtml;
+
+        // Hardcode the class order to match your dictionary
+        const classNames = ["World", "Sports", "Business", "Sci/Tech", "Total"];
+        
+        body.innerHTML = classNames.map((className) => {
+          let cells = '';
+          
+          // Loop through the experts dynamically
+          for (let i = 1; i <= expertCount; i++) {
+            const expertKey = `expert${i}`;
+            const metrics = allocationData[expertKey]?.[className];
+            
+            if (metrics) {
+              cells += `<td>${metrics.corrected_queried}</td><td>${metrics.percentage}</td>`;
+            } else {
+              cells += `<td>-</td><td>-</td>`;
+            }
+          }
+          
+          const bgStyle = className === 'Total' ? 'style="background-color: #e6f2ff;"' : '';
+          return `
+            <tr ${bgStyle}>
+              <td><strong>${className}</strong></td>
+              ${cells}
+            </tr>
+          `;
+        }).join('');
+      }
+
+      function renderExpertAccuracy(data) {
+        const experts = Array.isArray(data?.experts) ? data.experts : [];
+        const expertCountFromData = data?.expert_count || experts.length || 1;
+        const summaryText = experts.length > 1
+          ? `${data?.accuracy_percent ?? 0}% average accuracy across selected experts`
+          : `${data?.accuracy_percent ?? 0}% selected expert accuracy`;
+        if (accuracyDisplay) {
+          accuracyDisplay.textContent = summaryText;
+        }
+        renderExpertClassRows(data?.expert_class_rows, expertCountFromData);
+        renderPolicyComparison(data?.policy_rows);
+        if (data?.allocation_by_policy) {
+          currentAllocationByPolicy = data.allocation_by_policy;
+        }
+        const activePolicy = document.querySelector("input[name='allocation-policy']:checked")?.value || 'confidence';
+        if (currentAllocationByPolicy && currentAllocationByPolicy[activePolicy]) {
+          renderQueryAllocation(currentAllocationByPolicy[activePolicy], expertCountFromData);
+        }
+
+        // Update plots dynamically with cache-busting
+        const modelPlotImg = document.getElementById("model-plot-img");
+        if (modelPlotImg && data?.model_plot_url) {
+          modelPlotImg.src = data.model_plot_url + "?t=" + new Date().getTime();
+        }
+        const deferredPlotImg = document.getElementById("deferred-plot-img");
+        if (deferredPlotImg && data?.deferred_plot_url) {
+          deferredPlotImg.src = data.deferred_plot_url + "?t=" + new Date().getTime();
+        }
+        const benefitPlotImg = document.getElementById("benefit-plot-img");
+        if (benefitPlotImg && data?.benefit_plot_url) {
+          benefitPlotImg.src = data.benefit_plot_url + "?t=" + new Date().getTime();
+        }
+        const costPlotPanel = document.getElementById("cost-plot-panel");
+        const costPlotImg = document.getElementById("cost-plot-img");
+        if (costPlotPanel && costPlotImg) {
+          if (data?.cost_plot_url) {
+            costPlotImg.src = data.cost_plot_url + "?t=" + new Date().getTime();
+            costPlotPanel.style.display = "";
+          } else {
+            costPlotPanel.style.display = "none";
+          }
+        }
+
+        if (experts.length === 0) {
+          accuracyPreviewBody.innerHTML = '<tr><td colspan="3">No expert preview available yet.</td></tr>';
+          return;
+        }
+
+        accuracyPreviewBody.innerHTML = experts.map((expert) => {
+          const label = expert.type === 'REALISTIC' ? 'Realistic' : 'Trivial';
+          return `
+            <tr>
+              <td>${expert.name}</td>
+              <td>${label}</td>
+              <td><span class="accuracy-pill">${expert.accuracy_percent}%</span></td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      function requestExpertAccuracy() {
+        const url = new URL(window.location.href);
+        url.searchParams.set('format', 'json');
+
+        const expertOne = collectExpertSettings('expert-one');
+        appendExpertParams(url, 'expert-one', expertOne);
+
+        if (expertCount > 1) {
+          const expertTwo = collectExpertSettings('expert-two');
+          appendExpertParams(url, 'expert-two', expertTwo);
+        } else {
+          ['expert-two', 'expert-two-type', 'expert-two-fields', 'expert-two-competence-level', 'expert-two-cost-presence', 'expert-two-cost']
+            .forEach((key) => url.searchParams.delete(key));
+        }
+
+        if (accuracyDisplay) {
+          accuracyDisplay.textContent = 'Evaluating expert accuracy...';
+        }
+
+        const originalText = showAccuracyBtn.textContent;
+        showAccuracyBtn.disabled = true;
+        showAccuracyBtn.textContent = 'Applying settings...';
+
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
           .then((response) => response.json())
           .then((data) => {
-
-            document.getElementById("accuracy-display").innerText = data.accuracy_percent + "%";
-
+            renderExpertAccuracy(data);
+            hasLoaded = true;
+            updateVisibility();
+            showAccuracyBtn.disabled = false;
+            showAccuracyBtn.textContent = originalText;
+          })
+          .catch((err) => {
+            console.log('Fetch accuracy failed', err);
+            if (accuracyDisplay) {
+              accuracyDisplay.textContent = 'Unable to load accuracy preview.';
+            }
+            showAccuracyBtn.disabled = false;
+            showAccuracyBtn.textContent = originalText;
           });
-      })
+      }
+
+      let expertCount = Number(getExpertCount()) || 1;
+      let hasLoaded = false;
+      expertTwoFields.style.display = expertCount > 1 ? 'block' : 'none';
+      addSecondExpertButton.style.display = expertCount > 1 ? 'none' : 'block';
+      removeSecondExpertButton.style.display = expertCount > 1 ? 'block' : 'none';
+      showAccuracyBtn.textContent = expertCount > 1 ? "Apply experts' settings" : "Apply expert's settings";
+
+      function updateVisibility() {
+        const expertSetupResults = document.getElementById("expert-setup-results");
+        const noExpertMessage = document.getElementById("no-expert-message");
+        
+        if (hasLoaded) {
+          if (expertSetupResults) expertSetupResults.style.display = "";
+          if (noExpertMessage) noExpertMessage.style.display = "none";
+        } else {
+          if (expertSetupResults) expertSetupResults.style.display = "none";
+          if (noExpertMessage) noExpertMessage.style.display = "inline";
+        }
+      }
+
+      addSecondExpertButton.addEventListener('click', function (event) {
+        event.preventDefault();
+        expertTwoFields.style.display = 'block';
+        expertCount = 2;
+        saveExpertCount(expertCount);
+        removeSecondExpertButton.style.display = 'block';
+        addSecondExpertButton.style.display = 'none';
+        showAccuracyBtn.textContent = "Apply experts' settings";
+        hasLoaded = false;
+        updateVisibility();
+      });
+
+      removeSecondExpertButton.addEventListener('click', function (event) {
+        event.preventDefault();
+        expertTwoFields.style.display = 'none';
+        expertCount = 1;
+        saveExpertCount(expertCount);
+        addSecondExpertButton.style.display = 'block';
+        removeSecondExpertButton.style.display = 'none';
+        showAccuracyBtn.textContent = "Apply expert's settings";
+        hasLoaded = false;
+        updateVisibility();
+      });
+
+      showAccuracyBtn.addEventListener('click', function (event) {
+        event.preventDefault();
+        requestExpertAccuracy();
+      });
+
+      expertChoiceForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        requestExpertAccuracy();
+      });
+
+      expertChoiceForm.addEventListener('change', function () {
+        hasLoaded = false;
+        updateVisibility();
+      });
+
+      let currentAllocationByPolicy = JSON.parse(document.getElementById('allocation-data-initial').textContent);
+
+      document.querySelectorAll("input[name='allocation-policy']").forEach((radio) => {
+        radio.addEventListener('change', function () {
+          const selectedPolicy = this.value;
+          if (currentAllocationByPolicy && currentAllocationByPolicy[selectedPolicy]) {
+            renderQueryAllocation(currentAllocationByPolicy[selectedPolicy], expertCount);
+          }
+        });
+      });
+
+      updateVisibility();
+      requestExpertAccuracy();
     });
   </script>
 </div>

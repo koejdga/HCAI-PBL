@@ -113,14 +113,39 @@ def load_ag_news_dataset(train_size, test_size):
         "source": source,
     }
 
-def save_bar_plot(filename, title, labels, values, ylabel):
+def save_bar_plot(filename, title, labels, values, ylabel, color="#00a6b2"):
     path = os.path.join(artifact_dir(), filename)
-    figure, axis = plt.subplots(figsize=(8, 4.5))
-    axis.bar(labels, values, color="#00a6b2")
-    axis.set_title(title)
-    axis.set_ylabel(ylabel)
-    axis.set_ylim(0, max(100, max(values) + 5 if values else 100))
-    axis.grid(axis="y", alpha=0.25)
+    figure, axis = plt.subplots(figsize=(8.5, 5))
+    bars = axis.bar(labels, values, color=color)
+    axis.set_title(title, pad=15, fontweight='bold', color='#002D3A')
+    axis.set_ylabel(ylabel, fontweight='bold')
+    
+    max_val = max(values) if values else 100
+    axis.set_ylim(0, max_val * 1.15 if max_val > 0 else 10)
+    
+    # Rotate labels
+    plt.xticks(rotation=15, ha='right')
+    
+    axis.grid(axis="y", linestyle='--', alpha=0.5)
+    
+    for bar in bars:
+        yval = bar.get_height()
+        if yval is not None:
+            if isinstance(yval, float):
+                label_text = f"{yval:.2f}" if yval % 1 != 0 else f"{int(yval)}"
+            else:
+                label_text = str(yval)
+            axis.text(
+                bar.get_x() + bar.get_width()/2.0,
+                yval + (max_val * 0.015),
+                label_text,
+                ha='center',
+                va='bottom',
+                fontsize=9,
+                fontweight='bold',
+                color='#002D3A'
+            )
+            
     figure.tight_layout()
     figure.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(figure)

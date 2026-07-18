@@ -8,3 +8,12 @@
     {% endfor %}
 </div>
 </nav>
+
+<script>
+  function toggleSectionNav() {
+    const links = document.getElementById("section-nav-links");
+    if (links) {
+      links.classList.toggle("section-nav-links-collapsed");
+    }
+  }
+</script>

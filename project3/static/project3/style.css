@@ -2,16 +2,16 @@
   padding-bottom: 36px;
 }
 
-.project3-section {
-  margin: 28px 5%;
+project3-section, section {
+  margin: 22px 5%;
 }
 
-.project3-section h2 {
+h2, h3 {
   color: var(--tuhh-navy);
   text-align: center;
 }
 
-.project3-section p {
+p {
   max-width: 860px;
   margin-left: auto;
   margin-right: auto;
@@ -19,6 +19,8 @@
 
 .controls-section {
   margin-top: 18px;
+  margin-inline: 5%;
+  margin-bottom: 0;
 }
 
 .experiment-form {
@@ -44,8 +46,8 @@
   border: 1px solid var(--border);
 }
 
-.experiment-form button {
-  padding: 9px 16px;
+button {
+  /* padding: 9px 16px; */
   border: 0;
   background: var(--tuhh-navy);
   color: white;
@@ -227,14 +229,6 @@
   margin-top: 16px;
 }
 
-.human-label-actions button {
-  padding: 9px 16px;
-  border: 0;
-  background: var(--tuhh-navy);
-  color: white;
-  cursor: pointer;
-}
-
 .human-label-actions .secondary-button {
   border: 1px solid var(--border);
   background: white;
@@ -279,4 +273,156 @@
   .human-label-card {
     grid-template-columns: 1fr;
   }
+}
+
+div[id^="expert-fields-"] {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+div[class^="competence-controls-"] {
+  display: flex;
+  flex-direction: column;
+}
+
+div[class^="competence-controls-"] label {
+  font-weight: 400;
+}
+
+#expert-choice-form button,
+#button-add-second-expert,
+#show-expert-accuracy {
+  width: auto;
+  align-self: flex-start;
+}
+
+#apply-expert-accuracy {
+  padding-inline: 10px;
+}
+
+.accuracy-preview-card {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  max-width: 560px;
+}
+
+.accuracy-preview-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.accuracy-preview-table-wrap {
+  margin-top: 8px;
+  border-radius: 8px;
+}
+
+.accuracy-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.accuracy-preview-table th,
+.accuracy-preview-table td {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 1px solid #e7edf3;
+}
+
+.accuracy-pill {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(24, 84, 134, 0.1);
+  color: var(--tuhh-navy);
+  font-weight: 700;
+}
+
+#button-add-second-expert, #remove-second-expert-button {
+  font-size: 14px;
+  margin: 0;
+  background-color: var(--tuhh-cyan);
+  padding-inline: 10px;
+  border-radius: 8px;
+}
+
+.hightlight-frame {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  padding: 8px;
+  border: 2px solid rgba(32, 70, 119, 0.18);
+  border-radius: 10px;
+  background: rgba(24, 84, 134, 0.05);
+}
+
+.cost-add label {
+  font-weight: 700;
+}
+
+.cost-add input[type="number"] {
+  width: 130px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 10px;
+  background: white;
+}
+
+.cost-add input[type="number"]:disabled {
+  background: #f0f3f7;
+  border-color: #c8d2dc;
+  color: #6c7d8f;
+}
+
+.cost-message {
+  width: 100%;
+  font-size: 13px;
+  color: var(--tuhh-navy);
+  opacity: 0.95;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px dashed rgba(32, 70, 119, 0.25);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+input {
+  cursor: pointer;
+}
+
+#expert-choice-form label {
+  cursor: pointer;
+}
+
+.light-frame {
+  margin: 24px 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fbfc;
+}
+
+#remove-second-expert-button {
+  border: 2px solid red;
+  background-color: white;
+  color: var(--tuhh-navy);
+}
+
+#policy-comparison {
+  display: flex;
+  flex-direction: column;
+}
+
+#no-expert-message {
+  align-self: center;
+  margin-top: 16px;
+  width: 100%;
+  text-align: center;
 }
