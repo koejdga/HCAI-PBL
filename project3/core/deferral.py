@@ -165,10 +165,21 @@ def build_confusion_rows(y_true, predictions):
     return rows
 
 def class_metric_rows(per_class):
-    return [
+    rows = [
         {"class_name": name, "accuracy_percent": val["accuracy_percent"], "correct": val["correct"], "total": val["total"]}
         for name, val in per_class.items()
     ]
+    total_correct = sum(row["correct"] for row in rows)
+    total_samples = sum(row["total"] for row in rows)
+    total_accuracy = round((total_correct / total_samples) * 100, 2) if total_samples > 0 else 0.0
+    rows.append({
+        "class_name": "Total",
+        "accuracy_percent": total_accuracy,
+        "correct": total_correct,
+        "total": total_samples,
+        "is_total": True
+    })
+    return rows
 
 def prediction_margins(decision_scores):
     sorted_scores = np.sort(decision_scores, axis=1)

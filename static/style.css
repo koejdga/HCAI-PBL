@@ -4,7 +4,7 @@
   --tuhh-blue: #275cb2;
   --tuhh-red: #b3263b;
   --surface: #ffffff;
-  --surface-soft: #f5f9fc;
+  --surface-soft: #f8f9fc;
   --border: #d7e3ec;
   --text: #172033;
   --muted: #526270;
@@ -42,6 +42,18 @@ label {
   font-weight: 600;
   text-align: left;
 }
+
+figcaption {
+  color: #002d3a;
+  font-size: 0.88rem;
+  font-style: italic;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 2px solid #00a6b2;
+  display: inline-block;
+  max-width: 85%;
+}
+
 
 .site-header {
   display: flex;

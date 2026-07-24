@@ -95,16 +95,29 @@ class Project3ViewTests(TestCase):
     def test_project3_page_loads(self):
         response = self.client.get(
             reverse("project3:index"),
-            {"train-size": "40", "test-size": "20"},
+            {"train-size": "40", "test-size": "20", "expert-one-type": "REALISTIC"},
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Active Learning for Learning-to-Defer")
         self.assertContains(response, "Baseline Classifier")
         self.assertContains(response, "Simulated Expert")
-        self.assertContains(response, "Team Policy")
+        self.assertContains(response, "Policy Comparison")
         self.assertContains(response, "Expert Queries")
         self.assertContains(response, "Human Expert")
+
+    def test_project3_page_loads_no_experts(self):
+        response = self.client.get(
+            reverse("project3:index"),
+            {"train-size": "40", "test-size": "20"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Active Learning for Learning-to-Defer")
+        self.assertContains(response, "Baseline Classifier")
+        self.assertContains(response, "No experts have been configured yet")
+        self.assertIn("error_message", response.context)
+        self.assertNotIn("policy_rows", response.context)
 
     def test_build_project3_results_is_cached_for_same_parameters(self):
         project3_views.PROJECT3_RESULT_CACHE.clear()
@@ -112,7 +125,7 @@ class Project3ViewTests(TestCase):
         factory = RequestFactory()
         request = factory.get(
             "/project3/",
-            {"train-size": "20", "test-size": "10", "defer-rate": "0.2", "query-budget": "8"},
+            {"train-size": "20", "test-size": "10", "defer-rate": "0.2", "expert-one-type": "REALISTIC"},
         )
 
         dataset = {
@@ -183,10 +196,10 @@ class Project3ViewTests(TestCase):
         self.assertEqual(mocked_dataset.call_count, 2)
         self.assertEqual(mocked_baseline.call_count, 1)
         self.assertEqual(mocked_expert.call_count, 1)
-        self.assertEqual(mocked_active_learning.call_count, 1)
+        self.assertEqual(mocked_active_learning.call_count, 3)
 
     def test_expert_accuracy_preview_returns_json(self):
-        html_response = self.client.get(reverse("project3:index"))
+        html_response = self.client.get(reverse("project3:index"), {"expert-one-type": "REALISTIC"})
         self.assertEqual(html_response.status_code, 200)
         self.assertContains(html_response, 'class="table-wrap accuracy-preview-table-wrap"')
         self.assertContains(html_response, 'id="expert-class-accuracy-body"')
@@ -215,7 +228,7 @@ class Project3ViewTests(TestCase):
         self.assertIn("expert_settings", data)
         self.assertEqual(len(data["experts"]), 2)
         self.assertEqual(data["expert_count"], 2)
-        self.assertEqual(len(data["expert_class_rows"]), len(CLASS_NAMES))
+        self.assertEqual(len(data["expert_class_rows"]), len(CLASS_NAMES) + 1)
         self.assertEqual(data["expert_settings"][0]["fields"], [2])
         self.assertEqual(data["expert_settings"][1]["competence_level"], "more-competent")
         self.assertEqual(data["expert_settings"][1]["cost"], 0.5)
@@ -230,7 +243,7 @@ class Project3ViewTests(TestCase):
     def test_human_labels_can_be_submitted(self):
         response = self.client.get(
             reverse("project3:index"),
-            {"train-size": "40", "test-size": "20"},
+            {"train-size": "40", "test-size": "20", "expert-one-type": "REALISTIC"},
         )
         self.assertEqual(response.status_code, 200)
 

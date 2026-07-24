@@ -5,6 +5,16 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'project3/style.css' %}" />
+<style>
+  .human-label-card {
+    grid-template-columns: minmax(0, 1fr) auto 180px 150px !important;
+  }
+  .human-label-card label {
+    justify-self: end !important;
+    margin-right: 8px !important;
+    white-space: nowrap !important;
+  }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -26,9 +36,6 @@
       <label for="defer-rate">Deferral rate</label>
       <input id="defer-rate" name="defer-rate" value="{{ defer_rate }}" />
 
-      <label for="query-budget">Expert queries</label>
-      <input id="query-budget" name="query-budget" value="{{ query_budget }}" />
-
       <button type="submit">Run experiment</button>
     </form>
 
@@ -36,18 +43,13 @@
       <span>Source: <strong>{{ dataset_source }}</strong></span>
       <span>Training rows used: <strong>{{ train_rows }}</strong> of {{ full_train_rows }}</span>
       <span>Test rows used: <strong>{{ test_rows }}</strong> of {{ full_test_rows }}</span>
-      <a class="report-link" href="{% url 'project3:report' %}?train-size={{ train_size }}&test-size={{ test_size }}&defer-rate={{ defer_rate }}&query-budget={{ query_budget }}">Download report</a>
+      <a class="report-link" href="{% url 'project3:report' %}?train-size={{ train_size }}&test-size={{ test_size }}&defer-rate={{ defer_rate }}">Download report</a>
     </div>
   </section>
 
   <section id="baseline-classifier" class="project3-section">
     <h2>Baseline Classifier</h2>
-    <p>
-      The baseline uses all available labels in the selected training subset. It
-      represents the standard automated classifier that the later human-AI team
-      should aim to match or improve.
-    </p>
-    <p>TF-IDF features and a linear SVM.</p>
+    <p class="explanation-note" style="margin-top: 0">The baseline is a standard automated classifier using TF-IDF features and a linear SVM, trained on all available labels in the selected training subset. It sets the target performance for the human-AI team to match or surpass.</p>
 
     <div class="table-wrap">
       <table>
@@ -60,8 +62,8 @@
         </thead>
         <tbody>
           {% for row in baseline_class_rows %}
-          <tr>
-            <td>{{ row.class_name }}</td>
+          <tr {% if row.is_total %}class="total-row"{% endif %}>
+            <td><strong>{{ row.class_name }}</strong></td>
             <td>{{ row.accuracy_percent }}%</td>
             <td>{{ row.correct }} / {{ row.total }}</td>
           </tr>
@@ -74,7 +76,7 @@
   <section id="learning-to-defer" class="project3-section">
     <h2>Learning to Defer</h2>
     <h3>Simulated Expert(s)</h3>
-    <p>
+    <p class="explanation-note">
       Configure up to two simulated experts to model different human-AI collaboration scenarios. 
       You can define each expert's behavioral profile by choosing their type: <strong>Trivial</strong> 
       (perfectly accurate in selected domains, but completely wrong in others) or <strong>Realistic</strong> 
@@ -96,10 +98,13 @@
 
       <button type="button" id="remove-second-expert-button">Remove second expert</button>
 
-      <button type="button" id="apply-expert-accuracy" style="margin-block:20px">Apply expert's accuracy</button>
+      <button type="button" id="apply-expert-accuracy" style="margin-block:20px">Apply expert's settings</button>
+      <div id="error-message-display" style="background-color: #fce8e6; border: 1px solid #d93025; color: #c5221f; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; text-align: center; {% if not error_message %}display: none;{% endif %}">
+        {{ error_message }}
+      </div>
     </form>
 
-    <div id="expert-setup-results">
+    <div id="expert-setup-results" {% if error_message %}style="display: none;"{% endif %}>
       <h3>Expert details</h3>
 
       <div id="accuracy-preview-card" class="accuracy-preview-card" aria-live="polite">
@@ -212,13 +217,10 @@
             </thead>
             <tbody id="query-allocation-body">
               {% for class_name in class_names %}
-                <tr {% if class_name == 'Total' %}style="background-color: #e6f2ff;"{% endif %}>
-                  <!-- 1. Render the Class Name Row Header -->
+                <tr {% if class_name == 'Total' %}class="total-row"{% endif %}>
                   <td><strong>{{ class_name }}</strong></td>
                   
-                  <!-- 2. Loop through each expert in your top-level object -->
                   {% for expert_name, expert_data in allocation_rows.items %}
-                    <!-- 3. Safe lookup: Find the nested dictionary matching this row's class name -->
                     {% with class_data=expert_data|dictsort:class_name %}
                       {% for current_class, metrics in expert_data.items %}
                         {% if current_class == class_name %}
@@ -249,6 +251,7 @@
         </div>
       </div>
 
+
       <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px;">
         <div class="plot-panel" style="flex: 1; min-width: 280px; margin-bottom: 0;">
           <img id="benefit-plot-img" src="{{ benefit_plot_url }}" alt="Net benefit comparison" />
@@ -260,44 +263,130 @@
     </div>
   </section>
 
-
-  <section id="active-learning" class="project3-section">
+  <section id="active-learning" class="project3-section" {% if error_message %}style="display: none;"{% endif %}>
     <h2>Active Learning</h2>
 
-    <h3>Expert Queries</h3>
-    <p>
-      The query policy selects low-margin classifier examples while balancing
-      across predicted classes. The queried labels are used to estimate where the
-      expert is likely to help.
-    </p>
+    {% include "project3/components/active_learning_explainer.html" %}
 
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Class</th>
-            <th>Estimated expert accuracy</th>
-            <th>Correct / Queried</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in active_learning.estimated_competence_rows %}
-          <tr>
-            <td>{{ row.class_name }}</td>
-            <td>{{ row.accuracy_percent }}%</td>
-            <td>{{ row.correct }} / {{ row.total }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <h3>Active Learning Query Budget</h3>
+    <form id="query-budget-form" class="light-frame">
+        
+      <span style="color: var(--tuhh-navy); font-weight: bold; font-size: 15px;">Choose query budget for expert(s):</span>
+
+      <div style="display: flex; flex-wrap: wrap; align-items: end; gap: 24px; width: 100%;">
+        <div id="expert-one-budget-group" style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="expert-one-query-budget" style="color: var(--tuhh-navy); font-weight: 700;">Expert 1:</label>
+          <input type="number" id="expert-one-query-budget" name="expert-one-query-budget" value="{{ expert_one_query_budget|default:40 }}" min="1" style="width: 140px; padding: 8px 10px; border: 1px solid var(--border);" />
+        </div>
+
+        <div id="expert-two-budget-group" style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="expert-two-query-budget" style="color: var(--tuhh-navy); font-weight: 700;">Expert 2:</label>
+          <input type="number" id="expert-two-query-budget" name="expert-two-query-budget" value="{{ expert_two_query_budget|default:40 }}" min="1" style="width: 140px; padding: 8px 10px; border: 1px solid var(--border);" />
+        </div>
+
+        <button type="submit" id="apply-query-budget-btn" style="padding: 8px 16px; border: 0; background: var(--tuhh-navy); color: #fff; font-weight: bold; cursor: pointer; height: 35px; align-self: end; margin-bottom: 2px;">Apply budget</button>
+      </div>
+
+      <div class="info-explainer-popup">
+        <button type="button" id="query-budget-info-btn" aria-label="Info about query budget">
+          {% include "project3/components/info_icon.svg" %}
+          <span id="query-budget-info-text">What is a query budget?</span>
+        </button>
+        <div id="query-budget-info-popup">
+          Query budget is the amount of queries an expert can answer in the training phase to identify their competence level.
+        </div>
+      </div>
+    </form>
+
+    <div id="active-learning-queries-container" {% if error_message %}style="display: none;"{% endif %}>
+      <h3>Expert Queries</h3>
+      {{ active_learning_by_strategy|json_script:"active-learning-by-strategy-data" }}
+      {{ scatter_plots|json_script:"scatter-plots-data" }}
+      <p class="explanation-note">
+        This table displays from which classes a model with a certain strategy has chosen to query an expert 
+        and how accurate an expert was.</p>
+      <div style="display: flex; gap: 20px; margin-bottom: 15px; flex-wrap: wrap; justify-content: center">
+        <label style="cursor: pointer; font-weight: bold; color: var(--tuhh-navy);">
+          <input type="radio" name="query-table-strategy" value="balanced_uncertainty" checked style="margin-right: 6px;" />
+          Balanced uncertainty (Information-based)
+        </label>
+        <label style="cursor: pointer; font-weight: bold; color: var(--tuhh-navy);">
+          <input type="radio" name="query-table-strategy" value="uncertainty" style="margin-right: 6px;" />
+          Uncertainty only (Information-based)
+        </label>
+        <label style="cursor: pointer; font-weight: bold; color: var(--tuhh-navy);">
+          <input type="radio" name="query-table-strategy" value="random" style="margin-right: 6px;" />
+          Random sample (Naive)
+        </label>
+      </div>
+
+      <p id="query-strategy-explanation" style="line-height: 1.5; color: #333; margin-bottom: 20px; background: #f9f9f9; padding: 12px; border-left: 4px solid var(--tuhh-navy); border-radius: 4px;">
+        With the <strong>Balanced uncertainty (Information-based)</strong> strategy, the query policy selects low-margin classifier examples while balancing across predicted classes. 
+        <em>Low-margin classifier examples</em> are instances where the model's prediction is highly ambiguous (meaning the difference in probability or distance between the top two most likely classes is very small). 
+        Balancing across <em>predicted classes</em> (according to the model's current beliefs) ensures that queries are evenly distributed among all label types, preventing the model from over-sampling from a single category. 
+        The queried labels are used to estimate where the expert is likely to help.
+      </p>
+
+      <div id="expert-config-summaries" style="display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
+        {% for summary in expert_summaries %}
+        <div class="light-frame expert-summary-box" style="flex: 1; min-width: 250px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 6px; background-color: #fafafa;">
+          <h4 style="margin: 0 0 8px 0; color: var(--tuhh-navy); border-bottom: 1px solid #eee; padding-bottom: 4px;">{{ summary.name }}</h4>
+          <div style="font-size: 0.9rem; line-height: 1.4; color: #333;">
+            <div><strong>Type:</strong> {{ summary.type_label }}{% if summary.competence_label %} ({{ summary.competence_label }}){% endif %}</div>
+            {% if summary.type_label == "Trivial" %}
+              <div><strong>Expertise domains:</strong> {{ summary.fields_text }}</div>
+            {% else %}
+              <div><strong>Prevailing domains:</strong> {{ summary.fields_text }}</div>
+            {% endif %}
+            <div><strong>Average accuracy:</strong> {{ summary.accuracy_percent }}%</div>
+            {% if summary.cost is not None %}
+              <div><strong>Cost per query:</strong> {{ summary.cost }}</div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr id="active-learning-queries-header">
+              <th>Class</th>
+              {% if expert_count > 1 %}
+                <th>Estimated Expert 1 accuracy</th>
+                <th>Expert 1 Correct / Queried</th>
+                <th>Estimated Expert 2 accuracy</th>
+                <th>Expert 2 Correct / Queried</th>
+              {% else %}
+                <th>Estimated expert accuracy</th>
+                <th>Correct / Queried</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody id="active-learning-queries-body">
+            {% for row in active_learning.estimated_competence_rows %}
+            <tr {% if row.class_name == 'Total' %}class="total-row"{% endif %}>
+              <td><strong>{{ row.class_name }}</strong></td>
+              <td>{{ row.accuracy_percent }}</td>
+              <td>{{ row.correct }} / {{ row.total }}</td>
+              {% if expert_count > 1 %}
+                <td>{{ row.expert_2_accuracy_percent }}</td>
+                <td>{{ row.expert_2_correct }} / {{ row.expert_2_total }}</td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="plot-panel" style="max-width: 600px; margin: 20px auto 16px auto; text-align: center;">
+        <img id="active-learning-scatter-img" src="{{ scatter_plot_url }}" alt="Active learning queries scatter plot" style="max-height: 380px; width: 100%; object-fit: contain;" />
+      </div>
     </div>
   </section>
 
-  <section class="project3-section">
+  <section id="active-learning-strategy-section" class="project3-section" {% if error_message %}style="display: none;"{% endif %}>
     <h3>Query Strategy Comparison</h3>
-    <div class="plot-panel" style="max-width: 680px; margin: 0 auto 16px auto;">
-      <img src="{{ strategy_plot_url }}" alt="Active learning strategy comparison" style="max-height: 380px;" />
-    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -306,15 +395,21 @@
             <th>Expert agreement</th>
             <th>Average competence</th>
             <th>Weakest class estimate</th>
+            <th>Model Accuracy after Querying</th>
+            <th>Query Redundancy / Overlap</th>
+            <th>Query Diversity score</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="query-strategy-body">
           {% for row in strategy_rows %}
           <tr>
             <td>{{ row.label }}</td>
             <td>{{ row.agreement_percent }}%</td>
             <td>{{ row.average_competence_percent }}%</td>
             <td>{{ row.min_competence_percent }}%</td>
+            <td>{{ row.model_accuracy_percent }}%</td>
+            <td>{{ row.redundancy_percent }}%</td>
+            <td>{{ row.diversity_percent }}%</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -322,7 +417,7 @@
     </div>
   </section>
 
-  <section class="project3-section">
+  <section id="active-learning-examples-section" class="project3-section" {% if error_message %}style="display: none;"{% endif %}>
     <h3>Queried Examples</h3>
     <div class="table-wrap">
       <table>
@@ -335,14 +430,14 @@
             <th>Text</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="queried-examples-body">
           {% for row in active_learning.queried_rows %}
           <tr>
             <td>{{ row.model_class }}</td>
             <td>{{ row.expert_class }}</td>
             <td>{{ row.true_class }}</td>
             <td>{{ row.margin }}</td>
-            <td class="text-cell">{{ row.text }}</td>
+            <td class="text-cell collapsible-comment">{{ row.text }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -352,18 +447,57 @@
 
   <section id="human-expert" class="project3-section">
     <h2>Human Expert</h2>
-    <div class="human-expert-summary">
-      <span>Answered: <strong>{{ human_expert.answered }}</strong> / {{ human_expert.total }}</span>
-      <span>Correct: <strong>{{ human_expert.correct }}</strong></span>
-      <span>Accuracy: <strong>{{ human_expert.accuracy_percent }}%</strong></span>
+    <p class="explanation-note" style="margin-block: 0; line-height: 1.5;">You are acting as the expert for queries chosen by the active learning strategy. Check the <strong>'Sample Test Examples'</strong> section below to see benchmark texts for each class.</p>
+
+    <!-- Human Expert Query Settings Form -->
+    <div class="light-frame" style="padding: 16px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--border); border-radius: 6px; background-color: #fafafa;">
+      <h4 style="margin: 0; color: var(--tuhh-navy);">Human Expert Query Settings</h4>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px;">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="human-expert-budget" style="font-weight: 700; color: var(--tuhh-navy);">Query Budget:</label>
+          <input type="number" id="human-expert-budget" value="{{ human_expert_budget|default:6 }}" min="1" max="50" style="width: 100px; padding: 6px 10px; border: 1px solid var(--border);" />
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-weight: 700; color: var(--tuhh-navy);">Query Strategy:</span>
+          <div style="display: flex; gap: 16px; align-items: center; height: 32px;">
+            <label style="cursor: pointer;">
+              <input type="radio" name="human-expert-strategy" value="balanced_uncertainty" {% if human_expert_strategy == "balanced_uncertainty" or not human_expert_strategy %}checked{% endif %} />
+              Balanced uncertainty
+            </label>
+            <label style="cursor: pointer;">
+              <input type="radio" name="human-expert-strategy" value="uncertainty" {% if human_expert_strategy == "uncertainty" %}checked{% endif %} />
+              Uncertainty only
+            </label>
+            <label style="cursor: pointer;">
+              <input type="radio" name="human-expert-strategy" value="random" {% if human_expert_strategy == "random" %}checked{% endif %} />
+              Random sample
+            </label>
+          </div>
+        </div>
+        
+        <button type="button" id="apply-human-settings-btn" style="padding: 8px 16px; border: 0; background: var(--tuhh-navy); color: #fff; font-weight: bold; cursor: pointer; height: 35px; align-self: flex-end;">Apply</button>
+      </div>
     </div>
 
-    <form method="post" class="human-label-form">
+    <!-- Live Status Display -->
+    <div id="human-live-status-container" style="margin-block: 15px; text-align: center; font-size: 1.1rem; color: var(--tuhh-navy);">
+      <span id="human-live-status-text" data-budget="{{ human_expert_budget|default:6 }}" data-strategy="{% if human_expert_strategy == "uncertainty" %}Uncertainty only{% elif human_expert_strategy == "random" %}Random sample{% else %}Balanced uncertainty{% endif %}">0/{{ human_expert_budget|default:6 }} Answered, Strategy: {% if human_expert_strategy == "uncertainty" %}Uncertainty only{% elif human_expert_strategy == "random" %}Random sample{% else %}Balanced uncertainty{% endif %}</span>
+    </div>
+
+    <div class="human-expert-summary" id="human-expert-summary-box" style="margin-bottom: 20px; display: {% if human_expert.answered > 0 %}flex{% else %}none{% endif %}; align-items: center; gap: 20px;">
+      <span>Answered: <strong id="human-answered-count">{{ human_expert.answered }}</strong> / <span id="human-total-count">{{ human_expert.total }}</span></span>
+      <span>Correct: <strong id="human-correct-count">{{ human_expert.correct }}</strong></span>
+      <span>Accuracy: <strong id="human-accuracy-percent">{{ human_expert.accuracy_percent }}</strong>%</span>
+      <button type="button" id="reset-human-labels-btn" class="secondary-button" style="padding: 4px 10px; font-size: 0.85rem; height: auto; margin: 0; {% if human_expert.answered == 0 %}display: none;{% endif %}">Reset</button>
+    </div>
+
+    <form method="post" class="human-label-form" id="human-label-submit-form">
       {% csrf_token %}
-      <div class="human-label-list">
+      <div class="human-label-list" id="human-label-cards-list">
         {% for row in human_expert.rows %}
-        <article class="human-label-card">
-          <p>{{ row.text }}</p>
+        <article class="human-label-card" {% if row.answered %}{% if row.correct %}style="background-color: #e6f4ea;"{% else %}style="background-color: #fce8e6;"{% endif %}{% endif %}>
+          <p class="collapsible-comment">{{ row.text }}</p>
           <label for="human-label-{{ row.key }}">Your label</label>
           <select id="human-label-{{ row.key }}" name="human_label_{{ row.key }}">
             <option value="">Choose a class</option>
@@ -375,38 +509,125 @@
           </select>
           {% if row.answered %}
             <span class="{% if row.correct %}label-result-correct{% else %}label-result-wrong{% endif %}">
-              Reference: {{ row.true_class }}
+              Correct: {{ row.true_class }}
             </span>
+          {% else %}
+            <div></div>
           {% endif %}
         </article>
         {% endfor %}
       </div>
 
-      <div class="human-label-actions">
-        <button type="submit">Submit labels</button>
-        <button type="submit" name="action" value="clear-human-labels" class="secondary-button">
+      <div id="human-expert-pagination">
+        <button type="button" id="human-pag-prev" class="secondary-button">Back</button>
+        <span id="human-pag-info">Page 1 of 1</span>
+        <button type="button" id="human-pag-next" class="secondary-button">Next</button>
+      </div>
+
+      <div class="human-label-actions" id="human-actions-buttons-container" {% if human_expert.answered > 0 %}style="display: none;"{% endif %}>
+        <button type="submit" id="submit-human-labels-btn">Submit labels</button>
+        <button type="button" id="clear-human-labels-btn" class="secondary-button">
           Clear labels
         </button>
       </div>
     </form>
   </section>
 
-  <section class="project3-section">
+  <section id="sample-test-examples" class="project3-section">
     <h2>Sample Test Examples</h2>
+    <p class="explanation-note">Use these examples to familiarize yourself with the dataset categories.</p>
     <div class="examples-list">
       {% for example in sample_examples %}
       <article>
         <strong>{{ example.label }}</strong>
-        <p>{{ example.text }}</p>
+        <p class="collapsible-comment">{{ example.text }}</p>
       </article>
       {% endfor %}
     </div>
   </section>
 
+  <section id="pdf-report" class="project3-section">
+    <h2>PDF Report</h2>
+    <p style="color: #555; margin-top: 0">Select the saved expert configurations you want to include in the generated PDF report. For each selected configuration, the report will render the Learning to Defer and Active Learning sections.</p>
+    
+    <form action="{% url 'project3:report' %}" method="get" target="_blank" style="margin-top: 15px;">
+      <input type="hidden" name="train-size" value="{{ train_size }}">
+      <input type="hidden" name="test-size" value="{{ test_size }}">
+      <input type="hidden" name="defer-rate" value="{{ defer_rate }}">
+      
+      <div class="light-frame" style="padding: 16px; border: 1px solid var(--border); border-radius: 6px; background-color: #fafafa; margin-bottom: 15px;">
+        <h3 style="margin-top: 0; margin-bottom: 12px; color: var(--tuhh-navy);">Saved Configurations</h3>
+        
+        <div id="saved-configs-list" style="max-height: 250px; overflow-y: auto;">
+          {% for cfg in saved_configs %}
+          <div style="margin-bottom: 10px; display: flex; align-items: flex-start; gap: 8px;">
+            <input type="checkbox" name="include_config" id="cfg_{{ cfg.id }}" value="{{ cfg.id }}" checked style="margin-top: 4px;">
+            <label for="cfg_{{ cfg.id }}" style="font-weight: normal; color: var(--text); font-size: 15px; cursor: pointer; text-align: left;">
+              {{ cfg.label }}
+            </label>
+          </div>
+          {% empty %}
+          <p style="color: var(--muted); font-style: italic; margin: 0; font-size: 15px;">No expert configurations have been saved yet. Configure and apply expert settings above to run experiments and save them here.</p>
+          {% endfor %}
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 15px;">
+        <button type="submit" {% if not saved_configs %}disabled{% endif %} style="margin: 0; width: auto; padding: 0 20px;">
+          Download PDF Report
+        </button>
+        
+        {% if saved_configs %}
+        <button type="submit" name="action" value="clear-configs" formmethod="post" style="margin: 0; background-color: var(--tuhh-red); color: white; width: auto; padding: 0 20px;">
+          Clear Config History
+        </button>
+        {% endif %}
+      </div>
+    </form>
+  </section>
+
   {{ allocation_by_policy|json_script:"allocation-data-initial" }}
+  {{ active_learning_by_strategy|json_script:"active-learning-by-strategy-initial" }}
+  {{ scatter_plots|json_script:"scatter-plots-initial" }}
 
   <script>
     document.addEventListener("DOMContentLoaded", function () {
+      function initCollapsibleText(element, maxLength = 150) {
+        const fullText = element.getAttribute("data-full-text") || element.textContent.trim();
+        if (fullText.length <= maxLength) return;
+
+        element.setAttribute("data-full-text", fullText);
+        const truncatedText = fullText.slice(0, maxLength) + "...";
+
+        function render(wrapped) {
+          if (wrapped) {
+            element.innerHTML = truncatedText + ' ';
+          } else {
+            element.innerHTML = fullText + ' ';
+          }
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "collapsible-toggle-btn";
+          btn.textContent = wrapped ? "Show more" : "Show less";
+          btn.addEventListener("click", function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            render(!wrapped);
+          });
+          element.appendChild(btn);
+        }
+
+        render(true);
+      }
+
+      function applyCollapsibleComments() {
+        document.querySelectorAll(".collapsible-comment").forEach(function(el) {
+          if (!el.hasAttribute("data-full-text")) {
+            initCollapsibleText(el, 150);
+          }
+        });
+      }
+
       const expertChoiceForm = document.getElementById("expert-choice-form");
       const showAccuracyBtn = document.getElementById("apply-expert-accuracy");
       const accuracyDisplay = document.getElementById("accuracy-display");
@@ -552,9 +773,9 @@
             }
           }
           
-          const bgStyle = className === 'Total' ? 'style="background-color: #e6f2ff;"' : '';
+          const rowClass = className === 'Total' ? 'class="total-row"' : '';
           return `
-            <tr ${bgStyle}>
+            <tr ${rowClass}>
               <td><strong>${className}</strong></td>
               ${cells}
             </tr>
@@ -563,6 +784,27 @@
       }
 
       function renderExpertAccuracy(data) {
+        const summaryContainer = document.getElementById("expert-config-summaries");
+        if (summaryContainer && Array.isArray(data?.expert_summaries)) {
+          summaryContainer.innerHTML = data.expert_summaries.map((summary) => {
+            const costHtml = summary.cost !== null && summary.cost !== undefined
+              ? `<div><strong>Cost per query:</strong> ${summary.cost}</div>`
+              : '';
+            const fieldsLabel = summary.type_label === "Trivial" ? "Expertise domains" : "Prevailing domains";
+            return `
+              <div class="light-frame expert-summary-box" style="flex: 1; min-width: 250px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 6px; background-color: #fafafa;">
+                <h4 style="margin: 0 0 8px 0; color: var(--tuhh-navy); border-bottom: 1px solid #eee; padding-bottom: 4px;">${summary.name}</h4>
+                <div style="font-size: 0.9rem; line-height: 1.4; color: #333;">
+                  <div><strong>Type:</strong> ${summary.type_label}${summary.competence_label ? ` (${summary.competence_label})` : ''}</div>
+                  <div><strong>${fieldsLabel}:</strong> ${summary.fields_text}</div>
+                  <div><strong>Average accuracy:</strong> ${summary.accuracy_percent}%</div>
+                  ${costHtml}
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+
         const experts = Array.isArray(data?.experts) ? data.experts : [];
         const expertCountFromData = data?.expert_count || experts.length || 1;
         const summaryText = experts.length > 1
@@ -605,6 +847,50 @@
           }
         }
 
+        // Update Active Learning components
+        const alQueriesHeader = document.getElementById("active-learning-queries-header");
+        if (alQueriesHeader) {
+          if (expertCountFromData > 1) {
+            alQueriesHeader.innerHTML = `
+              <th>Class</th>
+              <th>Estimated Expert 1 accuracy</th>
+              <th>Expert 1 Correct / Queried</th>
+              <th>Estimated Expert 2 accuracy</th>
+              <th>Expert 2 Correct / Queried</th>
+            `;
+          } else {
+            alQueriesHeader.innerHTML = `
+              <th>Class</th>
+              <th>Estimated expert accuracy</th>
+              <th>Correct / Queried</th>
+            `;
+          }
+        }
+
+        if (data.active_learning_by_strategy) {
+          currentActiveLearningByStrategy = data.active_learning_by_strategy;
+        }
+        if (data.scatter_plots) {
+          currentScatterPlots = data.scatter_plots;
+        }
+        const activeStrategy = document.querySelector("input[name='query-table-strategy']:checked")?.value || 'balanced_uncertainty';
+        updateActiveLearningQueriesTable(activeStrategy);
+
+        const queryStrategyBody = document.getElementById("query-strategy-body");
+        if (queryStrategyBody && data.strategy_rows) {
+          queryStrategyBody.innerHTML = data.strategy_rows.map((row) => `
+            <tr>
+              <td>${row.label}</td>
+              <td>${row.agreement_percent}%</td>
+              <td>${row.average_competence_percent}%</td>
+              <td>${row.min_competence_percent}%</td>
+              <td>${row.model_accuracy_percent}%</td>
+              <td>${row.redundancy_percent}%</td>
+              <td>${row.diversity_percent}%</td>
+            </tr>
+          `).join('');
+        }
+
         if (experts.length === 0) {
           accuracyPreviewBody.innerHTML = '<tr><td colspan="3">No expert preview available yet.</td></tr>';
           return;
@@ -620,6 +906,10 @@
             </tr>
           `;
         }).join('');
+
+        if (data.human_expert) {
+          renderHumanExpert(data.human_expert, data.human_expert_strategy);
+        }
       }
 
       function requestExpertAccuracy() {
@@ -637,22 +927,120 @@
             .forEach((key) => url.searchParams.delete(key));
         }
 
+        const e1Budget = document.getElementById("expert-one-query-budget")?.value;
+        const e2Budget = document.getElementById("expert-two-query-budget")?.value;
+        if (e1Budget) {
+          url.searchParams.set("expert-one-query-budget", e1Budget);
+        }
+        if (expertCount > 1 && e2Budget) {
+          url.searchParams.set("expert-two-query-budget", e2Budget);
+        } else {
+          url.searchParams.delete("expert-two-query-budget");
+        }
+
+        const humanBudget = document.getElementById("human-expert-budget")?.value;
+        const humanStrategy = document.querySelector("input[name='human-expert-strategy']:checked")?.value;
+        if (humanBudget) {
+          url.searchParams.set("human-expert-budget", humanBudget);
+        }
+        if (humanStrategy) {
+          url.searchParams.set("human-expert-strategy", humanStrategy);
+        }
+
+        const errorDisplay = document.getElementById("error-message-display");
+        if (errorDisplay) {
+          errorDisplay.style.display = "none";
+        }
+
         if (accuracyDisplay) {
           accuracyDisplay.textContent = 'Evaluating expert accuracy...';
         }
+
+        // Hide Active Learning result sections during calculation
+        const queriesContainer = document.getElementById("active-learning-queries-container");
+        const strategySection = document.getElementById("active-learning-strategy-section");
+        const examplesSection = document.getElementById("active-learning-examples-section");
+        if (queriesContainer) queriesContainer.style.display = "none";
+        if (strategySection) strategySection.style.display = "none";
+        if (examplesSection) examplesSection.style.display = "none";
 
         const originalText = showAccuracyBtn.textContent;
         showAccuracyBtn.disabled = true;
         showAccuracyBtn.textContent = 'Applying settings...';
 
+        const applyBudgetBtn = document.getElementById("apply-query-budget-btn");
+        let originalBudgetBtnText = "";
+        if (applyBudgetBtn) {
+          originalBudgetBtnText = applyBudgetBtn.textContent;
+          applyBudgetBtn.disabled = true;
+          applyBudgetBtn.textContent = 'Applying budget...';
+        }
+
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
           .then((response) => response.json())
           .then((data) => {
-            renderExpertAccuracy(data);
-            hasLoaded = true;
-            updateVisibility();
-            showAccuracyBtn.disabled = false;
-            showAccuracyBtn.textContent = originalText;
+            if (data.error_message) {
+              if (errorDisplay) {
+                errorDisplay.textContent = data.error_message;
+                errorDisplay.style.display = "block";
+              }
+              showAccuracyBtn.disabled = false;
+              showAccuracyBtn.textContent = originalText;
+              if (applyBudgetBtn) {
+                applyBudgetBtn.disabled = false;
+                applyBudgetBtn.textContent = originalBudgetBtnText;
+              }
+              return;
+            }
+             renderExpertAccuracy(data);
+             
+             // Dynamic Saved Configurations update
+             const savedConfigsList = document.getElementById("saved-configs-list");
+             if (savedConfigsList && data.saved_configs) {
+               if (data.saved_configs.length === 0) {
+                 savedConfigsList.innerHTML = `<p style="color: var(--muted); font-style: italic; margin: 0; font-size: 15px;">No expert configurations have been saved yet. Configure and apply expert settings above to run experiments and save them here.</p>`;
+               } else {
+                 savedConfigsList.innerHTML = data.saved_configs.map((cfg) => `
+                   <div style="margin-bottom: 10px; display: flex; align-items: flex-start; gap: 8px;">
+                     <input type="checkbox" name="include_config" id="cfg_${cfg.id}" value="${cfg.id}" checked style="margin-top: 4px;">
+                     <label for="cfg_${cfg.id}" style="font-weight: normal; color: var(--text); font-size: 15px; cursor: pointer; text-align: left;">
+                       ${cfg.label}
+                     </label>
+                   </div>
+                 `).join('');
+               }
+               
+               // Enable/disable Download PDF Report button
+               const downloadPdfBtn = document.querySelector("#pdf-report button[type='submit']");
+               if (downloadPdfBtn) {
+                 downloadPdfBtn.disabled = data.saved_configs.length === 0;
+               }
+
+               // Check if we need to show/inject the "Clear Config History" button dynamically
+               const buttonsContainer = document.querySelector("#pdf-report div[style*='display: flex']");
+               if (buttonsContainer && data.saved_configs.length > 0) {
+                 let clearBtn = document.querySelector("#pdf-report button[value='clear-configs']");
+                 if (!clearBtn) {
+                   clearBtn = document.createElement("button");
+                   clearBtn.type = "submit";
+                   clearBtn.name = "action";
+                   clearBtn.value = "clear-configs";
+                   clearBtn.setAttribute("formmethod", "post");
+                   clearBtn.style.cssText = "margin: 0; background-color: var(--tuhh-red); color: white; width: auto; padding: 0 20px;";
+                   clearBtn.textContent = "Clear Config History";
+                   buttonsContainer.appendChild(clearBtn);
+                 }
+               }
+             }
+
+             hasLoaded = true;
+             updateVisibility();
+             showAccuracyBtn.disabled = false;
+             showAccuracyBtn.textContent = originalText;
+             if (applyBudgetBtn) {
+               applyBudgetBtn.disabled = false;
+               applyBudgetBtn.textContent = originalBudgetBtnText;
+             }
           })
           .catch((err) => {
             console.log('Fetch accuracy failed', err);
@@ -661,6 +1049,10 @@
             }
             showAccuracyBtn.disabled = false;
             showAccuracyBtn.textContent = originalText;
+            if (applyBudgetBtn) {
+              applyBudgetBtn.disabled = false;
+              applyBudgetBtn.textContent = originalBudgetBtnText;
+            }
           });
       }
 
@@ -671,16 +1063,35 @@
       removeSecondExpertButton.style.display = expertCount > 1 ? 'block' : 'none';
       showAccuracyBtn.textContent = expertCount > 1 ? "Apply experts' settings" : "Apply expert's settings";
 
+      function updateBudgetFieldsVisibility() {
+        const expertTwoBudgetGroup = document.getElementById("expert-two-budget-group");
+        if (expertTwoBudgetGroup) {
+          expertTwoBudgetGroup.style.display = expertCount > 1 ? 'flex' : 'none';
+        }
+      }
+
       function updateVisibility() {
         const expertSetupResults = document.getElementById("expert-setup-results");
         const noExpertMessage = document.getElementById("no-expert-message");
+        const activeLearningSection = document.getElementById("active-learning");
+        const queriesContainer = document.getElementById("active-learning-queries-container");
+        const strategySection = document.getElementById("active-learning-strategy-section");
+        const examplesSection = document.getElementById("active-learning-examples-section");
         
         if (hasLoaded) {
           if (expertSetupResults) expertSetupResults.style.display = "";
           if (noExpertMessage) noExpertMessage.style.display = "none";
+          if (activeLearningSection) activeLearningSection.style.display = "";
+          if (queriesContainer) queriesContainer.style.display = "";
+          if (strategySection) strategySection.style.display = "";
+          if (examplesSection) examplesSection.style.display = "";
         } else {
           if (expertSetupResults) expertSetupResults.style.display = "none";
           if (noExpertMessage) noExpertMessage.style.display = "inline";
+          if (activeLearningSection) activeLearningSection.style.display = "none";
+          if (queriesContainer) queriesContainer.style.display = "none";
+          if (strategySection) strategySection.style.display = "none";
+          if (examplesSection) examplesSection.style.display = "none";
         }
       }
 
@@ -694,6 +1105,7 @@
         showAccuracyBtn.textContent = "Apply experts' settings";
         hasLoaded = false;
         updateVisibility();
+        updateBudgetFieldsVisibility();
       });
 
       removeSecondExpertButton.addEventListener('click', function (event) {
@@ -706,6 +1118,7 @@
         showAccuracyBtn.textContent = "Apply expert's settings";
         hasLoaded = false;
         updateVisibility();
+        updateBudgetFieldsVisibility();
       });
 
       showAccuracyBtn.addEventListener('click', function (event) {
@@ -723,7 +1136,120 @@
         updateVisibility();
       });
 
+      const queryBudgetForm = document.getElementById("query-budget-form");
+      if (queryBudgetForm) {
+        queryBudgetForm.addEventListener('submit', function (event) {
+          event.preventDefault();
+          requestExpertAccuracy();
+        });
+      }
+
+      const infoBtn = document.getElementById("query-budget-info-btn");
+      const infoText = document.getElementById("query-budget-info-text");
+      const infoPopup = document.getElementById("query-budget-info-popup");
+      
+      function togglePopup(e) {
+        e.stopPropagation();
+        infoPopup.style.display = infoPopup.style.display === "none" ? "block" : "none";
+      }
+
+      if (infoBtn && infoPopup) {
+        infoBtn.addEventListener("click", togglePopup);
+      }
+      if (infoText && infoPopup) {
+        infoText.addEventListener("click", togglePopup);
+      }
+
+      document.addEventListener("click", function() {
+        if (infoPopup) infoPopup.style.display = "none";
+      });
+      if (infoPopup) {
+        infoPopup.addEventListener("click", function(e) {
+          e.stopPropagation();
+        });
+      }
+
+      updateBudgetFieldsVisibility();
+
       let currentAllocationByPolicy = JSON.parse(document.getElementById('allocation-data-initial').textContent);
+      let currentActiveLearningByStrategy = JSON.parse(document.getElementById('active-learning-by-strategy-initial').textContent);
+      let currentScatterPlots = JSON.parse(document.getElementById('scatter-plots-initial').textContent);
+      let humanExpertCurrentPage = 1;
+
+      const queryStrategyExplanation = document.getElementById("query-strategy-explanation");
+      const alQueriesBody = document.getElementById("active-learning-queries-body");
+      const scatterPlotImg = document.getElementById("active-learning-scatter-img");
+      const queriedExamplesBody = document.getElementById("queried-examples-body");
+
+      const strategyExplanations = {
+        "balanced_uncertainty": `With the <strong>Balanced uncertainty (Information-based)</strong> strategy, the query policy selects low-margin classifier examples while balancing across predicted classes. 
+        <em>Low-margin classifier examples</em> are instances where the model's prediction is highly ambiguous (meaning the difference in probability or distance between the top two most likely classes is very small). 
+        Balancing across <em>predicted classes</em> (according to the model's current beliefs) ensures that queries are evenly distributed among all label types, preventing the model from over-sampling from a single category. 
+        The queried labels are used to estimate where the expert is likely to help.`,
+        
+        "uncertainty": `With the <strong>Uncertainty only (Information-based)</strong> strategy, the query policy selects low-margin classifier examples purely based on uncertainty. 
+        It focuses strictly on the most ambiguous examples (lowest difference in confidence between top predicted classes) without any balancing constraint across classes. 
+        While this targets the most confusing inputs, it may lead to highly imbalanced queries that over-sample from a single problematic category.`,
+        
+        "random": `With the <strong>Random sample (Naive)</strong> strategy, the query policy attributes utility uniformly at random. 
+        It selects instances completely at random from the pool of unlabeled data, regardless of model confidence or class membership. 
+        This acts as a passive baseline to assess performance gains from active strategies.`
+      };
+
+      function updateActiveLearningQueriesTable(selectedStrategy) {
+        if (!currentActiveLearningByStrategy || !currentActiveLearningByStrategy[selectedStrategy]) return;
+        const alData = currentActiveLearningByStrategy[selectedStrategy];
+        
+        // 1. Update text explanation
+        if (queryStrategyExplanation) {
+          queryStrategyExplanation.innerHTML = strategyExplanations[selectedStrategy];
+        }
+
+        // 2. Update table rows
+        if (alQueriesBody && alData.estimated_competence_rows) {
+          alQueriesBody.innerHTML = alData.estimated_competence_rows.map((row) => {
+            const rowClass = row.class_name === "Total" ? 'class="total-row"' : '';
+            
+            let cells = `
+              <td><strong>${row.class_name}</strong></td>
+              <td>${row.accuracy_percent}%</td>
+              <td>${row.correct} / ${row.total}</td>
+            `;
+            if (expertCount > 1) {
+              cells += `
+                <td>${row.expert_2_accuracy_percent}%</td>
+                <td>${row.expert_2_correct} / ${row.expert_2_total}</td>
+              `;
+            }
+            return `<tr ${rowClass}>${cells}</tr>`;
+          }).join('');
+        }
+
+        // 3. Update scatter plot image
+        if (scatterPlotImg && currentScatterPlots && currentScatterPlots[selectedStrategy]) {
+          scatterPlotImg.src = currentScatterPlots[selectedStrategy] + "?t=" + new Date().getTime();
+        }
+
+        // 4. Update queried examples table rows
+        if (queriedExamplesBody && alData.queried_rows) {
+          queriedExamplesBody.innerHTML = alData.queried_rows.map((row) => `
+            <tr>
+              <td>${row.model_class}</td>
+              <td>${row.expert_class}</td>
+              <td>${row.true_class}</td>
+              <td>${row.margin}</td>
+              <td class="text-cell collapsible-comment">${row.text}</td>
+            </tr>
+          `).join('');
+          applyCollapsibleComments();
+        }
+      }
+
+      document.querySelectorAll("input[name='query-table-strategy']").forEach((radio) => {
+        radio.addEventListener('change', function () {
+          updateActiveLearningQueriesTable(this.value);
+        });
+      });
 
       document.querySelectorAll("input[name='allocation-policy']").forEach((radio) => {
         radio.addEventListener('change', function () {
@@ -733,9 +1259,287 @@
           }
         });
       });
+      function updateLiveStatus() {
+        const statusSpan = document.getElementById("human-live-status-text");
+        if (!statusSpan) return;
 
+        const budget = parseInt(statusSpan.getAttribute("data-budget")) || 6;
+        const strategyLabel = statusSpan.getAttribute("data-strategy") || "Balanced uncertainty";
+        
+        const selects = document.querySelectorAll("#human-label-cards-list select");
+        let selectedCount = 0;
+        selects.forEach((sel) => {
+          if (sel.value !== "") {
+            selectedCount++;
+          }
+        });
+        
+        statusSpan.innerHTML = `<strong>${selectedCount}/${budget} Answered</strong>, Strategy: <strong>${strategyLabel}</strong>`;
+      }
+
+      function renderHumanExpert(humanExpert, strategy) {
+        if (!humanExpert) return;
+
+        const statusSpan = document.getElementById("human-live-status-text");
+        if (statusSpan) {
+          if (humanExpert.total !== undefined) {
+            statusSpan.setAttribute("data-budget", humanExpert.total);
+          }
+          if (strategy) {
+            let strategyLabel = "Balanced uncertainty";
+            if (strategy === "uncertainty" || strategy === "Uncertainty only") {
+              strategyLabel = "Uncertainty only";
+            } else if (strategy === "random" || strategy === "Random sample") {
+              strategyLabel = "Random sample";
+            } else if (strategy === "balanced_uncertainty" || strategy === "Balanced uncertainty") {
+              strategyLabel = "Balanced uncertainty";
+            } else {
+              strategyLabel = strategy;
+            }
+            statusSpan.setAttribute("data-strategy", strategyLabel);
+          }
+        }
+
+        const answeredEl = document.getElementById("human-answered-count");
+        const totalEl = document.getElementById("human-total-count");
+        const correctEl = document.getElementById("human-correct-count");
+        const accuracyEl = document.getElementById("human-accuracy-percent");
+        const resetBtn = document.getElementById("reset-human-labels-btn");
+        const actionsContainer = document.getElementById("human-actions-buttons-container");
+        
+        if (answeredEl) answeredEl.textContent = humanExpert.answered;
+        if (totalEl) totalEl.textContent = humanExpert.total;
+        if (correctEl) correctEl.textContent = humanExpert.correct;
+        if (accuracyEl) accuracyEl.textContent = humanExpert.accuracy_percent;
+
+        const summaryBox = document.getElementById("human-expert-summary-box");
+        if (summaryBox) {
+          summaryBox.style.display = humanExpert.answered > 0 ? "flex" : "none";
+        }
+        if (resetBtn) {
+          resetBtn.style.display = humanExpert.answered > 0 ? "inline-block" : "none";
+        }
+        if (actionsContainer) {
+          actionsContainer.style.display = humanExpert.answered > 0 ? "none" : "flex";
+        }
+
+        const cardsList = document.getElementById("human-label-cards-list");
+        if (cardsList && Array.isArray(humanExpert.rows)) {
+          cardsList.innerHTML = humanExpert.rows.map((row) => {
+            const optionsHtml = humanExpert.class_options.map((opt) => `
+              <option value="${opt.value}" ${row.selected_label === opt.value ? 'selected' : ''}>
+                ${opt.label}
+              </option>
+            `).join('');
+
+            const resultHtml = row.answered
+              ? `<span class="${row.correct ? 'label-result-correct' : 'label-result-wrong'}">
+                  Reference: ${row.true_class}
+                 </span>`
+              : '<div></div>';
+
+            const bgStyle = row.answered
+              ? `style="background-color: ${row.correct ? '#e6f4ea' : '#fce8e6'};"`
+              : '';
+
+            return `
+              <article class="human-label-card" ${bgStyle}>
+                <p class="collapsible-comment">${row.text}</p>
+                <label for="human-label-${row.key}">Your label</label>
+                <select id="human-label-${row.key}" name="human_label_${row.key}">
+                  <option value="">Choose a class</option>
+                  ${optionsHtml}
+                </select>
+                ${resultHtml}
+              </article>
+            `;
+          }).join('');
+          applyCollapsibleComments();
+          humanExpertCurrentPage = 1;
+          updateHumanExpertPagination();
+          updateLiveStatus();
+        }
+      }
+
+      function appendGlobalParamsToUrl(url) {
+        const expertOne = collectExpertSettings('expert-one');
+        appendExpertParams(url, 'expert-one', expertOne);
+        if (expertCount > 1) {
+          const expertTwo = collectExpertSettings('expert-two');
+          appendExpertParams(url, 'expert-two', expertTwo);
+        }
+        const e1Budget = document.getElementById("expert-one-query-budget")?.value;
+        const e2Budget = document.getElementById("expert-two-query-budget")?.value;
+        if (e1Budget) url.searchParams.set("expert-one-query-budget", e1Budget);
+        if (expertCount > 1 && e2Budget) url.searchParams.set("expert-two-query-budget", e2Budget);
+      }
+
+      // Handler for Human settings apply button:
+      const applyHumanSettingsBtn = document.getElementById("apply-human-settings-btn");
+      if (applyHumanSettingsBtn) {
+        applyHumanSettingsBtn.addEventListener("click", function(event) {
+          event.preventDefault();
+          requestExpertAccuracy();
+        });
+      }
+
+      // Live status listeners:
+      const cardsListContainer = document.getElementById("human-label-cards-list");
+      if (cardsListContainer) {
+        cardsListContainer.addEventListener("change", function(e) {
+          if (e.target && e.target.tagName === "SELECT") {
+            updateLiveStatus();
+          }
+        });
+      }
+
+      // Submit Human labels via AJAX:
+      const humanLabelSubmitForm = document.getElementById("human-label-submit-form");
+      if (humanLabelSubmitForm) {
+        humanLabelSubmitForm.addEventListener("submit", function(e) {
+          e.preventDefault();
+          const budget = document.getElementById("human-expert-budget")?.value || 6;
+          const strategy = document.querySelector("input[name='human-expert-strategy']:checked")?.value || "balanced_uncertainty";
+
+          const url = new URL(window.location.href);
+          url.searchParams.set("format", "json");
+          url.searchParams.set("human-expert-strategy", strategy);
+          url.searchParams.set("human-expert-budget", budget);
+          appendGlobalParamsToUrl(url);
+
+          const formData = new FormData(this);
+          
+          fetch(url, {
+            method: "POST",
+            body: formData,
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          })
+            .then((r) => r.json())
+            .then((data) => {
+              if (data.human_expert) {
+                renderHumanExpert(data.human_expert, data.human_expert_strategy);
+              }
+            })
+            .catch((err) => console.error("Error submitting human labels", err));
+        });
+      }
+
+      // Clear Human labels via AJAX:
+      function clearHumanLabelsAjax() {
+        const budget = document.getElementById("human-expert-budget")?.value || 6;
+        const strategy = document.querySelector("input[name='human-expert-strategy']:checked")?.value || "balanced_uncertainty";
+
+        const url = new URL(window.location.href);
+        url.searchParams.set("format", "json");
+        url.searchParams.set("human-expert-strategy", strategy);
+        url.searchParams.set("human-expert-budget", budget);
+        appendGlobalParamsToUrl(url);
+
+        const formData = new FormData();
+        formData.append("action", "clear-human-labels");
+        const csrfToken = document.querySelector("input[name='csrfmiddlewaretoken']")?.value;
+        if (csrfToken) {
+          formData.append("csrfmiddlewaretoken", csrfToken);
+        }
+
+        fetch(url, {
+          method: "POST",
+          body: formData,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.human_expert) {
+              renderHumanExpert(data.human_expert, data.human_expert_strategy);
+            }
+          })
+          .catch((err) => console.error("Error clearing human labels", err));
+      }
+
+      const clearHumanLabelsBtn = document.getElementById("clear-human-labels-btn");
+      if (clearHumanLabelsBtn) {
+        clearHumanLabelsBtn.addEventListener("click", clearHumanLabelsAjax);
+      }
+
+      const resetHumanLabelsBtn = document.getElementById("reset-human-labels-btn");
+      if (resetHumanLabelsBtn) {
+        resetHumanLabelsBtn.addEventListener("click", clearHumanLabelsAjax);
+      }
+      function updateHumanExpertPagination() {
+        const cards = document.querySelectorAll("#human-label-cards-list .human-label-card");
+        const prevBtn = document.getElementById("human-pag-prev");
+        const nextBtn = document.getElementById("human-pag-next");
+        const infoSpan = document.getElementById("human-pag-info");
+        const pagContainer = document.getElementById("human-expert-pagination");
+        
+        const pageSize = 5;
+        const totalPages = Math.ceil(cards.length / pageSize) || 1;
+        
+        if (humanExpertCurrentPage > totalPages) {
+          humanExpertCurrentPage = totalPages;
+        }
+        if (humanExpertCurrentPage < 1) {
+          humanExpertCurrentPage = 1;
+        }
+
+        // Hide/show cards
+        cards.forEach((card, idx) => {
+          const start = (humanExpertCurrentPage - 1) * pageSize;
+          const end = humanExpertCurrentPage * pageSize;
+          if (idx >= start && idx < end) {
+            card.style.display = "grid";
+          } else {
+            card.style.display = "none";
+          }
+        });
+
+        // Update info text
+        if (infoSpan) {
+          infoSpan.textContent = `Page ${humanExpertCurrentPage} of ${totalPages}`;
+        }
+
+        // Disable/enable buttons
+        if (prevBtn) prevBtn.disabled = (humanExpertCurrentPage === 1);
+        if (nextBtn) nextBtn.disabled = (humanExpertCurrentPage === totalPages);
+
+        // Hide pagination controls if there is only 1 page
+        if (pagContainer) {
+          pagContainer.style.display = (cards.length <= pageSize) ? "none" : "flex";
+        }
+      }
+
+      const pagPrevBtn = document.getElementById("human-pag-prev");
+      const pagNextBtn = document.getElementById("human-pag-next");
+      
+      if (pagPrevBtn) {
+        pagPrevBtn.addEventListener("click", function() {
+          if (humanExpertCurrentPage > 1) {
+            humanExpertCurrentPage--;
+            updateHumanExpertPagination();
+          }
+        });
+      }
+      
+      if (pagNextBtn) {
+        pagNextBtn.addEventListener("click", function() {
+          const cards = document.querySelectorAll("#human-label-cards-list .human-label-card");
+          const totalPages = Math.ceil(cards.length / 5) || 1;
+          if (humanExpertCurrentPage < totalPages) {
+            humanExpertCurrentPage++;
+            updateHumanExpertPagination();
+          }
+        });
+      }
+
+      updateHumanExpertPagination();
+      applyCollapsibleComments();
       updateVisibility();
       requestExpertAccuracy();
+      updateLiveStatus();
     });
   </script>
 </div>

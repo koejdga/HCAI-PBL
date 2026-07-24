@@ -120,13 +120,20 @@ def save_bar_plot(filename, title, labels, values, ylabel, color="#00a6b2"):
     axis.set_title(title, pad=15, fontweight='bold', color='#002D3A')
     axis.set_ylabel(ylabel, fontweight='bold')
     
+    min_val = min(values) if values else 0
     max_val = max(values) if values else 100
-    axis.set_ylim(0, max_val * 1.15 if max_val > 0 else 10)
+    span = max_val - min_val
+    padding = span * 0.15 if span > 0 else 10
+    
+    lower_lim = min_val - padding if min_val < 0 else 0
+    upper_lim = max_val + padding if max_val > 0 else 10
+    axis.set_ylim(lower_lim, upper_lim)
     
     # Rotate labels
     plt.xticks(rotation=15, ha='right')
     
     axis.grid(axis="y", linestyle='--', alpha=0.5)
+    axis.axhline(0, color='#333333', linewidth=1.2, zorder=2)
     
     for bar in bars:
         yval = bar.get_height()
@@ -135,12 +142,14 @@ def save_bar_plot(filename, title, labels, values, ylabel, color="#00a6b2"):
                 label_text = f"{yval:.2f}" if yval % 1 != 0 else f"{int(yval)}"
             else:
                 label_text = str(yval)
+            offset = (span * 0.015) if yval >= 0 else -(span * 0.03)
+            va_align = 'bottom' if yval >= 0 else 'top'
             axis.text(
                 bar.get_x() + bar.get_width()/2.0,
-                yval + (max_val * 0.015),
+                yval + offset,
                 label_text,
                 ha='center',
-                va='bottom',
+                va=va_align,
                 fontsize=9,
                 fontweight='bold',
                 color='#002D3A'
@@ -149,4 +158,68 @@ def save_bar_plot(filename, title, labels, values, ylabel, color="#00a6b2"):
     figure.tight_layout()
     figure.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(figure)
+    return settings.MEDIA_URL + f"project3/{filename}"
+
+
+def save_active_learning_scatter_plot(train_examples, active_learning, filename="active_learning_scatter.png"):
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.decomposition import TruncatedSVD
+    import numpy as np
+
+    train_texts = [ex["text"] for ex in train_examples]
+    train_labels = [ex["label"] for ex in train_examples]
+    
+    vectorizer = TfidfVectorizer(max_features=5000, stop_words="english")
+    X_train = vectorizer.fit_transform(train_texts)
+    
+    svd = TruncatedSVD(n_components=2, random_state=42)
+    X_2d = svd.fit_transform(X_train)
+    
+    path = os.path.join(artifact_dir(), filename)
+    figure, axis = plt.subplots(figsize=(7, 5))
+    
+    # Plot all background points
+    axis.scatter(
+        X_2d[:, 0], 
+        X_2d[:, 1], 
+        c="#cbd5e1", 
+        alpha=0.4, 
+        s=6, 
+        label="Dataset background",
+        edgecolors="none"
+    )
+    
+    # Plot selected query points
+    selected_indices = active_learning.get("selected_indices", [])
+    if len(selected_indices) > 0:
+        selected_indices = np.array(selected_indices)
+        X_selected = X_2d[selected_indices]
+        labels_selected = np.array(train_labels)[selected_indices]
+        
+        # Color palette for classes: World, Sports, Business, Sci/Tech
+        # Colors: World: blue, Sports: green, Business: orange, Sci/Tech: purple
+        class_colors = {1: "#3b82f6", 2: "#10b981", 3: "#f97316", 4: "#8b5cf6"}
+        
+        for class_id in CLASS_IDS:
+            class_mask = labels_selected == class_id
+            if np.any(class_mask):
+                axis.scatter(
+                    X_selected[class_mask, 0],
+                    X_selected[class_mask, 1],
+                    c=class_colors[class_id],
+                    s=40,
+                    marker="*",
+                    label=CLASS_NAMES[class_id],
+                    edgecolors="none"
+                )
+
+    axis.set_title("Active Learning Queries in Semantic Space", pad=15, fontweight='bold', color='#002D3A')
+    axis.legend(loc="upper right", frameon=True, fontsize=9)
+    axis.set_xlabel("SVD Component 1", fontweight='bold')
+    axis.set_ylabel("SVD Component 2", fontweight='bold')
+    
+    figure.tight_layout()
+    figure.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(figure)
+    
     return settings.MEDIA_URL + f"project3/{filename}"

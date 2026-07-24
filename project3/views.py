@@ -1,5 +1,6 @@
 import copy
 import os
+import time
 import random
 from collections import OrderedDict
 from django.conf import settings
@@ -9,6 +10,19 @@ from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 from .core.learning_to_defer import L2DClassifier, L2DNeuralNetwork, L2DLinearModel
 from django.http import JsonResponse
+import numpy as np
+from django.core.serializers.json import DjangoJSONEncoder
+from django.template.loader import render_to_string
+
+class NumpyJSONEncoder(DjangoJSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super().default(obj)
 
 from .core.utils import (
     CLASS_NAMES,
@@ -19,6 +33,7 @@ from .core.utils import (
     parse_sample_size,
     parse_float,
     save_bar_plot,
+    save_active_learning_scatter_plot,
     artifact_dir,
 )
 from .core.deferral import (
@@ -74,25 +89,40 @@ def _store_cached_project3_results(cache_key, payload):
         PROJECT3_RESULT_CACHE.popitem(last=False)
 
 
+PROJECT3_BASE_CACHE = OrderedDict()
+
+
+def _get_cached_base_context(cache_key):
+    if cache_key in PROJECT3_BASE_CACHE:
+        PROJECT3_BASE_CACHE.move_to_end(cache_key)
+        return PROJECT3_BASE_CACHE[cache_key]
+    return None
+
+
+def _store_cached_base_context(cache_key, payload):
+    PROJECT3_BASE_CACHE[cache_key] = payload
+    PROJECT3_BASE_CACHE.move_to_end(cache_key)
+    while len(PROJECT3_BASE_CACHE) > PROJECT3_RESULT_CACHE_MAX:
+        PROJECT3_BASE_CACHE.popitem(last=False)
+
+
 def sample_examples(examples, count=5):
     rng = random.Random(42)
     selected = rng.sample(examples, min(count, len(examples)))
     return [
         {
             "label": CLASS_NAMES[example["label"]],
-            "text": example["text"][:260]
-            + ("..." if len(example["text"]) > 260 else ""),
+            "text": example["text"],
         }
         for example in selected
     ]
 
 
-def _compute_project3_results(train_examples, test_examples, defer_rate, query_budget, expert_configs=None):
-    baseline = train_baseline_classifier(train_examples, test_examples)
+def _compute_project3_results(train_examples, test_examples, defer_rate, query_budget, expert_configs=None, baseline=None):
+    if baseline is None:
+        baseline = train_baseline_classifier(train_examples, test_examples)
 
     if expert_configs:
-        print("expert_configs")
-        print(expert_configs)
         expert_results = [
             evaluate_expert_from_settings(test_examples, cfg) for cfg in expert_configs
         ]
@@ -103,9 +133,20 @@ def _compute_project3_results(train_examples, test_examples, defer_rate, query_b
         sum(r["accuracy"] for r in expert_results) / len(expert_results)
     )
 
-    active_learning = active_learning_queries(train_examples, baseline, query_budget)
+    active_learning_by_strategy = {}
+    scatter_plots = {}
+    for strat in ["balanced_uncertainty", "uncertainty", "random"]:
+        al_data = active_learning_queries(
+            train_examples, baseline, query_budget, strategy=strat, expert_configs=expert_configs
+        )
+        active_learning_by_strategy[strat] = al_data
+        scatter_plots[strat] = save_active_learning_scatter_plot(
+            train_examples, al_data, filename=f"active_learning_scatter_{strat}.png"
+        )
+
+    active_learning = active_learning_by_strategy["balanced_uncertainty"]
     strategy_rows = compare_active_learning_strategies(
-        train_examples, baseline, query_budget
+        train_examples, test_examples, baseline, query_budget, expert_configs=expert_configs
     )
     confidence_team = evaluate_confidence_threshold_defer(
         test_examples, baseline, expert_results, defer_rate, expert_configs=expert_configs
@@ -140,6 +181,19 @@ def _compute_project3_results(train_examples, test_examples, defer_rate, query_b
         expert_cost_avg = sum(expert_costs) / len(expert_costs)
     else:
         expert_cost_avg = 0.0
+
+    expert_metrics = []
+    configs_to_use = expert_configs if expert_configs else [{"type": "REALISTIC", "competence_level": "more-competent", "fields": [], "cost_presence": "absent", "cost": None}]
+    for index, settings in enumerate(configs_to_use, start=1):
+        expert_result = expert_results[index - 1]
+        expert_metrics.append(
+            {
+                "name": f"Expert {index}",
+                "type": settings.get("type", "REALISTIC"),
+                "accuracy_percent": round(expert_result["accuracy"] * 100, 2),
+                "settings": settings,
+            }
+        )
 
     policy_rows = [
         {
@@ -376,15 +430,6 @@ def _compute_project3_results(train_examples, test_examples, defer_rate, query_b
         color="#27ae60",
     )
 
-    strategy_plot_url = save_bar_plot(
-        "active_learning_comparison.png",
-        "Active Learning Strategy Comparison",
-        [row["label"] for row in strategy_rows],
-        [row["average_competence_percent"] for row in strategy_rows],
-        "Estimated expert competence (%)",
-        color="#10b981",
-    )
-
     return {
         "baseline_accuracy_percent": round(baseline["accuracy"] * 100, 2),
         "expert_accuracy_percent": round(expert_accuracy_avg * 100, 2),
@@ -395,6 +440,7 @@ def _compute_project3_results(train_examples, test_examples, defer_rate, query_b
         "team_useful_defer": selected_team["useful_defer"],
         "team_harmful_defer": selected_team["harmful_defer"],
         "active_learning": active_learning,
+        "active_learning_by_strategy": active_learning_by_strategy,
         "strategy_rows": strategy_rows,
         "policy_rows": policy_rows,
         "allocation_rows": allocation_by_policy["confidence"],
@@ -403,42 +449,171 @@ def _compute_project3_results(train_examples, test_examples, defer_rate, query_b
         "cost_plot_url": cost_plot_url,
         "deferred_plot_url": deferred_plot_url,
         "benefit_plot_url": benefit_plot_url,
-        "strategy_plot_url": strategy_plot_url,
+        "scatter_plot_url": scatter_plots["balanced_uncertainty"],
+        "scatter_plots": scatter_plots,
         "baseline_class_rows": class_metric_rows(baseline["per_class"]),
         "expert_class_rows": build_expert_class_rows(expert_results),
         "baseline_confusion_rows": baseline["confusion"],
         "expert_confusion_rows": expert_results[0]["confusion"],
         "sample_examples": sample_examples(test_examples),
+        "expert_summaries": build_expert_summaries(expert_configs, expert_results) if expert_configs else [],
+        "experts": expert_metrics,
     }
+
+
+def get_base_experiment_context(train_size, test_size, query_budget):
+    dataset = load_ag_news_dataset(train_size, test_size)
+    train_examples = dataset["train"]
+    test_examples = dataset["test"]
+
+    if query_budget is None:
+        query_budget = min(len(train_examples), DEFAULT_QUERY_BUDGET)
+    query_budget = min(query_budget, len(train_examples))
+
+    cache_key = (train_size, test_size, query_budget)
+    cached = _get_cached_base_context(cache_key)
+    if cached is not None:
+        return {
+            "dataset": dataset,
+            "train_examples": train_examples,
+            "test_examples": test_examples,
+            "baseline": cached["baseline"],
+            "query_budget": query_budget,
+            "sample_examples": sample_examples(test_examples),
+        }
+
+    baseline = train_baseline_classifier(train_examples, test_examples)
+    
+    cached_payload = {
+        "baseline": baseline,
+    }
+    _store_cached_base_context(cache_key, cached_payload)
+    
+    return {
+        "dataset": dataset,
+        "train_examples": train_examples,
+        "test_examples": test_examples,
+        "baseline": baseline,
+        "query_budget": query_budget,
+        "sample_examples": sample_examples(test_examples),
+    }
+
+
+def _are_configs_equal(c1, c2):
+    if len(c1) != len(c2):
+        return False
+    for e1, e2 in zip(c1, c2):
+        if e1.get("type") != e2.get("type"):
+            return False
+        if sorted(e1.get("fields") or []) != sorted(e2.get("fields") or []):
+            return False
+        if e1.get("competence_level") != e2.get("competence_level"):
+            return False
+        if e1.get("cost_presence") != e2.get("cost_presence"):
+            return False
+        if e1.get("cost") != e2.get("cost"):
+            return False
+        if e1.get("query_budget") != e2.get("query_budget"):
+            return False
+    return True
 
 
 def build_project3_results(request):
     train_size = parse_sample_size(request.GET.get("train-size"), DEFAULT_TRAIN_SIZE)
     test_size = parse_sample_size(request.GET.get("test-size"), DEFAULT_TEST_SIZE)
     defer_rate = parse_float(request.GET.get("defer-rate"), DEFAULT_DEFER_RATE)
-    query_budget = parse_sample_size(
-        request.GET.get("query-budget"), DEFAULT_QUERY_BUDGET
+    expert_one_query_budget = parse_sample_size(
+        request.GET.get("expert-one-query-budget") or request.GET.get("query-budget"),
+        DEFAULT_QUERY_BUDGET
     )
+    expert_two_query_budget = parse_sample_size(
+        request.GET.get("expert-two-query-budget") or request.GET.get("query-budget"),
+        DEFAULT_QUERY_BUDGET
+    )
+    human_strategy = request.GET.get("human-expert-strategy") or "balanced_uncertainty"
+    human_limit = parse_sample_size(request.GET.get("human-expert-budget"), 6)
+    
+    if hasattr(request, "session"):
+        prev_strategy = request.session.get("project3_human_strategy")
+        prev_limit = request.session.get("project3_human_limit")
+        if prev_strategy != human_strategy or prev_limit != human_limit:
+            request.session["project3_human_labels"] = {}
+            request.session["project3_human_strategy"] = human_strategy
+            request.session["project3_human_limit"] = human_limit
+            request.session.modified = True
+        
+    query_budget = max(expert_one_query_budget, expert_two_query_budget, human_limit)
     expert_configs = parse_requested_experts(request)
+    if not expert_configs:
+        raise ValueError("No experts have been configured yet. Please configure the expert(s) in the form below and click 'Apply expert's accuracy'.")
 
-    dataset = load_ag_news_dataset(train_size, test_size)
-    train_examples = dataset["train"]
-    test_examples = dataset["test"]
-    if query_budget is None:
-        query_budget = min(len(train_examples), DEFAULT_QUERY_BUDGET)
-    query_budget = min(query_budget, len(train_examples))
+    expert_configs[0]["query_budget"] = expert_one_query_budget
+    if len(expert_configs) > 1:
+        expert_configs[1]["query_budget"] = expert_two_query_budget
+
+    base = get_base_experiment_context(train_size, test_size, query_budget)
 
     cache_key = _cache_key(train_size, test_size, defer_rate, query_budget, expert_configs)
     cached_payload = _get_cached_project3_results(cache_key)
     if cached_payload is None:
         cached_payload = _compute_project3_results(
-            train_examples, test_examples, defer_rate, query_budget, expert_configs
+            base["train_examples"], base["test_examples"], defer_rate, query_budget, expert_configs, baseline=base["baseline"]
         )
         _store_cached_project3_results(cache_key, cached_payload)
 
+    human_al = cached_payload.get("active_learning_by_strategy", {}).get(human_strategy)
+    if human_al is None:
+        human_al = active_learning_queries(
+            base["train_examples"], base["baseline"], query_budget, strategy=human_strategy, expert_configs=expert_configs
+        )
+
     human_expert = build_human_expert_context(
-        request, train_examples, cached_payload["active_learning"]
+        request, base["train_examples"], human_al, limit=human_limit
     )
+
+    if hasattr(request, "session"):
+        request.session["project3_last_query_params"] = request.GET.dict()
+        
+        # Save current config to history
+        saved_list = request.session.get("project3_saved_configs", [])
+        exists = False
+        for item in saved_list:
+            if _are_configs_equal(item.get("expert_configs", []), expert_configs):
+                exists = True
+                break
+                
+        if not exists:
+            labels = []
+            for idx, cfg in enumerate(expert_configs):
+                exp_num = idx + 1
+                exp_type = "Realistic" if cfg.get("type") == "REALISTIC" else "Trivial"
+                details = []
+                if cfg.get("type") == "REALISTIC":
+                    if cfg.get("competence_level"):
+                        details.append(cfg["competence_level"].replace("-", " "))
+                    if cfg.get("cost_presence") == "present" and cfg.get("cost") is not None:
+                        details.append(f"cost: {cfg['cost']}")
+                else:
+                    fields = cfg.get("fields") or []
+                    field_names = [CLASS_NAMES[fid] for fid in fields if fid in CLASS_NAMES]
+                    if field_names:
+                        details.append(f"fields: {', '.join(field_names)}")
+                    else:
+                        details.append("all fields")
+                details.append(f"budget: {cfg.get('query_budget')}")
+                labels.append(f"Expert {exp_num} ({exp_type}, {', '.join(details)})")
+            
+            config_label = " & ".join(labels)
+            config_id = f"cfg_{int(time.time())}_{len(saved_list)}"
+            
+            saved_list.append({
+                "id": config_id,
+                "label": config_label,
+                "params": request.GET.dict(),
+                "expert_configs": expert_configs,
+            })
+            request.session["project3_saved_configs"] = saved_list
+        request.session.modified = True
 
     return {
         "train_size": "all" if train_size is None else train_size,
@@ -446,16 +621,22 @@ def build_project3_results(request):
         "defer_rate": defer_rate,
         "defer_rate_percent": round(defer_rate * 100, 1),
         "query_budget": query_budget,
-        "train_rows": len(train_examples),
-        "test_rows": len(test_examples),
-        "full_train_rows": dataset["full_train_rows"],
-        "full_test_rows": dataset["full_test_rows"],
-        "dataset_source": dataset["source"],
+        "expert_one_query_budget": expert_one_query_budget,
+        "expert_two_query_budget": expert_two_query_budget,
+        "train_rows": len(base["train_examples"]),
+        "test_rows": len(base["test_examples"]),
+        "full_train_rows": base["dataset"]["full_train_rows"],
+        "full_test_rows": base["dataset"]["full_test_rows"],
+        "dataset_source": base["dataset"]["source"],
         "class_names": CLASS_NAMES,
         **copy.deepcopy(cached_payload),
         "human_expert": human_expert,
+        "human_expert_strategy": human_strategy,
+        "human_expert_budget": human_limit,
+        "sample_examples": base["sample_examples"],
         "report_url": "report/",
         "expert_count": len(expert_configs),
+        "saved_configs": request.session.get("project3_saved_configs", []) if hasattr(request, "session") else [],
     }
 
 
@@ -514,6 +695,14 @@ def parse_expert_settings(request, prefix):
 
 def parse_requested_experts(request):
     """Return settings for one or two experts from the expert-choice form."""
+    has_expert_one = (
+        request.GET.get("expert-one-type") is not None
+        or request.GET.get("expert-one") is not None
+        or request.GET.get("expert") is not None
+    )
+    if not has_expert_one:
+        return []
+
     experts = [parse_expert_settings(request, "expert-one")]
     has_second = (
         request.GET.get("expert-two-type") is not None
@@ -535,6 +724,28 @@ def evaluate_expert_from_settings(test_examples, settings):
 
     fields = settings["fields"]
     return evaluate_trivial_expert(test_examples, fields)
+
+
+def build_expert_summaries(expert_settings, expert_results):
+    summaries = []
+    for index, (settings, result) in enumerate(zip(expert_settings, expert_results), start=1):
+        field_names = [CLASS_NAMES[fid] for fid in settings["fields"] if fid in CLASS_NAMES]
+        comp_label = ""
+        if settings["type"] == "REALISTIC":
+            comp_level = settings["competence_level"] or "more-competent"
+            comp_label = "more competent" if comp_level == "more-competent" else "less competent"
+        
+        avg_acc = round(result["accuracy"] * 100, 1)
+        
+        summaries.append({
+            "name": f"Expert {index}",
+            "type_label": "Realistic" if settings["type"] == "REALISTIC" else "Trivial",
+            "competence_label": comp_label,
+            "fields_text": ", ".join(field_names) if field_names else "none",
+            "accuracy_percent": avg_acc,
+            "cost": settings["cost"] if settings["cost_presence"] == "present" else None,
+        })
+    return summaries
 
 
 def build_expert_class_rows(expert_results):
@@ -601,6 +812,7 @@ def build_expert_accuracy_payload(request):
         "experts": expert_metrics,
         "expert_count": len(expert_metrics),
         "expert_settings": expert_settings,
+        "expert_summaries": build_expert_summaries(expert_settings, expert_results),
         "expert_class_rows": expert_class_rows,
         "policy_rows": results.get("policy_rows", []),
         "allocation_rows": results.get("allocation_rows", []),
@@ -609,6 +821,16 @@ def build_expert_accuracy_payload(request):
         "cost_plot_url": results.get("cost_plot_url"),
         "deferred_plot_url": results.get("deferred_plot_url"),
         "benefit_plot_url": results.get("benefit_plot_url"),
+        "active_learning": results.get("active_learning"),
+        "active_learning_by_strategy": results.get("active_learning_by_strategy"),
+        "strategy_rows": results.get("strategy_rows", []),
+        "expert_one_query_budget": results.get("expert_one_query_budget"),
+        "expert_two_query_budget": results.get("expert_two_query_budget"),
+        "scatter_plot_url": results.get("scatter_plot_url"),
+        "scatter_plots": results.get("scatter_plots"),
+        "human_expert": results.get("human_expert"),
+        "human_expert_strategy": results.get("human_expert_strategy"),
+        "saved_configs": results.get("saved_configs", []),
     }
 
 
@@ -617,6 +839,8 @@ def index(request):
         action = request.POST.get("action")
         if action == "clear-human-labels":
             request.session["project3_human_labels"] = {}
+        elif action == "clear-configs":
+            request.session["project3_saved_configs"] = []
         else:
             labels = request.session.get("project3_human_labels", {}).copy()
             for key, value in request.POST.items():
@@ -626,19 +850,73 @@ def index(request):
                     labels[key.removeprefix("human_label_")] = value
             request.session["project3_human_labels"] = labels
         request.session.modified = True
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.GET.get("format") == "json":
+            try:
+                results = build_project3_results(request)
+                return JsonResponse({
+                    "success": True,
+                    "human_expert": results.get("human_expert"),
+                    "human_expert_strategy": results.get("human_expert_strategy"),
+                }, encoder=NumpyJSONEncoder)
+            except Exception as e:
+                return JsonResponse({"error_message": str(e)}, status=400)
         query_string = request.META.get("QUERY_STRING", "")
         target = request.path + (f"?{query_string}" if query_string else "")
         return redirect(target)
 
     if request.GET.get("format") == "json":
-        return JsonResponse(build_expert_accuracy_payload(request))
+        try:
+            return JsonResponse(build_expert_accuracy_payload(request), encoder=NumpyJSONEncoder)
+        except ValueError as e:
+            return JsonResponse({"error_message": str(e)}, status=400)
 
-    results = build_project3_results(request)
+    try:
+        results = build_project3_results(request)
+    except ValueError as e:
+        train_size = parse_sample_size(request.GET.get("train-size"), DEFAULT_TRAIN_SIZE)
+        test_size = parse_sample_size(request.GET.get("test-size"), DEFAULT_TEST_SIZE)
+        defer_rate = parse_float(request.GET.get("defer-rate"), DEFAULT_DEFER_RATE)
+        query_budget = parse_sample_size(
+            request.GET.get("expert-one-query-budget") or request.GET.get("query-budget"),
+            DEFAULT_QUERY_BUDGET
+        )
+        base = get_base_experiment_context(train_size, test_size, query_budget)
+        active_learning = active_learning_queries(
+            base["train_examples"], base["baseline"], base["query_budget"], expert_configs=None
+        )
+        human_expert = build_human_expert_context(
+            request, base["train_examples"], active_learning
+        )
+        scatter_plot_url = save_active_learning_scatter_plot(base["train_examples"], active_learning)
+
+        results = {
+            "error_message": str(e),
+            "train_size": "all" if train_size is None else train_size,
+            "test_size": "all" if test_size is None else test_size,
+            "defer_rate": defer_rate,
+            "defer_rate_percent": round(defer_rate * 100, 1),
+            "train_rows": len(base["train_examples"]),
+            "test_rows": len(base["test_examples"]),
+            "full_train_rows": base["dataset"]["full_train_rows"],
+            "full_test_rows": base["dataset"]["full_test_rows"],
+            "dataset_source": base["dataset"]["source"],
+            "class_names": CLASS_NAMES,
+            "baseline_class_rows": class_metric_rows(base["baseline"]["per_class"]),
+            "baseline_accuracy_percent": round(base["baseline"]["accuracy"] * 100, 2),
+            "expert_count": 0,
+            "human_expert": human_expert,
+            "sample_examples": base["sample_examples"],
+            "scatter_plot_url": scatter_plot_url,
+            "saved_configs": request.session.get("project3_saved_configs", []) if hasattr(request, "session") else [],
+        }
+
     results["content_menu_items"] = [
         {"label": "Baseline Classifier", "href": "#baseline-classifier"},
         {"label": "Learning to Defer", "href": "#learning-to-defer"},
         {"label": "Active Learning", "href": "#active-learning"},
         {"label": "Human Expert", "href": "#human-expert"},
+        {"label": "Test Examples", "href": "#sample-test-examples"},
+        {"label": "PDF Report", "href": "#pdf-report"}
     ]
 
     results["expert_options"] = [
@@ -653,54 +931,155 @@ def index(request):
     ]
     return render(request, "project3/index.html", results)
 
+def restore_session_query_params(request):
+    if hasattr(request, "session") and "project3_last_query_params" in request.session:
+        params = request.session["project3_last_query_params"]
+        q_dict = request.GET.copy()
+        for k, v in params.items():
+            if k not in q_dict:
+                q_dict[k] = v
+        request.GET = q_dict
+
+from xhtml2pdf import pisa  # Pure Python converter!
+import io
+
+REPORT_FILENAME = "project3_report.pdf"
+
+def _prepare_active_learning_strategies(cfg_results):
+    active_learning_strategies = []
+    scatter_plots = cfg_results.get("scatter_plots", {})
+    for strat_key, url_val in list(scatter_plots.items()):
+        if url_val and not url_val.startswith(settings.MEDIA_ROOT):
+            scatter_plots[strat_key] = os.path.join(
+                settings.MEDIA_ROOT, url_val.removeprefix(settings.MEDIA_URL)
+            )
+            
+    for strat_key, strat_name, strat_desc in [
+        ("balanced_uncertainty", "Balanced Uncertainty", "Selects low-margin classifier examples while balancing across predicted classes."),
+        ("uncertainty", "Uncertainty-only", "Selects examples where the classifier's predictions have the lowest margin, without balancing across classes."),
+        ("random", "Random Querying", "Selects training examples uniformly at random to query the expert.")
+    ]:
+        al_data = cfg_results.get("active_learning_by_strategy", {}).get(strat_key, {})
+        active_learning_strategies.append({
+            "key": strat_key,
+            "name": strat_name,
+            "description": strat_desc,
+            "estimated_competence_rows": al_data.get("estimated_competence_rows", []),
+            "scatter_plot_url": scatter_plots.get(strat_key),
+        })
+    return active_learning_strategies
+
 
 def report(request):
+    restore_session_query_params(request)
     results = build_project3_results(request)
-    report_path = os.path.join(artifact_dir(), REPORT_FILENAME)
 
-    with PdfPages(report_path) as pdf:
-        figure = plt.figure(figsize=(8.27, 11.69))
-        figure.suptitle("Project 3: Active Learning for Learning-to-Defer", fontsize=16)
-        lines = [
-            f"Dataset source: {results['dataset_source']}",
-            f"Training rows used: {results['train_rows']}",
-            f"Test rows used: {results['test_rows']}",
-            "",
-            "Main results:",
-            f"Baseline classifier accuracy: {results['baseline_accuracy_percent']}%",
-            f"Simulated expert accuracy: {results['expert_accuracy_percent']}%",
-            f"Competence-aware team accuracy: {results['team_accuracy_percent']}%",
-            f"Expert queries used: {results['query_budget']}",
-            "",
-            "Design choices:",
-            "- Baseline: TF-IDF text representation with a linear SVM.",
-            "- Simulated expert: topic-specialist expert with uneven competence.",
-            "- Deferral: compare classifier-only, confidence threshold, competence-aware, and expert-only policies.",
-            "- Active learning: compare balanced uncertainty, uncertainty-only, and random querying.",
-        ]
-        figure.text(0.08, 0.9, "\n".join(lines), va="top", fontsize=11)
-        figure.text(
-            0.08,
-            0.18,
-            "The interface stores the same experiment metrics shown in this report, "
-            "including class-level expert competence and queried examples.",
-            fontsize=10,
-        )
-        pdf.savefig(figure)
-        plt.close(figure)
-
-        for image_url in [results["model_plot_url"], results["strategy_plot_url"]]:
-            image_path = os.path.join(
-                settings.MEDIA_ROOT, image_url.removeprefix(settings.MEDIA_URL)
+    # Convert plot URLs to absolute filesystem paths for xhtml2pdf/pisa
+    results_copy = results.copy()
+    for key in ["model_plot_url", "deferred_plot_url", "benefit_plot_url", "cost_plot_url", "scatter_plot_url"]:
+        url_val = results_copy.get(key)
+        if url_val:
+            results_copy[key] = os.path.join(
+                settings.MEDIA_ROOT, url_val.removeprefix(settings.MEDIA_URL)
             )
-            image = plt.imread(image_path)
-            figure, axis = plt.subplots(figsize=(11, 6))
-            axis.imshow(image)
-            axis.axis("off")
-            pdf.savefig(figure)
-            plt.close(figure)
 
-    with open(report_path, "rb") as report_file:
-        response = HttpResponse(report_file.read(), content_type="application/pdf")
+    results_copy["training_diagram_path"] = os.path.join(
+        settings.BASE_DIR, "project3/static/project3/images/training_active_learning_diagram.png"
+    )
+    results_copy["testing_diagram_path"] = os.path.join(
+        settings.BASE_DIR, "project3/static/project3/images/testing_active_learning_diagram.png"
+    )
+
+    include_configs = request.GET.getlist("include_config")
+    saved_list = request.session.get("project3_saved_configs", []) if hasattr(request, "session") else []
+    
+    selected_configs = []
+    
+    # If no specific configurations are selected, render just the current configuration
+    if not include_configs:
+        current_cfg = {
+            "label": "Current Configuration",
+            "expert_count": results_copy["expert_count"],
+            "experts": results_copy["experts"],
+            "expert_class_rows": results_copy["expert_class_rows"],
+            "policy_rows": results_copy["policy_rows"],
+            "allocation_rows": results_copy["allocation_rows"],
+            "model_plot_url": results_copy["model_plot_url"],
+            "deferred_plot_url": results_copy["deferred_plot_url"],
+            "benefit_plot_url": results_copy["benefit_plot_url"],
+            "cost_plot_url": results_copy.get("cost_plot_url"),
+            "expert_one_query_budget": results_copy.get("expert_one_query_budget"),
+            "expert_two_query_budget": results_copy.get("expert_two_query_budget"),
+            "expert_summaries": results_copy.get("expert_summaries"),
+            "active_learning": results_copy.get("active_learning"),
+            "scatter_plot_url": results_copy["scatter_plot_url"],
+            "strategy_rows": results_copy["strategy_rows"],
+            "active_learning_strategies": _prepare_active_learning_strategies(results_copy),
+        }
+        selected_configs.append(current_cfg)
+    else:
+        # Rebuild results for each selected config
+        for cfg_id in include_configs:
+            cfg_item = None
+            for item in saved_list:
+                if item["id"] == cfg_id:
+                    cfg_item = item
+                    break
+            if not cfg_item:
+                continue
+                
+            orig_get = request.GET
+            mock_get = orig_get.copy()
+            for k, v in cfg_item["params"].items():
+                mock_get[k] = v
+            request.GET = mock_get
+            
+            try:
+                cfg_results = build_project3_results(request)
+            finally:
+                request.GET = orig_get
+                
+            for key in ["model_plot_url", "deferred_plot_url", "benefit_plot_url", "cost_plot_url", "scatter_plot_url"]:
+                url_val = cfg_results.get(key)
+                if url_val:
+                    cfg_results[key] = os.path.join(
+                        settings.MEDIA_ROOT, url_val.removeprefix(settings.MEDIA_URL)
+                    )
+            
+            selected_configs.append({
+                "label": cfg_item["label"],
+                "expert_count": cfg_results["expert_count"],
+                "experts": cfg_results["experts"],
+                "expert_class_rows": cfg_results["expert_class_rows"],
+                "policy_rows": cfg_results["policy_rows"],
+                "allocation_rows": cfg_results["allocation_rows"],
+                "model_plot_url": cfg_results["model_plot_url"],
+                "deferred_plot_url": cfg_results["deferred_plot_url"],
+                "benefit_plot_url": cfg_results["benefit_plot_url"],
+                "cost_plot_url": cfg_results.get("cost_plot_url"),
+                "expert_one_query_budget": cfg_results.get("expert_one_query_budget"),
+                "expert_two_query_budget": cfg_results.get("expert_two_query_budget"),
+                "expert_summaries": cfg_results.get("expert_summaries"),
+                "active_learning": cfg_results.get("active_learning"),
+                "scatter_plot_url": cfg_results["scatter_plot_url"],
+                "strategy_rows": cfg_results["strategy_rows"],
+                "active_learning_strategies": _prepare_active_learning_strategies(cfg_results),
+            })
+            
+    results_copy["selected_configs"] = selected_configs
+    results_copy["class_names_list"] = ["World", "Sports", "Business", "Sci/Tech", "Total"]
+
+    # 1. Render Django HTML template to a string
+    html_string = render_to_string("project3/report_pdf.html", results_copy)
+
+    # 2. Write PDF to an in-memory byte buffer
+    pdf_buffer = io.BytesIO()
+    pisa_status = pisa.CreatePDF(src=html_string, dest=pdf_buffer)
+
+    if pisa_status.err:
+        return HttpResponse("Error generating PDF report", status=500)
+
+    # 3. Return response as downloadable PDF
+    response = HttpResponse(pdf_buffer.getvalue(), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{REPORT_FILENAME}"'
     return response

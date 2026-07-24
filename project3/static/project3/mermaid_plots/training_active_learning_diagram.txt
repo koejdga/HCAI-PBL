@@ -1,0 +1,21 @@
+flowchart LR
+    %% Styling
+    classDef baseline fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#01579b;
+    classDef discovery fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#1b5e20;
+    classDef data fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
+
+    D_train[("Training Dataset<br/>(Texts + Ground-Truth Labels y)")]:::data
+    
+    M_base["<b>1. Baseline Classifier</b><br/>Train TF-IDF + Linear SVM<br/><i><b>Accuracy: 87.8%</b></i>"]:::baseline
+    
+    AL_Query["<b>2. Active Learning Query Selection</b><br/>Rank unlabeled pool via Strategy<br/><i>Limited by Query Budget N</i>"]:::discovery
+    
+    Expert_Resp["<b>3. Expert Querying</b><br/>Simulated / Human Expert provides predictions<br/>for N queries"]:::discovery
+    
+    Comp_Est["<b>4. Estimate Expert Competence</b><br/>Calculate per-class accuracy"]:::discovery
+
+    D_train --> M_base
+    D_train --> AL_Query
+    M_base -- "Prediction Margins / Scores" --> AL_Query
+    AL_Query --> Expert_Resp
+    Expert_Resp --> Comp_Est

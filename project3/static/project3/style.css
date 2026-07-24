@@ -2,11 +2,15 @@
   padding-bottom: 36px;
 }
 
-project3-section, section {
+project3-section,
+section {
   margin: 22px 5%;
+  display: flex;
+  flex-direction: column;
 }
 
-h2, h3 {
+h2,
+h3 {
   color: var(--tuhh-navy);
   text-align: center;
 }
@@ -26,13 +30,13 @@ p {
 .experiment-form {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: center;
   justify-content: center;
   gap: 12px;
   margin: 20px auto;
   padding: 16px;
   border: 1px solid var(--border);
-  background: #f8fbfc;
+  background: var(--surface-soft);
 }
 
 .experiment-form label {
@@ -44,6 +48,7 @@ p {
   width: 110px;
   padding: 8px 10px;
   border: 1px solid var(--border);
+  cursor: text;
 }
 
 button {
@@ -154,7 +159,7 @@ button {
   padding: 16px;
   border: 1px solid var(--border);
   border-left: 5px solid var(--tuhh-cyan);
-  background: #f8fbfc;
+  background: var(--surface-soft);
 }
 
 .examples-list p {
@@ -189,7 +194,7 @@ button {
   align-items: center;
   padding: 14px;
   border: 1px solid var(--border);
-  background: #f8fbfc;
+  background: var(--surface-soft);
 }
 
 .human-label-card p {
@@ -344,7 +349,8 @@ div[class^="competence-controls-"] label {
   font-weight: 700;
 }
 
-#button-add-second-expert, #remove-second-expert-button {
+#button-add-second-expert,
+#remove-second-expert-button {
   font-size: 14px;
   margin: 0;
   background-color: var(--tuhh-cyan);
@@ -406,7 +412,7 @@ input {
   padding: 20px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fbfc;
+  background: var(--surface-soft);
 }
 
 #remove-second-expert-button {
@@ -425,4 +431,103 @@ input {
   margin-top: 16px;
   width: 100%;
   text-align: center;
+}
+
+.info-explainer-popup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  position: relative;
+}
+
+.info-explainer-popup button {
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.info-explainer-popup span {
+  color: #4b4b4b;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 14px;
+}
+
+.info-explainer-popup div {
+  display: none;
+  position: absolute;
+  z-index: 100;
+  bottom: 32px;
+  left: 0;
+  width: 250px;
+  background-color: #333;
+  color: #fff;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+#query-budget-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  margin-block: 0 20px;
+  align-items: start;
+}
+
+.collapsible-toggle-btn {
+  display: inline-block !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: unset !important;
+  min-height: unset !important;
+  padding: 0 !important;
+  margin: 0 0 0 4px !important;
+  background: none !important;
+  border: none !important;
+  color: #005b8a !important;
+  text-decoration: underline !important;
+  cursor: pointer !important;
+  font-size: inherit !important;
+  font-family: inherit !important;
+  font-weight: 500 !important;
+  line-height: inherit !important;
+}
+
+.total-row {
+  background-color: #e6f2ff;
+}
+
+.explanation-note {
+  color: #555;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+#human-expert-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-block: 16px;
+}
+
+#human-expert-pagination button {
+  margin: 0;
+  width: auto;
+  min-height: auto;
+  padding: 5px 10px;
+}
+
+#human-expert-pagination #human-pag-info {
+  font-weight: bold;
+  color: var(--tuhh-navy);
 }
