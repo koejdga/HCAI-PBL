@@ -1,7 +1,7 @@
 # Project 2: Explainability
 
-This Django application studies interpretable machine learning using the
-Palmer Penguins dataset. The current implementation completes Tasks 1 and 2
+This Django application studies interpretable and explainable machine learning
+using the Palmer Penguins dataset. The current implementation covers Tasks 1-5
 from the Project 2 assignment.
 
 Project page: <http://127.0.0.1:8000/project2/>
@@ -17,7 +17,7 @@ Project page: <http://127.0.0.1:8000/project2/>
 4. **Counterfactuals:** generate local counterfactual explanations.
 5. **Feature effects:** implement PDP and ALE plots for numeric features.
 
-Tasks 1 and 2 are implemented. Tasks 3-5 remain future work.
+Tasks 1-5 are implemented.
 
 ## Implemented Functionality
 
@@ -45,18 +45,45 @@ Tasks 1 and 2 are implemented. Tasks 3-5 remain future work.
 - Explains that lambda is a user preference, while `max_leaf_nodes` is the
   tree-training parameter.
 
-The selected model minimizes:
+The selected model follows the PDF objective and maximizes:
 
 ```text
-(1 - test accuracy) + lambda * normalized leaf count
+test accuracy - lambda * normalized complexity
 ```
 
-Test error (1 - test accuracy) is used because the objective is minimized. Leaf count is normalized
-so that accuracy and complexity have comparable scales. A low lambda focuses
-on accuracy; a high lambda gives more importance to a smaller tree.
+For decision trees, complexity is the number of leaves. In the interface, this
+leaf count is normalized by the largest candidate-tree size so the accuracy and
+complexity terms have comparable scales. A low lambda focuses on accuracy; a
+high lambda gives more importance to a smaller tree.
 
 Task 2 extends Task 1 in the same interface. The accuracy, leaf count, and tree
 shown for Task 1 therefore correspond to the model selected by Task 2.
+
+### Task 3: Logistic Regression Complexity
+
+- Trains L1-regularized logistic regression models with different `C` values.
+- Uses the number of non-zero coefficients as the model complexity measure.
+- Lets the same lambda slider select the best accuracy-complexity trade-off.
+- Uses `l1_ratio=1.0` with the SAGA solver to avoid deprecated scikit-learn
+  `penalty="l1"` warnings.
+
+### Task 4: Counterfactual Explanations
+
+- Lets the user select a penguin example and a desired species.
+- Generates local random variations around the selected example.
+- Handles numeric features with Gaussian noise and categorical features by
+  sampling valid categories.
+- Ranks matching counterfactuals by MAD-weighted L1 distance.
+- Retries with larger samples and wider variance if no counterfactuals are
+  found on the first attempt.
+
+### Task 5: Feature Effect Plots
+
+- Lets the user choose a numeric feature.
+- Computes PDP and ALE values in project code rather than with a dedicated
+  explainability library.
+- Displays one probability curve per species.
+- Links the PDP and ALE plots to the currently selected model type and lambda.
 
 ## HCAI Concepts Applied
 
@@ -68,7 +95,8 @@ interpretability lectures:
 - **Accuracy-interpretability trade-off:** predictive performance is shown
   together with model complexity.
 - **Complexity regularization:** the number of leaves is used as the
-  complexity measure.
+  decision-tree complexity measure; the number of non-zero logistic-regression
+  coefficients is used as the linear-model complexity measure.
 - **Human control:** the lambda slider lets the user express a preference
   between accuracy and simplicity.
 - **Recipient-aware explanation:** technical values are accompanied by
@@ -79,9 +107,6 @@ interpretability lectures:
   the model is correct, fair, or causally valid.
 - **Reproducibility:** all candidate models use the same fixed, stratified
   train/test split.
-
-The displayed tree represents predictive associations in this dataset. Its
-branches should not be interpreted as biological causes.
 
 ## Directory Structure
 
@@ -94,7 +119,7 @@ HCAI-PBL/
 `-- project2/
     |-- README.md
     |-- views.py                      # Data, training and model selection
-    |-- tests.py                      # Automated Task 1 and Task 2 tests
+    |-- tests.py                      # Automated Project 2 tests
     |-- urls.py
     |-- templates/project2/index.html # Project 2 interface
     `-- static/project2/style.css     # Project-specific styling
@@ -120,6 +145,6 @@ python manage.py check
 python manage.py test project2 --verbosity 2
 ```
 
-The current seven tests cover dataset cleaning, readable feature labels,
-decision-tree metrics, lambda validation, candidate selection, page rendering,
-and tree-image generation.
+The tests cover dataset cleaning, readable feature labels, decision-tree
+metrics, lambda validation, candidate selection, counterfactual retry behavior,
+page rendering, and tree-image generation.

@@ -14,6 +14,7 @@ from .views import (
     MAX_LAMBDA,
     parse_lambda,
     train_tree_candidates,
+    find_counterfactuals,
 )
 
 
@@ -56,19 +57,36 @@ class PenguinDatasetTests(SimpleTestCase):
         self.assertEqual(parse_lambda("-2"), 0.0)
         self.assertEqual(parse_lambda("4"), MAX_LAMBDA)
 
-    def test_candidate_with_lowest_score_is_selected(self):
+    def test_candidate_with_highest_score_is_selected(self):
         selected, candidates = train_tree_candidates(
             load_clean_penguins(),
             lambda_value=0.5,
         )
 
-        expected = min(
+        expected = max(
             candidates,
             key=lambda candidate: candidate["selection_score"],
         )
 
         self.assertIs(selected, expected)
         self.assertGreater(len(candidates), 1)
+
+    def test_counterfactual_search_retries_when_needed(self):
+        class NeverMatchingPipeline:
+            def predict(self, rows):
+                return ["Not a penguin species"] * len(rows)
+
+        penguins = load_clean_penguins()
+        original_x = penguins.iloc[0][FEATURE_COLUMNS].to_dict()
+        rows, attempted_rows = find_counterfactuals(
+            NeverMatchingPipeline(),
+            penguins,
+            original_x,
+            desired_class="Gentoo",
+        )
+
+        self.assertEqual(rows, [])
+        self.assertGreater(attempted_rows, 2000)
 
 
 class Project2ViewTests(SimpleTestCase):
@@ -86,6 +104,7 @@ class Project2ViewTests(SimpleTestCase):
         self.assertContains(response, "One-hot encoding")
         self.assertContains(response, "Simplicity preference")
         self.assertContains(response, "Selection score")
+        self.assertContains(response, "higher is better")
         self.assertContains(response, "Apply preference")
 
     def test_tree_image_is_generated(self):

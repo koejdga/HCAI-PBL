@@ -55,6 +55,11 @@ C_OPTIONS = [0.001, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 100.0]
 DEFAULT_LAMBDA = 0.20
 MIN_LAMBDA = 0.0
 MAX_LAMBDA = 1.0
+COUNTERFACTUAL_ATTEMPTS = [
+    {"N": 2000, "variance_scale": 0.10},
+    {"N": 4000, "variance_scale": 0.20},
+    {"N": 8000, "variance_scale": 0.35},
+]
 DATASET_PAGE_SIZE = 12
 CLASS_NAMES = ["Adelie", "Chinstrap", "Gentoo"]
 
@@ -144,7 +149,7 @@ def train_decision_tree(penguins, max_leaf_nodes=5, split_data=None):
 
 
 def train_tree_candidates(penguins, lambda_value):
-    """Select a tree using prediction error and normalized complexity."""
+    """Select the tree maximizing accuracy minus complexity penalty."""
     split_data = split_penguin_data(penguins)
     candidates = []
     maximum_leaves = max(MAX_LEAF_OPTIONS)
@@ -159,11 +164,8 @@ def train_tree_candidates(penguins, lambda_value):
         tree = result["pipeline"].named_steps["model"]
         leaf_count = tree.get_n_leaves()
 
-        # Lower values are better: error measures mistakes and leaves measure
-        # how difficult the model may be to inspect.
-        prediction_error = 1 - result["accuracy"]
         normalized_complexity = leaf_count / maximum_leaves
-        selection_score = prediction_error + lambda_value * normalized_complexity
+        selection_score = result["accuracy"] - lambda_value * normalized_complexity
 
         candidates.append(
             {
@@ -174,7 +176,7 @@ def train_tree_candidates(penguins, lambda_value):
             }
         )
 
-    selected = min(
+    selected = max(
         candidates,
         key=lambda candidate: candidate["selection_score"],
     )
@@ -373,6 +375,36 @@ def calculate_mad_l1_distance(original_x, synthetic_df, penguins_df):
     return distances
 
 
+def find_counterfactuals(pipeline, penguins, original_x, desired_class):
+    """Retry local sampling with wider noise if no counterfactual is found."""
+    attempted_rows = 0
+    for attempt in COUNTERFACTUAL_ATTEMPTS:
+        synthetic_points = sample_local_points(
+            penguins,
+            original_x,
+            N=attempt["N"],
+            variance_scale=attempt["variance_scale"],
+        )
+        attempted_rows += len(synthetic_points)
+        synthetic_points["predicted_species"] = pipeline.predict(synthetic_points)
+
+        matching_points = synthetic_points[
+            synthetic_points["predicted_species"] == desired_class
+        ].copy()
+        if matching_points.empty:
+            continue
+
+        matching_points["distance"] = calculate_mad_l1_distance(
+            original_x,
+            matching_points,
+            penguins,
+        )
+        top_counterfactuals = matching_points.sort_values(by="distance").head(5)
+        return build_counterfactual_rows(top_counterfactuals), attempted_rows
+
+    return [], attempted_rows
+
+
 def compute_pdp(pipeline, penguins, feature_name, grid_size=30):
     """Compute partial dependence values for each species without a PDP library."""
     feature_values = penguins[feature_name]
@@ -518,7 +550,11 @@ def train_logistic_regression(split_data, C=1.0):
             (
                 "model",
                 LogisticRegression(
-                    penalty="l1", C=C, solver="saga", random_state=42, max_iter=5000
+                    C=C,
+                    l1_ratio=1.0,
+                    solver="saga",
+                    random_state=42,
+                    max_iter=5000,
                 ),
             ),
         ]
@@ -547,10 +583,8 @@ def train_regression_candidates(penguins, lambda_value):
         non_zero_weights = np.count_nonzero(model.coef_)
         total_weights = model.coef_.size  # n_classes * n_features
 
-        # Higher lambda penalizes models with more active weights
-        prediction_error = 1 - result["accuracy"]
         normalized_complexity = non_zero_weights / total_weights
-        selection_score = prediction_error + lambda_value * normalized_complexity
+        selection_score = result["accuracy"] - lambda_value * normalized_complexity
 
         candidates.append(
             {
@@ -562,7 +596,7 @@ def train_regression_candidates(penguins, lambda_value):
             }
         )
 
-    selected = min(
+    selected = max(
         candidates,
         key=lambda candidate: candidate["selection_score"],
     )
@@ -597,18 +631,13 @@ def index(request):
     else:
         original_x = penguins.iloc[0][FEATURE_COLUMNS].to_dict()
 
-    synthetic_points = sample_local_points(penguins, original_x, N=2000)
-    predictions = active_pipeline.predict(synthetic_points)
-    synthetic_points["predicted_species"] = predictions
-
     target_match_str = counterfactuals_desired_class.capitalize()
-    successful_cfs = synthetic_points[synthetic_points["predicted_species"] == target_match_str].copy()
-
-    counterfactual_rows = []
-    if not successful_cfs.empty:
-        successful_cfs["distance"] = calculate_mad_l1_distance(original_x, successful_cfs, penguins)
-        top_cfs = successful_cfs.sort_values(by="distance").head(5)
-        counterfactual_rows = build_counterfactual_rows(top_cfs)
+    counterfactual_rows, counterfactual_attempted_rows = find_counterfactuals(
+        active_pipeline,
+        penguins,
+        original_x,
+        target_match_str,
+    )
 
     pdp_data = compute_pdp(active_pipeline, penguins, feature_effect_feature)
     ale_data = compute_ale(active_pipeline, penguins, feature_effect_feature)
@@ -691,6 +720,7 @@ def index(request):
         }
 
     model_data["counterfactual_rows"] = counterfactual_rows
+    model_data["counterfactual_attempted_rows"] = counterfactual_attempted_rows
     model_data["dataset_columns"] = dataset_context["dataset_columns"]
     model_data["dataset_column_labels"] = dataset_context["dataset_column_labels"]
     model_data["dataset_page_rows"] = list(dataset_context["dataset_page"].object_list)

@@ -167,7 +167,7 @@ Explainability{% endblock %} {% block extra_css %}
       <article class="metric-card">
         <span>Selection score</span>
         <strong id="selection-score-display">{{ selection_score }}</strong>
-        <p>lower is better</p>
+        <p>higher is better</p>
       </article>
     </div>
 
@@ -392,7 +392,10 @@ Explainability{% endblock %} {% block extra_css %}
               {% endfor %}
             {% else %}
               <tr>
-                <td colspan="{{ dataset_column_labels|length|add:'1' }}">No counterfactuals found.</td>
+                <td colspan="{{ dataset_column_labels|length|add:'1' }}">
+                  No counterfactuals found after sampling {{ counterfactual_attempted_rows }}
+                  local variations.
+                </td>
               </tr>
             {% endif %}
           </tbody>
@@ -542,7 +545,7 @@ Explainability{% endblock %} {% block extra_css %}
             if (cfTableBody) {
               cfTableBody.innerHTML = "";
               if (!data.counterfactual_rows || data.counterfactual_rows.length === 0) {
-                cfTableBody.innerHTML = `<tr><td colspan="${data.dataset_column_labels.length + 1}">No counterfactual variations found. Try adjusting parameters.</td></tr>`;
+                cfTableBody.innerHTML = `<tr><td colspan="${data.dataset_column_labels.length + 1}">No counterfactuals found after sampling ${data.counterfactual_attempted_rows} local variations.</td></tr>`;
               } else {
                 data.counterfactual_rows.forEach((row) => {
                   const tr = document.createElement("tr");
