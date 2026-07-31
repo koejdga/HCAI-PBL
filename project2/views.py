@@ -62,6 +62,14 @@ COUNTERFACTUAL_ATTEMPTS = [
 ]
 DATASET_PAGE_SIZE = 12
 CLASS_NAMES = ["Adelie", "Chinstrap", "Gentoo"]
+CONTENT_MENU_ITEMS = [
+    {"label": "Model selection", "href": "#model-selection"},
+    {"label": "Results", "href": "#model-results"},
+    {"label": "Data transparency", "href": "#data-transparency"},
+    {"label": "Tree explanation", "href": "#tree-explanation"},
+    {"label": "Counterfactuals", "href": "#counterfactuals"},
+    {"label": "Feature effects", "href": "#feature-effects"},
+]
 
 
 def format_feature_name(feature_name):
@@ -770,5 +778,6 @@ def index(request):
         **dataset_context,
         "counterfactual_rows": counterfactual_rows,
         "DISPLAY_COLUMN_LABELS": DISPLAY_COLUMN_LABELS,
+        "content_menu_items": CONTENT_MENU_ITEMS,
     }
     return render(request, "project2/index.html", context)

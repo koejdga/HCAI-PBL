@@ -34,6 +34,14 @@
   margin: 0 auto;
 }
 
+.page-flow-note {
+  max-width: 860px;
+  margin: 20px auto 0;
+  padding: 14px 16px;
+  border-left: 5px solid var(--tuhh-cyan);
+  background: #eef9fb;
+}
+
 .split-note {
   display: flex;
   flex-wrap: wrap;

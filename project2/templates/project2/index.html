@@ -3,6 +3,8 @@ Explainability{% endblock %} {% block extra_css %}
 <link rel="stylesheet" href="{% static 'project2/style.css' %}" />
 {% endblock %} {% block content %}
 <div class="box project2-box">
+  {% include "components/content_menu.html" with menu_items=content_menu_items %}
+
   <div class="title-container">
     <div class="title">Explainability</div>
   </div>
@@ -22,7 +24,13 @@ Explainability{% endblock %} {% block extra_css %}
       of the cleaned dataset is kept aside for testing.
     </p>
 
-    <section class="task-two-panel" aria-labelledby="task-two-title">
+    <div class="page-flow-note">
+      <strong>How to use this page:</strong>
+      choose a model and lambda, compare the selected model, inspect local
+      counterfactuals, then review the PDP and ALE feature-effect plots.
+    </div>
+
+    <section id="model-selection" class="task-two-panel" aria-labelledby="task-two-title">
       <h3 id="task-two-title">Accuracy and Simplicity</h3>
 
       <form method="get" id="model-settings-form" class="lambda-control">
@@ -142,10 +150,15 @@ Explainability{% endblock %} {% block extra_css %}
           selects between trained candidates; it is not the model's training
           parameter.
         </p>
+        <p>
+          Selection score =
+          <strong>test accuracy - &lambda; &times; normalized complexity</strong>.
+          Higher scores are preferred.
+        </p>
       </div>
     </section>
 
-    <div class="tree-metrics">
+    <div id="model-results" class="tree-metrics">
       <article class="metric-card">
         <span>Clean dataset</span>
         <strong>{{ row_count }}</strong>
@@ -184,6 +197,7 @@ Explainability{% endblock %} {% block extra_css %}
     </div>
 
     <section
+      id="data-transparency"
       class="transparency-panel"
       aria-labelledby="data-transparency-title"
     >
@@ -235,6 +249,7 @@ Explainability{% endblock %} {% block extra_css %}
       </p>
     </section>
 
+    <div id="tree-explanation">
     <div id="tree-visualization-container"
       {% if tree_image_url %}style="display: block"{% else %}style="display: none"{% endif %}>
       <div class="tree-explanation">
@@ -255,6 +270,7 @@ Explainability{% endblock %} {% block extra_css %}
           class="tree-image"
         />
       </div>
+    </div>
     </div>
 
     <div id="counterfactuals">
