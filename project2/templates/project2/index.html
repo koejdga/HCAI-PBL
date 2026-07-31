@@ -1,5 +1,7 @@
-{% extends "base.html" %} {% load static %} {% block site_context %}Project 2:
-Explainability{% endblock %} {% block extra_css %}
+{% extends "base.html" %} {% load static %} {% block site_context %}Project 2: Explainability{% endblock %} {% block header_actions %}
+<!-- Explicit home navigation avoids browser-history traps after form steps. -->
+<a class="home-link" href="{% url 'home:index' %}">Back to Home</a>
+{% endblock %} {% block extra_css %}
 <link rel="stylesheet" href="{% static 'project2/style.css' %}" />
 {% endblock %} {% block content %}
 <div class="box project2-box">
@@ -477,7 +479,7 @@ Explainability{% endblock %} {% block extra_css %}
 
       modelSettingForm.addEventListener("submit", function (event) {
         event.preventDefault();
-        updateDashboard();
+        updateDashboard("model");
       });
 
       const counterfactualsForm = document.getElementById("counterfactuals-form");
@@ -489,13 +491,15 @@ Explainability{% endblock %} {% block extra_css %}
         datasetPageInput.addEventListener("keydown", function (event) {
           if (event.key === "Enter") {
             event.preventDefault();
-            updateDashboard();
+            updateDashboard("counterfactuals");
           }
         });
-        datasetPageInput.addEventListener("blur", updateDashboard);
+        datasetPageInput.addEventListener("blur", function () {
+          updateDashboard("counterfactuals");
+        });
       }
 
-      function updateDashboard() {
+      function updateDashboard(updateScope = "all") {
         const lambda = document.getElementById("lambda").value;
         const modelType = document.querySelector("[name='model-type']:checked")?.value || "decision-tree";
         const desiredClass = document.querySelector("[name='desired-class']:checked")?.value || "adelie";
@@ -503,22 +507,55 @@ Explainability{% endblock %} {% block extra_css %}
         const datasetPage = datasetPageInput?.value || "{{ dataset_page.number }}";
         const featureEffectFeature = featureEffectSelect?.value || "{{ feature_effect_feature }}";
 
-        fetch(`?lambda=${lambda}&model-type=${modelType}&desired-class=${desiredClass}&selected-row=${selectedRow}&dataset-page=${datasetPage}&feature-effect-feature=${featureEffectFeature}&format=json`)
+        fetch(`?lambda=${lambda}&model-type=${modelType}&desired-class=${desiredClass}&selected-row=${selectedRow}&dataset-page=${datasetPage}&feature-effect-feature=${featureEffectFeature}&update-scope=${updateScope}&format=json`)
           .then((response) => response.json())
           .then((data) => {
             document.getElementById("accuracy-display").innerText = data.accuracy_percent + "%";
+            document.getElementById("complexity-label").innerText = data.complexity_label;
             document.getElementById("complexity-display").innerText = data.complexity_count;
+            document.getElementById("complexity-description").innerText = data.complexity_description;
             document.getElementById("selection-score-display").innerText = data.selection_score;
             document.getElementById("selected-model-note-text").innerText = data.selected_model_description;
+            document.getElementById("train-rows-display").innerText = data.train_rows;
+            document.getElementById("test-rows-display").innerText = data.test_rows;
+
+            const candidatesTableBody = document.getElementById("candidates-table-body");
+            if (candidatesTableBody && data.candidate_models) {
+              candidatesTableBody.innerHTML = "";
+              data.candidate_models.forEach((candidate) => {
+                const tr = document.createElement("tr");
+                if (candidate.selected) {
+                  tr.className = "selected-candidate";
+                }
+                tr.innerHTML = `
+                  <td>${candidate.param_label}</td>
+                  <td>${candidate.complexity_count}</td>
+                  <td>${candidate.accuracy_percent}%</td>
+                  <td>${candidate.selection_score}</td>
+                `;
+                candidatesTableBody.appendChild(tr);
+              });
+            }
+
+            const treeContainer = document.getElementById("tree-visualization-container");
+            const treeImage = document.getElementById("tree-image-element");
+            if (treeContainer && treeImage && Object.prototype.hasOwnProperty.call(data, "tree_image_url")) {
+              if (data.tree_image_url) {
+                treeContainer.style.display = "block";
+                treeImage.src = data.tree_image_url;
+              } else if (updateScope !== "model") {
+                treeContainer.style.display = "none";
+              }
+            }
 
             const pdpImage = document.getElementById("pdp-image-element");
             const aleImage = document.getElementById("ale-image-element");
             if (pdpImage && data.pdp_image_url) {
-              pdpImage.src = data.pdp_image_url + "?v=" + Date.now();
+              pdpImage.src = data.pdp_image_url;
               pdpImage.alt = `Partial dependence plot for ${data.feature_effect_feature_label}`;
             }
             if (aleImage && data.ale_image_url) {
-              aleImage.src = data.ale_image_url + "?v=" + Date.now();
+              aleImage.src = data.ale_image_url;
               aleImage.alt = `Accumulated local effects plot for ${data.feature_effect_feature_label}`;
             }
 
@@ -548,7 +585,9 @@ Explainability{% endblock %} {% block extra_css %}
               });
 
               datasetTableBody.querySelectorAll("[name='selected-row']").forEach((input) => {
-                input.addEventListener("change", updateDashboard);
+                input.addEventListener("change", function () {
+                  updateDashboard("counterfactuals");
+                });
               });
 
               const selectedRowData = data.dataset_page_rows.find((row) => row.selected);
@@ -558,7 +597,7 @@ Explainability{% endblock %} {% block extra_css %}
             }
 
             const cfTableBody = document.getElementById("cf-table-body");
-            if (cfTableBody) {
+            if (cfTableBody && Object.prototype.hasOwnProperty.call(data, "counterfactual_rows")) {
               cfTableBody.innerHTML = "";
               if (!data.counterfactual_rows || data.counterfactual_rows.length === 0) {
                 cfTableBody.innerHTML = `<tr><td colspan="${data.dataset_column_labels.length + 1}">No counterfactuals found after sampling ${data.counterfactual_attempted_rows} local variations.</td></tr>`;
@@ -582,23 +621,25 @@ Explainability{% endblock %} {% block extra_css %}
 
       counterfactualsForm.addEventListener("submit", function (event) {
         event.preventDefault();
-        updateDashboard();
+        updateDashboard("counterfactuals");
       });
 
       counterfactualsForm.addEventListener("change", function (event) {
         event.preventDefault();
-        updateDashboard();
+        updateDashboard("counterfactuals");
       });
 
       if (featureEffectsForm) {
         featureEffectsForm.addEventListener("submit", function (event) {
           event.preventDefault();
-          updateDashboard();
+          updateDashboard("effects");
         });
       }
 
       if (featureEffectSelect) {
-        featureEffectSelect.addEventListener("change", updateDashboard);
+        featureEffectSelect.addEventListener("change", function () {
+          updateDashboard("effects");
+        });
       }
 
       function updateSelectedRowSummary(selectedRowData, data) {

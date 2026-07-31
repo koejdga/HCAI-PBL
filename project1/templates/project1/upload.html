@@ -1,4 +1,8 @@
-{% extends 'base.html' %} {% load static %} {% block site_context %}{% endblock %}
+{% extends 'base.html' %} {% load static %} {% block site_context %}Project 1: Automated Machine Learning{% endblock %}
+{% block header_actions %}
+<!-- Explicit home navigation avoids browser-history traps after form steps. -->
+<a class="home-link" href="{% url 'home:index' %}">Back to Home</a>
+{% endblock %}
 {% block extra_css %}
 
 <style>
@@ -428,7 +432,7 @@
         The score is computed on a held-out test set.
       </p>
 
-      <form method="post" class="training-form">
+      <form method="post" class="training-form" data-scroll-target="#training-section">
         {% csrf_token %}
         <input type="hidden" name="action" value="train_model" />
 

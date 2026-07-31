@@ -3,6 +3,11 @@
 
 {% block site_context %}Project 3: Active Learning for Learning-to-Defer{% endblock %}
 
+{% block header_actions %}
+<!-- Explicit home navigation avoids browser-history traps after form steps. -->
+<a class="home-link" href="{% url 'home:index' %}">Back to Home</a>
+{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'project3/style.css' %}" />
 <style>

@@ -56,9 +56,11 @@ figcaption {
 
 
 .site-header {
+  position: relative;
+  z-index: 20;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 24px;
   min-height: 72px;
   padding: 16px clamp(20px, 4vw, 56px);
@@ -86,6 +88,38 @@ figcaption {
   color: var(--muted);
   font-size: 15px;
   font-weight: 600;
+  margin-left: auto;
+  text-align: right;
+}
+
+.site-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 0 0 auto;
+}
+
+.home-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background-color: #ffffff;
+  color: var(--tuhh-navy);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 6px 18px rgba(12, 36, 60, 0.08);
+  transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.home-link:hover {
+  border-color: var(--tuhh-cyan);
+  color: var(--tuhh-cyan);
+  box-shadow: 0 8px 22px rgba(0, 166, 178, 0.16);
 }
 
 .grid-parent {
@@ -278,6 +312,62 @@ button {
 
 button:hover {
   opacity: 1;
+}
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-color: rgba(245, 250, 252, 0.78);
+  backdrop-filter: blur(3px);
+}
+
+.loading-overlay.is-visible {
+  display: flex;
+}
+
+.loading-card {
+  width: min(360px, 100%);
+  padding: 28px 30px;
+  border: 1px solid var(--border);
+  border-top: 5px solid var(--tuhh-cyan);
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: var(--tuhh-navy);
+  text-align: center;
+  box-shadow: 0 18px 42px rgba(12, 36, 60, 0.18);
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  border: 5px solid #d7e6ef;
+  border-top-color: var(--tuhh-cyan);
+  border-radius: 50%;
+  animation: loading-spin 0.85s linear infinite;
+}
+
+.loading-card p {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.loading-card span {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 button:disabled {
@@ -1047,6 +1137,15 @@ button.remove-plot-button:hover {
   .site-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .site-context {
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .site-actions {
+    justify-content: flex-start;
   }
 
   .site-logo {
