@@ -51,6 +51,20 @@ p {
   cursor: text;
 }
 
+.experiment-form .inline-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.experiment-form .inline-option input {
+  width: auto;
+  cursor: pointer;
+}
+
 .dataset-summary {
   display: flex;
   flex-wrap: wrap;

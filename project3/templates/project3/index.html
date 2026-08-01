@@ -41,6 +41,11 @@
       <label for="defer-rate">Deferral rate</label>
       <input id="defer-rate" name="defer-rate" value="{{ defer_rate }}" />
 
+      <label class="inline-option" for="include-l2d">
+        <input id="include-l2d" type="checkbox" name="include-l2d" value="1" {% if include_l2d %}checked{% endif %} />
+        Full L2D comparison
+      </label>
+
       <button type="submit">Run experiment</button>
     </form>
 
@@ -48,7 +53,7 @@
       <span>Source: <strong>{{ dataset_source }}</strong></span>
       <span>Training rows used: <strong>{{ train_rows }}</strong> of {{ full_train_rows }}</span>
       <span>Test rows used: <strong>{{ test_rows }}</strong> of {{ full_test_rows }}</span>
-      <a class="report-link" href="{% url 'project3:report' %}?train-size={{ train_size }}&test-size={{ test_size }}&defer-rate={{ defer_rate }}">Download report</a>
+      <a class="report-link" href="{% url 'project3:report' %}?train-size={{ train_size }}&test-size={{ test_size }}&defer-rate={{ defer_rate }}{% if include_l2d %}&include-l2d=1{% endif %}">Download report</a>
     </div>
   </section>
 
@@ -127,7 +132,15 @@
                 <th>Accuracy</th>
               </tr>
             </thead>
-            <tbody id="accuracy-preview-body"></tbody>
+            <tbody id="accuracy-preview-body">
+              {% for expert in experts %}
+              <tr>
+                <td>{{ expert.name }}</td>
+                <td>{{ expert.type|title }}</td>
+                <td><span class="accuracy-pill">{{ expert.accuracy_percent }}%</span></td>
+              </tr>
+              {% endfor %}
+            </tbody>
           </table>
         </div>
 
@@ -200,6 +213,7 @@
             <input type="radio" name="allocation-policy" value="competence" style="width: auto; margin: 0;" />
             Competence-aware
           </label>
+          {% if include_l2d %}
           <label>
             <input type="radio" name="allocation-policy" value="l2d_linear" style="width: auto; margin: 0;" />
             L2D (Linear Model)
@@ -208,6 +222,7 @@
             <input type="radio" name="allocation-policy" value="l2d_nn" style="width: auto; margin: 0;" />
             L2D (Neural Network)
           </label>
+          {% endif %}
         </div>
 
         <div class="table-wrap">
@@ -607,9 +622,13 @@
     <p style="color: #555; margin-top: 0">Select the saved expert configurations you want to include in the generated PDF report. For each selected configuration, the report will render the Learning to Defer and Active Learning sections.</p>
     
     <form id="pdf-report-form" action="{% url 'project3:report' %}" method="get" target="_blank" style="margin-top: 15px;">
+      {% csrf_token %}
       <input type="hidden" name="train-size" value="{{ train_size }}">
       <input type="hidden" name="test-size" value="{{ test_size }}">
       <input type="hidden" name="defer-rate" value="{{ defer_rate }}">
+      {% if include_l2d %}
+      <input type="hidden" name="include-l2d" value="1">
+      {% endif %}
       
       <div class="light-frame" style="padding: 16px; border: 1px solid var(--border); border-radius: 6px; background-color: #fafafa; margin-bottom: 15px;">
         <h3 style="margin-top: 0; margin-bottom: 12px; color: var(--tuhh-navy);">Saved Configurations</h3>
@@ -634,7 +653,7 @@
         </button>
         
         {% if saved_configs %}
-        <button type="submit" name="action" value="clear-configs" formmethod="post" class="compact-action-button danger-button" data-skip-report-loading="true">
+        <button type="submit" name="action" value="clear-configs" formaction="{% url 'project3:index' %}" formmethod="post" formtarget="_self" class="compact-action-button danger-button" data-skip-report-loading="true">
           Clear Config History
         </button>
         {% endif %}
@@ -803,6 +822,33 @@
         `).join('');
       }
 
+      function updateAllocationPolicyOptions(allocationData) {
+        const radioRow = document.querySelector(".radio-row");
+        if (!radioRow || !allocationData) return;
+        const options = [
+          ["confidence", "Confidence Threshold"],
+          ["competence", "Competence-aware"],
+        ];
+        if (allocationData.l2d_linear) {
+          options.push(["l2d_linear", "L2D (Linear Model)"]);
+        }
+        if (allocationData.l2d_nn) {
+          options.push(["l2d_nn", "L2D (Neural Network)"]);
+        }
+        const checkedValue = document.querySelector("input[name='allocation-policy']:checked")?.value || "confidence";
+        radioRow.innerHTML = options.map(([value, label]) => `
+          <label>
+            <input type="radio" name="allocation-policy" value="${value}" ${value === checkedValue && allocationData[value] ? "checked" : ""} style="width: auto; margin: 0;" />
+            ${label}
+          </label>
+        `).join("");
+        if (!radioRow.querySelector("input[name='allocation-policy']:checked")) {
+          const firstRadio = radioRow.querySelector("input[name='allocation-policy']");
+          if (firstRadio) firstRadio.checked = true;
+        }
+        bindAllocationPolicyRadios();
+      }
+
       function renderQueryAllocation(allocationData, expertCount) {
         const body = document.getElementById("query-allocation-body");
         const header = document.getElementById("query-allocation-header");
@@ -884,6 +930,7 @@
         if (data?.allocation_by_policy) {
           currentAllocationByPolicy = data.allocation_by_policy;
         }
+        updateAllocationPolicyOptions(currentAllocationByPolicy);
         const activePolicy = document.querySelector("input[name='allocation-policy']:checked")?.value || 'confidence';
         if (currentAllocationByPolicy && currentAllocationByPolicy[activePolicy]) {
           renderQueryAllocation(currentAllocationByPolicy[activePolicy], expertCountFromData);
@@ -1018,9 +1065,15 @@
         }
       }
 
-      function requestExpertAccuracy() {
+      function requestExpertAccuracy(options = {}) {
         const url = new URL(window.location.href);
         url.searchParams.set('format', 'json');
+        const skipBudgetConvergence = options.skipBudgetConvergence === true;
+        if (skipBudgetConvergence) {
+          url.searchParams.set("skip-budget-convergence", "1");
+        } else {
+          url.searchParams.delete("skip-budget-convergence");
+        }
 
         const expertOne = collectExpertSettings('expert-one');
         appendExpertParams(url, 'expert-one', expertOne);
@@ -1046,6 +1099,12 @@
 
         const humanBudget = document.getElementById("human-expert-budget")?.value;
         const humanStrategy = document.querySelector("input[name='human-expert-strategy']:checked")?.value;
+        const includeL2D = document.getElementById("include-l2d")?.checked === true;
+        if (includeL2D) {
+          url.searchParams.set("include-l2d", "1");
+        } else {
+          url.searchParams.delete("include-l2d");
+        }
         if (humanBudget) {
           url.searchParams.set("human-expert-budget", humanBudget);
         }
@@ -1087,7 +1146,7 @@
         if (examplesBody) {
           examplesBody.innerHTML = '<tr><td colspan="5">Loading queried examples...</td></tr>';
         }
-        if (convergenceBody) {
+        if (convergenceBody && !skipBudgetConvergence) {
           convergenceBody.innerHTML = '<tr><td colspan="4">Estimating query-budget convergence...</td></tr>';
         }
 
@@ -1175,7 +1234,9 @@
                    clearBtn.type = "submit";
                    clearBtn.name = "action";
                    clearBtn.value = "clear-configs";
+                   clearBtn.setAttribute("formaction", "{% url 'project3:index' %}");
                    clearBtn.setAttribute("formmethod", "post");
+                   clearBtn.setAttribute("formtarget", "_self");
                    clearBtn.dataset.skipReportLoading = "true";
                    clearBtn.className = "compact-action-button danger-button";
                    clearBtn.textContent = "Clear Config History";
@@ -1207,7 +1268,7 @@
       }
 
       let expertCount = Number(getExpertCount()) || 1;
-      let hasLoaded = false;
+      let hasLoaded = true;
       expertTwoFields.style.display = expertCount > 1 ? 'block' : 'none';
       addSecondExpertButton.style.display = expertCount > 1 ? 'none' : 'block';
       removeSecondExpertButton.style.display = expertCount > 1 ? 'block' : 'none';
@@ -1290,7 +1351,7 @@
       if (queryBudgetForm) {
         queryBudgetForm.addEventListener('submit', function (event) {
           event.preventDefault();
-          requestExpertAccuracy();
+          requestExpertAccuracy({ skipBudgetConvergence: true });
         });
       }
 
@@ -1426,14 +1487,17 @@
         });
       });
 
-      document.querySelectorAll("input[name='allocation-policy']").forEach((radio) => {
-        radio.addEventListener('change', function () {
-          const selectedPolicy = this.value;
-          if (currentAllocationByPolicy && currentAllocationByPolicy[selectedPolicy]) {
-            renderQueryAllocation(currentAllocationByPolicy[selectedPolicy], expertCount);
-          }
+      function bindAllocationPolicyRadios() {
+        document.querySelectorAll("input[name='allocation-policy']").forEach((radio) => {
+          radio.addEventListener('change', function () {
+            const selectedPolicy = this.value;
+            if (currentAllocationByPolicy && currentAllocationByPolicy[selectedPolicy]) {
+              renderQueryAllocation(currentAllocationByPolicy[selectedPolicy], expertCount);
+            }
+          });
         });
-      });
+      }
+      bindAllocationPolicyRadios();
       function updateLiveStatus() {
         const statusSpan = document.getElementById("human-live-status-text");
         if (!statusSpan) return;
@@ -1547,6 +1611,11 @@
         const e2Budget = document.getElementById("expert-two-query-budget")?.value;
         if (e1Budget) url.searchParams.set("expert-one-query-budget", e1Budget);
         if (expertCount > 1 && e2Budget) url.searchParams.set("expert-two-query-budget", e2Budget);
+        if (document.getElementById("include-l2d")?.checked === true) {
+          url.searchParams.set("include-l2d", "1");
+        } else {
+          url.searchParams.delete("include-l2d");
+        }
       }
 
       // Handler for Human settings apply button:
@@ -1713,7 +1782,6 @@
       updateHumanExpertPagination();
       applyCollapsibleComments();
       updateVisibility();
-      requestExpertAccuracy();
       updateLiveStatus();
     });
   </script>

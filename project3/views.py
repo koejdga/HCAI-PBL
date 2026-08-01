@@ -59,9 +59,11 @@ from .core.active_learning import (
 REPORT_FILENAME = "project3_report.pdf"
 PROJECT3_RESULT_CACHE_MAX = 8
 PROJECT3_RESULT_CACHE = OrderedDict()
+L2D_MAX_TRAIN_EXAMPLES = 1200
+L2D_MAX_TEST_EXAMPLES = 800
 
 
-def _cache_key(train_size, test_size, defer_rate, query_budget, expert_configs=None):
+def _cache_key(train_size, test_size, defer_rate, query_budget, expert_configs=None, include_l2d=False):
     configs_tuple = ()
     if expert_configs:
         configs_tuple = tuple(
@@ -75,7 +77,7 @@ def _cache_key(train_size, test_size, defer_rate, query_budget, expert_configs=N
             )
             for cfg in expert_configs
         )
-    return (train_size, test_size, round(float(defer_rate), 6), query_budget, configs_tuple)
+    return (train_size, test_size, round(float(defer_rate), 6), query_budget, configs_tuple, bool(include_l2d))
 
 
 def _get_cached_project3_results(cache_key):
@@ -141,6 +143,15 @@ def _store_cached_budget_convergence(cache_key, payload):
 
 def build_budget_convergence_analysis(train_examples, baseline, query_budget, expert_configs):
     """Estimate when more expert queries stop improving competence much."""
+    pipeline = baseline.get("pipeline")
+    if not hasattr(pipeline, "decision_function") or not hasattr(pipeline, "predict"):
+        return {
+            "rows": [],
+            "recommended_budget": None,
+            "note": "Budget convergence needs a trained classifier with confidence scores.",
+            "plot_url": "",
+        }
+
     max_budget = max(1, min(query_budget, len(train_examples)))
     if max_budget <= 5:
         budgets = list(range(1, max_budget + 1))
@@ -243,7 +254,15 @@ def sample_examples(examples, count=5):
     ]
 
 
-def _compute_project3_results(train_examples, test_examples, defer_rate, query_budget, expert_configs=None, baseline=None):
+def cap_examples_for_l2d(train_examples, test_examples):
+    """Keep L2D comparisons responsive for larger demo runs."""
+    return (
+        train_examples[: min(len(train_examples), L2D_MAX_TRAIN_EXAMPLES)],
+        test_examples[: min(len(test_examples), L2D_MAX_TEST_EXAMPLES)],
+    )
+
+
+def _compute_project3_results(train_examples, test_examples, defer_rate, query_budget, expert_configs=None, baseline=None, include_l2d=False):
     if baseline is None:
         baseline = train_baseline_classifier(train_examples, test_examples)
 
@@ -280,23 +299,29 @@ def _compute_project3_results(train_examples, test_examples, defer_rate, query_b
         test_examples, baseline, expert_results, active_learning["competence_by_class"], expert_configs=expert_configs
     )
 
-    l2d_linear_classifier = L2DClassifier(
-        model_type=L2DLinearModel,
-        policy_name="Learning to Defer (with linear model)",
-        tfidf_max_features=5000,
-        query_cost=0.0,
-    )
-    l2d_linear_classifier.fit(train_examples, expert_configs=expert_configs)
-    l2d_linear_results = l2d_linear_classifier.predict_and_evaluate(test_examples, expert_configs=expert_configs)
+    l2d_linear_results = None
+    l2d_nn_results = None
+    if include_l2d:
+        # L2D is useful for comparison, but it is the slowest part of the demo.
+        # The first run stays responsive unless the user explicitly asks for it.
+        l2d_train_examples, l2d_test_examples = cap_examples_for_l2d(train_examples, test_examples)
+        l2d_linear_classifier = L2DClassifier(
+            model_type=L2DLinearModel,
+            policy_name="Learning to Defer (with linear model)",
+            tfidf_max_features=5000,
+            query_cost=0.0,
+        )
+        l2d_linear_classifier.fit(l2d_train_examples, expert_configs=expert_configs)
+        l2d_linear_results = l2d_linear_classifier.predict_and_evaluate(l2d_test_examples, expert_configs=expert_configs)
 
-    l2d_nn_classifier = L2DClassifier(
-        model_type=L2DNeuralNetwork,
-        policy_name="Leaning to Defer (with neural network)",
-        tfidf_max_features=5000,
-        query_cost=0.0,
-    )
-    l2d_nn_classifier.fit(train_examples, expert_configs=expert_configs)
-    l2d_nn_results = l2d_nn_classifier.predict_and_evaluate(test_examples, expert_configs=expert_configs)
+        l2d_nn_classifier = L2DClassifier(
+            model_type=L2DNeuralNetwork,
+            policy_name="Learning to Defer (with neural network)",
+            tfidf_max_features=5000,
+            query_cost=0.0,
+        )
+        l2d_nn_classifier.fit(l2d_train_examples, expert_configs=expert_configs)
+        l2d_nn_results = l2d_nn_classifier.predict_and_evaluate(l2d_test_examples, expert_configs=expert_configs)
 
     from .core.deferral import get_expert_cost
     if expert_configs:
@@ -369,35 +394,39 @@ def _compute_project3_results(train_examples, test_examples, defer_rate, query_b
             "net_defer": competence_team["useful_defer"]
             - competence_team["harmful_defer"],
         },
-        {
-            "group": "L2D (Joint Training)",
-            "name": l2d_linear_results["policy_name"],
-            "accuracy_percent": round(l2d_linear_results["accuracy"] * 100, 2),
-            "deferred_total": l2d_linear_results["deferred_total"],
-            "deferral_rate_percent": round(
-                l2d_linear_results["deferred_total"] / len(test_examples) * 100, 2
-            ),
-            "useful_defer": l2d_linear_results["useful_defer"],
-            "harmful_defer": l2d_linear_results["harmful_defer"],
-            "total_cost": l2d_linear_results.get("total_cost", 0.0),
-            "net_defer": l2d_linear_results["useful_defer"]
-            - l2d_linear_results["harmful_defer"],
-        },
-        {
-            "group": "",
-            "name": l2d_nn_results["policy_name"],
-            "accuracy_percent": round(l2d_nn_results["accuracy"] * 100, 2),
-            "deferred_total": l2d_nn_results["deferred_total"],
-            "deferral_rate_percent": round(
-                l2d_nn_results["deferred_total"] / len(test_examples) * 100, 2
-            ),
-            "useful_defer": l2d_nn_results["useful_defer"],
-            "harmful_defer": l2d_nn_results["harmful_defer"],
-            "total_cost": l2d_nn_results.get("total_cost", 0.0),
-            "net_defer": l2d_nn_results["useful_defer"]
-            - l2d_nn_results["harmful_defer"],
-        },
     ]
+
+    if include_l2d:
+        policy_rows.extend([
+            {
+                "group": "L2D (Joint Training)",
+                "name": l2d_linear_results["policy_name"],
+                "accuracy_percent": round(l2d_linear_results["accuracy"] * 100, 2),
+                "deferred_total": l2d_linear_results["deferred_total"],
+                "deferral_rate_percent": round(
+                    l2d_linear_results["deferred_total"] / len(test_examples) * 100, 2
+                ),
+                "useful_defer": l2d_linear_results["useful_defer"],
+                "harmful_defer": l2d_linear_results["harmful_defer"],
+                "total_cost": l2d_linear_results.get("total_cost", 0.0),
+                "net_defer": l2d_linear_results["useful_defer"]
+                - l2d_linear_results["harmful_defer"],
+            },
+            {
+                "group": "",
+                "name": l2d_nn_results["policy_name"],
+                "accuracy_percent": round(l2d_nn_results["accuracy"] * 100, 2),
+                "deferred_total": l2d_nn_results["deferred_total"],
+                "deferral_rate_percent": round(
+                    l2d_nn_results["deferred_total"] / len(test_examples) * 100, 2
+                ),
+                "useful_defer": l2d_nn_results["useful_defer"],
+                "harmful_defer": l2d_nn_results["harmful_defer"],
+                "total_cost": l2d_nn_results.get("total_cost", 0.0),
+                "net_defer": l2d_nn_results["useful_defer"]
+                - l2d_nn_results["harmful_defer"],
+            },
+        ])
 
     best_team_row = max(
         [
@@ -416,9 +445,10 @@ def _compute_project3_results(train_examples, test_examples, defer_rate, query_b
     policies_map = {
         "confidence": confidence_team,
         "competence": competence_team,
-        "l2d_linear": l2d_linear_results,
-        "l2d_nn": l2d_nn_results,
     }
+    if include_l2d:
+        policies_map["l2d_linear"] = l2d_linear_results
+        policies_map["l2d_nn"] = l2d_nn_results
     allocation_by_policy = {}
     for key, p_data in policies_map.items():
         selected_allocation = p_data.get("query_allocation", {})
@@ -581,6 +611,7 @@ def _compute_project3_results(train_examples, test_examples, defer_rate, query_b
         "sample_examples": sample_examples(test_examples),
         "expert_summaries": build_expert_summaries(expert_configs, expert_results) if expert_configs else [],
         "experts": expert_metrics,
+        "include_l2d": include_l2d,
     }
 
 
@@ -655,6 +686,7 @@ def build_project3_results(request):
     )
     human_strategy = request.GET.get("human-expert-strategy") or "balanced_uncertainty"
     human_limit = parse_sample_size(request.GET.get("human-expert-budget"), 6)
+    include_l2d = request.GET.get("include-l2d") == "1"
     
     if hasattr(request, "session"):
         prev_strategy = request.session.get("project3_human_strategy")
@@ -678,11 +710,11 @@ def build_project3_results(request):
 
     base = get_base_experiment_context(train_size, test_size, query_budget)
 
-    cache_key = _cache_key(train_size, test_size, defer_rate, query_budget, expert_configs)
+    cache_key = _cache_key(train_size, test_size, defer_rate, query_budget, expert_configs, include_l2d)
     cached_payload = _get_cached_project3_results(cache_key)
     if cached_payload is None:
         cached_payload = _compute_project3_results(
-            base["train_examples"], base["test_examples"], defer_rate, query_budget, expert_configs, baseline=base["baseline"]
+            base["train_examples"], base["test_examples"], defer_rate, query_budget, expert_configs, baseline=base["baseline"], include_l2d=include_l2d
         )
         _store_cached_project3_results(cache_key, cached_payload)
 
@@ -695,8 +727,9 @@ def build_project3_results(request):
     human_expert = build_human_expert_context(
         request, base["train_examples"], human_al, limit=human_limit
     )
-    budget_convergence = _get_cached_budget_convergence(cache_key)
-    if budget_convergence is None:
+    skip_budget_convergence = request.GET.get("skip-budget-convergence") == "1"
+    budget_convergence = None if skip_budget_convergence else _get_cached_budget_convergence(cache_key)
+    if budget_convergence is None and not skip_budget_convergence:
         budget_convergence = build_budget_convergence_analysis(
             base["train_examples"],
             base["baseline"],
@@ -774,6 +807,7 @@ def build_project3_results(request):
         "using_default_expert": using_default_expert,
         "default_expert_message": "No expert was selected, so the app used a default realistic expert with no query cost." if using_default_expert else "",
         "saved_configs": request.session.get("project3_saved_configs", []) if hasattr(request, "session") else [],
+        "include_l2d": include_l2d,
     }
 
 
@@ -1109,6 +1143,11 @@ def _prepare_active_learning_strategies(cfg_results):
 
 
 def report(request):
+    if request.method == "POST" and request.POST.get("action") == "clear-configs":
+        request.session["project3_saved_configs"] = []
+        request.session.modified = True
+        return redirect("project3:index")
+
     restore_session_query_params(request)
     results = build_project3_results(request)
 

@@ -83,17 +83,22 @@ Project 3 performs text classification, learning-to-defer training, active
 learning analysis, plot generation, and PDF generation. These computations are
 heavier than Projects 1 and 2.
 
-Recommended quick demo settings:
+To keep interactive runs responsive, the L2D comparison trains on a capped
+sample for larger runs while the baseline, expert summaries, active-learning
+tables, and main deferral policies still use the selected experiment sizes.
+
+Default and recommended quick demo settings:
 
 ```text
-Training examples: 1000-2000
-Test examples: 500-1000
+Training examples: 2000
+Test examples: 1000
 Deferral rate: 0.3
 Expert query budget: 20-40
 ```
 
-Larger values can be used, but they will take longer. The page shows loading
-feedback and falls back to a normal reload if an AJAX update takes too long.
+Larger values can be typed into the form, but they will take longer. The page
+shows loading feedback and falls back to a normal reload if an AJAX update takes
+too long.
 
 ## Directory Structure
 

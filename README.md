@@ -153,11 +153,11 @@ Special implementation aspects:
 - Provides PDF report generation from saved configurations.
 - Uses loading feedback and a fallback reload for long computations.
 
-Recommended quick demo settings:
+Default and recommended quick demo settings:
 
 ```text
-Training examples: 1000-2000
-Test examples: 500-1000
+Training examples: 2000
+Test examples: 1000
 Deferral rate: 0.3
 Expert query budget: 20-40
 ```

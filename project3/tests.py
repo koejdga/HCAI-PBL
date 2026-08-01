@@ -221,7 +221,7 @@ class Project3ViewTests(TestCase):
         self.assertEqual(mocked_dataset.call_count, 2)
         self.assertEqual(mocked_baseline.call_count, 1)
         self.assertEqual(mocked_expert.call_count, 1)
-        self.assertEqual(mocked_active_learning.call_count, 3)
+        self.assertEqual(mocked_active_learning.call_count, 4)
 
     def test_expert_accuracy_preview_returns_json(self):
         html_response = self.client.get(reverse("project3:index"), {"expert-one-type": "REALISTIC"})
@@ -285,3 +285,20 @@ class Project3ViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
+
+    def test_clear_config_history_can_post_from_report_buttons(self):
+        session = self.client.session
+        session["project3_saved_configs"] = [{"id": "cfg_1", "label": "Demo config"}]
+        session.save()
+
+        response = self.client.post(reverse("project3:index"), {"action": "clear-configs"})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.client.session.get("project3_saved_configs"), [])
+
+        session = self.client.session
+        session["project3_saved_configs"] = [{"id": "cfg_2", "label": "Demo config"}]
+        session.save()
+
+        response = self.client.post(reverse("project3:report"), {"action": "clear-configs"})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.client.session.get("project3_saved_configs"), [])

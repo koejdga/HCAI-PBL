@@ -13,8 +13,8 @@ CLASS_IDS = list(CLASS_NAMES.keys())
 
 TRAIN_URL = "https://raw.githubusercontent.com/mhjabreel/CharCnn_Keras/master/data/ag_news_csv/train.csv"
 TEST_URL = "https://raw.githubusercontent.com/mhjabreel/CharCnn_Keras/master/data/ag_news_csv/test.csv"
-DEFAULT_TRAIN_SIZE = 8000
-DEFAULT_TEST_SIZE = 2000
+DEFAULT_TRAIN_SIZE = 2000
+DEFAULT_TEST_SIZE = 1000
 
 FALLBACK_ROWS = [
     (1, "UN leaders discuss humanitarian aid", "Diplomats met to coordinate relief and peace talks."),
