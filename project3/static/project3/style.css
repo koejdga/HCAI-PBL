@@ -2,7 +2,7 @@
   padding-bottom: 36px;
 }
 
-project3-section,
+.project3-section,
 section {
   margin: 22px 5%;
   display: flex;
@@ -49,14 +49,6 @@ p {
   padding: 8px 10px;
   border: 1px solid var(--border);
   cursor: text;
-}
-
-button {
-  /* padding: 9px 16px; */
-  border: 0;
-  background: var(--tuhh-navy);
-  color: white;
-  cursor: pointer;
 }
 
 .dataset-summary {
@@ -114,6 +106,7 @@ button {
 }
 
 .plot-panel {
+  position: relative;
   margin-bottom: 16px;
   padding: 14px;
   border: 1px solid var(--border);
@@ -125,6 +118,40 @@ button {
   width: 100%;
   max-height: 520px;
   object-fit: contain;
+}
+
+.policy-comparison-panel {
+  margin-inline: 5%;
+}
+
+.section-subheading {
+  margin-top: 30px;
+}
+
+.radio-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 20px;
+  margin-block: 15px;
+}
+
+.radio-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.plot-grid-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.plot-grid-two .plot-panel {
+  margin-bottom: 0;
 }
 
 .table-wrap table {
@@ -147,8 +174,8 @@ button {
 }
 
 .table-wrap th {
-  background: var(--tuhh-navy);
-  color: white;
+  background: #eaf8fb;
+  color: var(--tuhh-navy);
 }
 
 .table-wrap tr:last-child td {
@@ -238,6 +265,13 @@ button {
   border: 1px solid var(--border);
   background: white;
   color: var(--tuhh-navy);
+  box-shadow: none;
+}
+
+.secondary-button:hover {
+  border-color: var(--tuhh-cyan);
+  background: #eef9fb;
+  color: var(--tuhh-navy);
 }
 
 .team-summary-grid {
@@ -275,6 +309,10 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .plot-grid-two {
+    grid-template-columns: 1fr;
+  }
+
   .human-label-card {
     grid-template-columns: 1fr;
   }
@@ -300,6 +338,12 @@ div[class^="competence-controls-"] label {
 #show-expert-accuracy {
   width: auto;
   align-self: flex-start;
+}
+
+#expert-choice-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 #apply-expert-accuracy {
@@ -335,9 +379,15 @@ div[class^="competence-controls-"] label {
 
 .accuracy-preview-table th,
 .accuracy-preview-table td {
-  text-align: left;
   padding: 8px 6px;
   border-bottom: 1px solid #e7edf3;
+}
+
+.accuracy-preview-table th,
+.accuracy-preview-table td,
+#expert-per-class-accuracy th,
+#expert-per-class-accuracy td {
+  text-align: center;
 }
 
 .accuracy-pill {
@@ -353,9 +403,7 @@ div[class^="competence-controls-"] label {
 #remove-second-expert-button {
   font-size: 14px;
   margin: 0;
-  background-color: var(--tuhh-cyan);
   padding-inline: 10px;
-  border-radius: 8px;
 }
 
 .hightlight-frame {
@@ -433,6 +481,58 @@ input {
   text-align: center;
 }
 
+.default-expert-message {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-left: 5px solid var(--tuhh-cyan);
+  background: #eef9fb;
+  color: var(--tuhh-navy);
+  font-weight: 700;
+}
+
+.budget-convergence-panel {
+  margin: 18px 0 22px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.budget-convergence-panel h3 {
+  margin-top: 0;
+}
+
+.budget-convergence-panel .selected-candidate {
+  background: #eef9fb;
+  font-weight: 700;
+}
+
+.pdf-report-loading {
+  display: none;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-left: 5px solid var(--tuhh-cyan);
+  background: #eef9fb;
+  color: var(--tuhh-navy);
+  font-weight: 700;
+}
+
+.pdf-report-loading.is-visible {
+  display: block;
+}
+
+#budget-convergence-plot-panel {
+  max-width: 620px;
+  margin: 18px auto 0;
+  text-align: center;
+}
+
+#budget-convergence-plot-img {
+  max-height: 340px;
+  width: 100%;
+  object-fit: contain;
+}
+
 .info-explainer-popup {
   display: flex;
   align-items: center;
@@ -444,11 +544,15 @@ input {
 .info-explainer-popup button {
   background: none;
   padding: 0;
+  width: auto;
+  min-height: auto;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
+  box-shadow: none;
+  color: var(--tuhh-navy);
 }
 
 .info-explainer-popup span {
@@ -483,6 +587,31 @@ input {
   align-items: start;
 }
 
+.budget-control-row {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 24px;
+}
+
+.budget-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.budget-input-group label {
+  color: var(--tuhh-navy);
+  font-weight: 700;
+}
+
+.budget-input-group input {
+  width: 140px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+}
+
 .collapsible-toggle-btn {
   display: inline-block !important;
   width: auto !important;
@@ -493,7 +622,7 @@ input {
   margin: 0 0 0 4px !important;
   background: none !important;
   border: none !important;
-  color: #005b8a !important;
+  color: var(--tuhh-navy) !important;
   text-decoration: underline !important;
   cursor: pointer !important;
   font-size: inherit !important;

@@ -4,7 +4,7 @@ from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.urls import reverse
 
 from . import views as project3_views
-from .core.utils import build_fallback_dataset
+from .core.utils import balanced_sample, build_fallback_dataset
 from .core.deferral import _correctness_probability, evaluate_simulated_expert
 from .views import (
     CLASS_NAMES,
@@ -22,6 +22,30 @@ class Project3ExperimentTests(SimpleTestCase):
         self.assertEqual(parse_sample_size("all", 100), None)
         self.assertEqual(parse_sample_size("-4", 100), 100)
         self.assertEqual(parse_sample_size("25", 100), 25)
+
+    def test_balanced_sample_keeps_requested_row_count_with_remainder(self):
+        examples = [
+            {"label": class_id, "text": f"class {class_id} row {index}"}
+            for class_id in [1, 2, 3, 4]
+            for index in range(600)
+        ]
+
+        self.assertEqual(len(balanced_sample(examples, 1999)), 1999)
+
+    def test_stream_selective_sampling_respects_query_budget(self):
+        examples = [
+            {"label": 1 + (index % 4), "text": f"stream row {index}"}
+            for index in range(20)
+        ]
+        predicted_labels = [1 + (index % 4) for index in range(20)]
+        margins = [0.01 * index for index in range(20)]
+
+        selected = project3_views.selected_query_indices(
+            "stream_selective", examples, predicted_labels, margins, 6
+        )
+
+        self.assertEqual(len(selected), 6)
+        self.assertEqual(selected[0], 0)
 
     def test_baseline_and_expert_return_metrics(self):
         train_examples, test_examples = build_fallback_dataset()
@@ -115,9 +139,10 @@ class Project3ViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Active Learning for Learning-to-Defer")
         self.assertContains(response, "Baseline Classifier")
-        self.assertContains(response, "No experts have been configured yet")
-        self.assertIn("error_message", response.context)
-        self.assertNotIn("policy_rows", response.context)
+        self.assertContains(response, "No expert was selected")
+        self.assertTrue(response.context["using_default_expert"])
+        self.assertEqual(response.context["expert_count"], 1)
+        self.assertIn("policy_rows", response.context)
 
     def test_build_project3_results_is_cached_for_same_parameters(self):
         project3_views.PROJECT3_RESULT_CACHE.clear()

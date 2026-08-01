@@ -103,7 +103,7 @@
 
       <button type="button" id="remove-second-expert-button">Remove second expert</button>
 
-      <button type="button" id="apply-expert-accuracy" style="margin-block:20px">Apply expert's settings</button>
+      <button type="button" id="apply-expert-accuracy" class="compact-action-button">Apply expert's settings</button>
       <div id="error-message-display" style="background-color: #fce8e6; border: 1px solid #d93025; color: #c5221f; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; text-align: center; {% if not error_message %}display: none;{% endif %}">
         {{ error_message }}
       </div>
@@ -111,6 +111,9 @@
 
     <div id="expert-setup-results" {% if error_message %}style="display: none;"{% endif %}>
       <h3>Expert details</h3>
+      <div id="default-expert-message" class="default-expert-message" {% if not using_default_expert %}style="display: none;"{% endif %}>
+        {{ default_expert_message }}
+      </div>
 
       <div id="accuracy-preview-card" class="accuracy-preview-card" aria-live="polite">
         <div class="accuracy-preview-header"><strong>Previewed expert accuracy</strong></div>
@@ -150,7 +153,7 @@
         </div>
       </div>
 
-      <div class="margin-inline: 5%">
+      <div class="policy-comparison-panel">
         <h3>Policy Comparison with Chosen Expert(s)</h3>
 
         <div class="table-wrap">
@@ -186,22 +189,22 @@
           </table>
         </div>
 
-        <h3 style="margin-top: 30px;">Query Allocation by Class and Expert</h3>
+        <h3 class="section-subheading">Query Allocation by Class and Expert</h3>
         
-        <div style="display: flex; gap: 20px; justify-content: center; margin-block: 15px; flex-wrap: wrap;">
-          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+        <div class="radio-row">
+          <label>
             <input type="radio" name="allocation-policy" value="confidence" checked style="width: auto; margin: 0;" />
             Confidence Threshold
           </label>
-          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+          <label>
             <input type="radio" name="allocation-policy" value="competence" style="width: auto; margin: 0;" />
             Competence-aware
           </label>
-          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+          <label>
             <input type="radio" name="allocation-policy" value="l2d_linear" style="width: auto; margin: 0;" />
             L2D (Linear Model)
           </label>
-          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+          <label>
             <input type="radio" name="allocation-policy" value="l2d_nn" style="width: auto; margin: 0;" />
             L2D (Neural Network)
           </label>
@@ -244,24 +247,24 @@
         <span id="no-expert-message" class="hightlight-frame" style="display: none">Choose an expert or experts to see a policy comparison table.</span>
       </div>
 
-      <h3 style="margin-top: 30px;">Visualization</h3>
+      <h3 class="section-subheading">Visualization</h3>
 
       {% comment %} plots go somewhere here {% endcomment %}
-      <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px;">
-        <div class="plot-panel" style="flex: 1; min-width: 280px; margin-bottom: 0;">
+      <div class="plot-grid-two">
+        <div class="plot-panel zoomable-plot" data-zoom-src="{{ model_plot_url }}" data-zoom-title="Model and team accuracy comparison" aria-label="Open model comparison plot larger">
           <img id="model-plot-img" src="{{ model_plot_url }}" alt="Model and team accuracy comparison" />
         </div>
-        <div class="plot-panel" style="flex: 1; min-width: 280px; margin-bottom: 0;">
+        <div class="plot-panel zoomable-plot" data-zoom-src="{{ deferred_plot_url }}" data-zoom-title="Total deferred comparison" aria-label="Open deferred comparison plot larger">
           <img id="deferred-plot-img" src="{{ deferred_plot_url }}" alt="Total deferred comparison" />
         </div>
       </div>
 
 
-      <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px;">
-        <div class="plot-panel" style="flex: 1; min-width: 280px; margin-bottom: 0;">
+      <div class="plot-grid-two">
+        <div class="plot-panel zoomable-plot" data-zoom-src="{{ benefit_plot_url }}" data-zoom-title="Net benefit comparison" aria-label="Open benefit comparison plot larger">
           <img id="benefit-plot-img" src="{{ benefit_plot_url }}" alt="Net benefit comparison" />
         </div>
-        <div id="cost-plot-panel" class="plot-panel" style="flex: 1; min-width: 280px; margin-bottom: 0; {% if not cost_plot_url %}display: none;{% endif %}">
+        <div id="cost-plot-panel" class="plot-panel zoomable-plot" data-zoom-src="{{ cost_plot_url|default:'' }}" data-zoom-title="Total cost comparison" aria-label="Open cost comparison plot larger" {% if not cost_plot_url %}style="display: none;"{% endif %}>
           <img id="cost-plot-img" src="{{ cost_plot_url|default:'' }}" alt="Total cost comparison" />
         </div>
       </div>
@@ -278,18 +281,18 @@
         
       <span style="color: var(--tuhh-navy); font-weight: bold; font-size: 15px;">Choose query budget for expert(s):</span>
 
-      <div style="display: flex; flex-wrap: wrap; align-items: end; gap: 24px; width: 100%;">
-        <div id="expert-one-budget-group" style="display: flex; flex-direction: column; gap: 6px;">
-          <label for="expert-one-query-budget" style="color: var(--tuhh-navy); font-weight: 700;">Expert 1:</label>
-          <input type="number" id="expert-one-query-budget" name="expert-one-query-budget" value="{{ expert_one_query_budget|default:40 }}" min="1" style="width: 140px; padding: 8px 10px; border: 1px solid var(--border);" />
+      <div class="budget-control-row">
+        <div id="expert-one-budget-group" class="budget-input-group">
+          <label for="expert-one-query-budget">Expert 1:</label>
+          <input type="number" id="expert-one-query-budget" name="expert-one-query-budget" value="{{ expert_one_query_budget|default:40 }}" min="1" />
         </div>
 
-        <div id="expert-two-budget-group" style="display: flex; flex-direction: column; gap: 6px;">
-          <label for="expert-two-query-budget" style="color: var(--tuhh-navy); font-weight: 700;">Expert 2:</label>
-          <input type="number" id="expert-two-query-budget" name="expert-two-query-budget" value="{{ expert_two_query_budget|default:40 }}" min="1" style="width: 140px; padding: 8px 10px; border: 1px solid var(--border);" />
+        <div id="expert-two-budget-group" class="budget-input-group">
+          <label for="expert-two-query-budget">Expert 2:</label>
+          <input type="number" id="expert-two-query-budget" name="expert-two-query-budget" value="{{ expert_two_query_budget|default:40 }}" min="1" />
         </div>
 
-        <button type="submit" id="apply-query-budget-btn" style="padding: 8px 16px; border: 0; background: var(--tuhh-navy); color: #fff; font-weight: bold; cursor: pointer; height: 35px; align-self: end; margin-bottom: 2px;">Apply budget</button>
+        <button type="submit" id="apply-query-budget-btn" class="compact-action-button">Apply budget</button>
       </div>
 
       <div class="info-explainer-popup">
@@ -302,6 +305,50 @@
         </div>
       </div>
     </form>
+
+    <div id="budget-convergence-panel" class="budget-convergence-panel">
+      <h3>Suggested Query Budget</h3>
+      <p class="explanation-note">
+        Recommended budget:
+        <strong id="recommended-budget-value">{{ budget_convergence.recommended_budget }}</strong>.
+        <span id="budget-convergence-note">{{ budget_convergence.note }}</span>
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Budget</th>
+              <th>Estimated competence</th>
+              <th>Improvement</th>
+              <th>Recommendation</th>
+            </tr>
+          </thead>
+          <tbody id="budget-convergence-body">
+            {% for row in budget_convergence.rows %}
+            <tr {% if row.recommended %}class="selected-candidate"{% endif %}>
+              <td>{{ row.budget }}</td>
+              <td>{{ row.accuracy_percent }}%</td>
+              <td>{% if row.improvement_percent == "baseline" %}baseline{% else %}{{ row.improvement_percent }}%{% endif %}</td>
+              <td>{% if row.recommended %}Suggested{% else %}-{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div
+        id="budget-convergence-plot-panel"
+        class="plot-panel zoomable-plot"
+        data-zoom-src="{{ budget_convergence.plot_url }}"
+        data-zoom-title="Expert query budget convergence"
+        aria-label="Open budget convergence plot larger"
+      >
+        <img
+          id="budget-convergence-plot-img"
+          src="{{ budget_convergence.plot_url }}"
+          alt="Expert query budget convergence plot"
+        />
+      </div>
+    </div>
 
     <div id="active-learning-queries-container" {% if error_message %}style="display: none;"{% endif %}>
       <h3>Expert Queries</h3>
@@ -322,6 +369,10 @@
         <label style="cursor: pointer; font-weight: bold; color: var(--tuhh-navy);">
           <input type="radio" name="query-table-strategy" value="random" style="margin-right: 6px;" />
           Random sample (Naive)
+        </label>
+        <label style="cursor: pointer; font-weight: bold; color: var(--tuhh-navy);">
+          <input type="radio" name="query-table-strategy" value="stream_selective" style="margin-right: 6px;" />
+          Stream selective sampling (Online)
         </label>
       </div>
 
@@ -384,7 +435,7 @@
         </table>
       </div>
 
-      <div class="plot-panel" style="max-width: 600px; margin: 20px auto 16px auto; text-align: center;">
+      <div class="plot-panel zoomable-plot" data-zoom-src="{{ scatter_plot_url }}" data-zoom-title="Active learning queries scatter plot" aria-label="Open active learning scatter plot larger" style="max-width: 600px; margin: 20px auto 16px auto; text-align: center;">
         <img id="active-learning-scatter-img" src="{{ scatter_plot_url }}" alt="Active learning queries scatter plot" style="max-height: 380px; width: 100%; object-fit: contain;" />
       </div>
     </div>
@@ -481,7 +532,7 @@
           </div>
         </div>
         
-        <button type="button" id="apply-human-settings-btn" style="padding: 8px 16px; border: 0; background: var(--tuhh-navy); color: #fff; font-weight: bold; cursor: pointer; height: 35px; align-self: flex-end;">Apply</button>
+        <button type="button" id="apply-human-settings-btn" class="compact-action-button">Apply</button>
       </div>
     </div>
 
@@ -494,7 +545,7 @@
       <span>Answered: <strong id="human-answered-count">{{ human_expert.answered }}</strong> / <span id="human-total-count">{{ human_expert.total }}</span></span>
       <span>Correct: <strong id="human-correct-count">{{ human_expert.correct }}</strong></span>
       <span>Accuracy: <strong id="human-accuracy-percent">{{ human_expert.accuracy_percent }}</strong>%</span>
-      <button type="button" id="reset-human-labels-btn" class="secondary-button" style="padding: 4px 10px; font-size: 0.85rem; height: auto; margin: 0; {% if human_expert.answered == 0 %}display: none;{% endif %}">Reset</button>
+      <button type="button" id="reset-human-labels-btn" class="secondary-button compact-action-button" {% if human_expert.answered == 0 %}style="display: none;"{% endif %}>Reset</button>
     </div>
 
     <form method="post" class="human-label-form" id="human-label-submit-form">
@@ -555,7 +606,7 @@
     <h2>PDF Report</h2>
     <p style="color: #555; margin-top: 0">Select the saved expert configurations you want to include in the generated PDF report. For each selected configuration, the report will render the Learning to Defer and Active Learning sections.</p>
     
-    <form action="{% url 'project3:report' %}" method="get" target="_blank" style="margin-top: 15px;">
+    <form id="pdf-report-form" action="{% url 'project3:report' %}" method="get" target="_blank" style="margin-top: 15px;">
       <input type="hidden" name="train-size" value="{{ train_size }}">
       <input type="hidden" name="test-size" value="{{ test_size }}">
       <input type="hidden" name="defer-rate" value="{{ defer_rate }}">
@@ -578,15 +629,18 @@
       </div>
       
       <div style="display: flex; gap: 15px;">
-        <button type="submit" {% if not saved_configs %}disabled{% endif %} style="margin: 0; width: auto; padding: 0 20px;">
+        <button type="submit" id="download-pdf-report-btn" class="compact-action-button" {% if not saved_configs %}disabled{% endif %}>
           Download PDF Report
         </button>
         
         {% if saved_configs %}
-        <button type="submit" name="action" value="clear-configs" formmethod="post" style="margin: 0; background-color: var(--tuhh-red); color: white; width: auto; padding: 0 20px;">
+        <button type="submit" name="action" value="clear-configs" formmethod="post" class="compact-action-button danger-button" data-skip-report-loading="true">
           Clear Config History
         </button>
         {% endif %}
+      </div>
+      <div id="pdf-report-loading" class="pdf-report-loading" role="status" aria-live="polite">
+        Generating PDF report. This can take a few seconds and will open in a new tab.
       </div>
     </form>
   </section>
@@ -789,6 +843,12 @@
       }
 
       function renderExpertAccuracy(data) {
+        const defaultExpertMessage = document.getElementById("default-expert-message");
+        if (defaultExpertMessage) {
+          defaultExpertMessage.textContent = data?.default_expert_message || "";
+          defaultExpertMessage.style.display = data?.using_default_expert ? "block" : "none";
+        }
+
         const summaryContainer = document.getElementById("expert-config-summaries");
         if (summaryContainer && Array.isArray(data?.expert_summaries)) {
           summaryContainer.innerHTML = data.expert_summaries.map((summary) => {
@@ -818,6 +878,7 @@
         if (accuracyDisplay) {
           accuracyDisplay.textContent = summaryText;
         }
+        renderBudgetConvergence(data?.budget_convergence);
         renderExpertClassRows(data?.expert_class_rows, expertCountFromData);
         renderPolicyComparison(data?.policy_rows);
         if (data?.allocation_by_policy) {
@@ -828,24 +889,32 @@
           renderQueryAllocation(currentAllocationByPolicy[activePolicy], expertCountFromData);
         }
 
+        function updatePlotImage(imageElement, imageUrl) {
+          if (!imageElement || !imageUrl) {
+            return;
+          }
+          imageElement.src = imageUrl + "?t=" + new Date().getTime();
+          imageElement.closest("[data-zoom-src]")?.setAttribute("data-zoom-src", imageUrl);
+        }
+
         // Update plots dynamically with cache-busting
         const modelPlotImg = document.getElementById("model-plot-img");
         if (modelPlotImg && data?.model_plot_url) {
-          modelPlotImg.src = data.model_plot_url + "?t=" + new Date().getTime();
+          updatePlotImage(modelPlotImg, data.model_plot_url);
         }
         const deferredPlotImg = document.getElementById("deferred-plot-img");
         if (deferredPlotImg && data?.deferred_plot_url) {
-          deferredPlotImg.src = data.deferred_plot_url + "?t=" + new Date().getTime();
+          updatePlotImage(deferredPlotImg, data.deferred_plot_url);
         }
         const benefitPlotImg = document.getElementById("benefit-plot-img");
         if (benefitPlotImg && data?.benefit_plot_url) {
-          benefitPlotImg.src = data.benefit_plot_url + "?t=" + new Date().getTime();
+          updatePlotImage(benefitPlotImg, data.benefit_plot_url);
         }
         const costPlotPanel = document.getElementById("cost-plot-panel");
         const costPlotImg = document.getElementById("cost-plot-img");
         if (costPlotPanel && costPlotImg) {
           if (data?.cost_plot_url) {
-            costPlotImg.src = data.cost_plot_url + "?t=" + new Date().getTime();
+            updatePlotImage(costPlotImg, data.cost_plot_url);
             costPlotPanel.style.display = "";
           } else {
             costPlotPanel.style.display = "none";
@@ -917,6 +986,38 @@
         }
       }
 
+      function renderBudgetConvergence(budgetConvergence) {
+        if (!budgetConvergence) {
+          return;
+        }
+        const recommendedValue = document.getElementById("recommended-budget-value");
+        const note = document.getElementById("budget-convergence-note");
+        const body = document.getElementById("budget-convergence-body");
+        const plotImg = document.getElementById("budget-convergence-plot-img");
+        const plotPanel = document.getElementById("budget-convergence-plot-panel");
+
+        if (recommendedValue) {
+          recommendedValue.textContent = budgetConvergence.recommended_budget ?? "";
+        }
+        if (note) {
+          note.textContent = budgetConvergence.note || "";
+        }
+        if (body && Array.isArray(budgetConvergence.rows)) {
+          body.innerHTML = budgetConvergence.rows.map((row) => `
+            <tr ${row.recommended ? 'class="selected-candidate"' : ""}>
+              <td>${row.budget}</td>
+              <td>${row.accuracy_percent}%</td>
+              <td>${row.improvement_percent === "baseline" ? "baseline" : `${row.improvement_percent}%`}</td>
+              <td>${row.recommended ? "Suggested" : "-"}</td>
+            </tr>
+          `).join("");
+        }
+        if (plotImg && plotPanel && budgetConvergence.plot_url) {
+          plotImg.src = budgetConvergence.plot_url + "?t=" + new Date().getTime();
+          plotPanel.setAttribute("data-zoom-src", budgetConvergence.plot_url);
+        }
+      }
+
       function requestExpertAccuracy() {
         const url = new URL(window.location.href);
         url.searchParams.set('format', 'json');
@@ -961,13 +1062,34 @@
           accuracyDisplay.textContent = 'Evaluating expert accuracy...';
         }
 
-        // Hide Active Learning result sections during calculation
+        // Keep result sections visible and show immediate feedback while the heavier metrics are recomputed.
         const queriesContainer = document.getElementById("active-learning-queries-container");
         const strategySection = document.getElementById("active-learning-strategy-section");
         const examplesSection = document.getElementById("active-learning-examples-section");
-        if (queriesContainer) queriesContainer.style.display = "none";
-        if (strategySection) strategySection.style.display = "none";
-        if (examplesSection) examplesSection.style.display = "none";
+        if (queriesContainer) queriesContainer.style.display = "";
+        if (strategySection) strategySection.style.display = "";
+        if (examplesSection) examplesSection.style.display = "";
+
+        const policyBody = document.getElementById("policy-comparison-body");
+        const activeLearningBody = document.getElementById("active-learning-queries-body");
+        const strategyBody = document.getElementById("query-strategy-body");
+        const examplesBody = document.getElementById("queried-examples-body");
+        const convergenceBody = document.getElementById("budget-convergence-body");
+        if (policyBody) {
+          policyBody.innerHTML = '<tr><td colspan="9">Applying expert settings and recalculating policy results...</td></tr>';
+        }
+        if (activeLearningBody) {
+          activeLearningBody.innerHTML = '<tr><td colspan="5">Updating active-learning competence estimates...</td></tr>';
+        }
+        if (strategyBody) {
+          strategyBody.innerHTML = '<tr><td colspan="7">Comparing query strategies...</td></tr>';
+        }
+        if (examplesBody) {
+          examplesBody.innerHTML = '<tr><td colspan="5">Loading queried examples...</td></tr>';
+        }
+        if (convergenceBody) {
+          convergenceBody.innerHTML = '<tr><td colspan="4">Estimating query-budget convergence...</td></tr>';
+        }
 
         const originalText = showAccuracyBtn.textContent;
         showAccuracyBtn.disabled = true;
@@ -981,14 +1103,31 @@
           applyBudgetBtn.textContent = 'Applying budget...';
         }
 
+        const fallbackUrl = new URL(url);
+        fallbackUrl.searchParams.delete('format');
+        fallbackUrl.hash = "learning-to-defer";
+        let didFallback = false;
+        const fallbackTimer = setTimeout(function () {
+          didFallback = true;
+          if (accuracyDisplay) {
+            accuracyDisplay.textContent = "Still computing. Reloading with the completed results...";
+          }
+          window.location.href = fallbackUrl.toString();
+        }, 25000);
+
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
           .then((response) => response.json())
           .then((data) => {
+            if (didFallback) {
+              return;
+            }
+            clearTimeout(fallbackTimer);
             if (data.error_message) {
               if (errorDisplay) {
                 errorDisplay.textContent = data.error_message;
                 errorDisplay.style.display = "block";
               }
+              clearTimeout(fallbackTimer);
               showAccuracyBtn.disabled = false;
               showAccuracyBtn.textContent = originalText;
               if (applyBudgetBtn) {
@@ -997,7 +1136,13 @@
               }
               return;
             }
-             renderExpertAccuracy(data);
+             try {
+               renderExpertAccuracy(data);
+             } catch (renderError) {
+               console.log('Render accuracy failed; falling back to page reload', renderError);
+               window.location.href = fallbackUrl.toString();
+               return;
+             }
              
              // Dynamic Saved Configurations update
              const savedConfigsList = document.getElementById("saved-configs-list");
@@ -1031,7 +1176,8 @@
                    clearBtn.name = "action";
                    clearBtn.value = "clear-configs";
                    clearBtn.setAttribute("formmethod", "post");
-                   clearBtn.style.cssText = "margin: 0; background-color: var(--tuhh-red); color: white; width: auto; padding: 0 20px;";
+                   clearBtn.dataset.skipReportLoading = "true";
+                   clearBtn.className = "compact-action-button danger-button";
                    clearBtn.textContent = "Clear Config History";
                    buttonsContainer.appendChild(clearBtn);
                  }
@@ -1048,16 +1194,15 @@
              }
           })
           .catch((err) => {
+            if (didFallback) {
+              return;
+            }
+            clearTimeout(fallbackTimer);
             console.log('Fetch accuracy failed', err);
             if (accuracyDisplay) {
-              accuracyDisplay.textContent = 'Unable to load accuracy preview.';
+              accuracyDisplay.textContent = 'Reloading to show the latest results...';
             }
-            showAccuracyBtn.disabled = false;
-            showAccuracyBtn.textContent = originalText;
-            if (applyBudgetBtn) {
-              applyBudgetBtn.disabled = false;
-              applyBudgetBtn.textContent = originalBudgetBtnText;
-            }
+            window.location.href = fallbackUrl.toString();
           });
       }
 
@@ -1149,6 +1294,26 @@
         });
       }
 
+      const pdfReportForm = document.getElementById("pdf-report-form");
+      const pdfReportLoading = document.getElementById("pdf-report-loading");
+      const downloadPdfReportBtn = document.getElementById("download-pdf-report-btn");
+      if (pdfReportForm && pdfReportLoading && downloadPdfReportBtn) {
+        pdfReportForm.addEventListener("submit", function (event) {
+          const clickedButton = event.submitter;
+          if (clickedButton?.dataset.skipReportLoading === "true") {
+            return;
+          }
+          pdfReportLoading.classList.add("is-visible");
+          downloadPdfReportBtn.disabled = true;
+          downloadPdfReportBtn.textContent = "Generating PDF...";
+          setTimeout(function () {
+            pdfReportLoading.classList.remove("is-visible");
+            downloadPdfReportBtn.disabled = false;
+            downloadPdfReportBtn.textContent = "Download PDF Report";
+          }, 8000);
+        });
+      }
+
       const infoBtn = document.getElementById("query-budget-info-btn");
       const infoText = document.getElementById("query-budget-info-text");
       const infoPopup = document.getElementById("query-budget-info-popup");
@@ -1199,6 +1364,10 @@
         "random": `With the <strong>Random sample (Naive)</strong> strategy, the query policy attributes utility uniformly at random. 
         It selects instances completely at random from the pool of unlabeled data, regardless of model confidence or class membership. 
         This acts as a passive baseline to assess performance gains from active strategies.`
+        ,
+        "stream_selective": `With the <strong>Stream selective sampling (Online)</strong> strategy, examples are treated as if they arrive one after another. 
+        The system queries the expert only for sufficiently uncertain examples until the query budget is used. 
+        This approximates a real-life setting where the model cannot inspect the whole pool before deciding whether to ask a human.`
       };
 
       function updateActiveLearningQueriesTable(selectedStrategy) {
@@ -1233,6 +1402,7 @@
         // 3. Update scatter plot image
         if (scatterPlotImg && currentScatterPlots && currentScatterPlots[selectedStrategy]) {
           scatterPlotImg.src = currentScatterPlots[selectedStrategy] + "?t=" + new Date().getTime();
+          scatterPlotImg.closest("[data-zoom-src]")?.setAttribute("data-zoom-src", currentScatterPlots[selectedStrategy]);
         }
 
         // 4. Update queried examples table rows

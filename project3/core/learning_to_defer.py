@@ -64,7 +64,7 @@ class L2DNeuralNetwork(nn.Module):
     A simple neural network mapping features to K + num_experts logits.
     """
 
-    DEFAULT_EPOCH_COUNT = 20
+    DEFAULT_EPOCH_COUNT = 10
     DEFAULT_LEARNING_RATE = 0.005
     DEFAULT_BATCH_SIZE = 64
 
@@ -86,7 +86,7 @@ class L2DLinearModel(nn.Module):
     A pure linear model (equivalent to a Linear SVM) outputting K + num_experts scores.
     """
 
-    DEFAULT_EPOCH_COUNT = 10
+    DEFAULT_EPOCH_COUNT = 6
     DEFAULT_LEARNING_RATE = 0.01
     DEFAULT_BATCH_SIZE = 128
 

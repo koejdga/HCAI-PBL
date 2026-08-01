@@ -156,6 +156,7 @@
 }
 
 .tree-image-container {
+  position: relative;
   overflow-x: auto;
   padding: 16px;
   border: 1px solid var(--border);
@@ -243,23 +244,29 @@
   text-align: right;
 }
 
-.lambda-control button {
-  padding: 9px 18px;
-  border: 0;
-  background: var(--tuhh-navy);
-  color: white;
-  cursor: pointer;
+.model-type-options {
+  display: grid;
+  gap: 8px;
+}
+
+.model-type-heading {
+  padding-bottom: 4px;
+}
+
+.model-type-options label {
+  font-weight: 400;
+}
+
+.preference-button {
+  margin-top: 0.75em;
 }
 
 .lambda-explanation {
-  margin: 14px 0 0;
-  padding: 13px 15px;
-  border-left: 5px solid var(--tuhh-cyan);
-  background: #eef9fb;
+  margin-top: 14px;
 }
 
-.lambda-explanation p {
-  margin-bottom: 0;
+.lambda-explanation .info-explainer-content {
+  width: min(420px, 80vw);
 }
 
 .selected-model-note {
@@ -300,8 +307,8 @@
 }
 
 .candidate-table th {
-  background: var(--tuhh-navy);
-  color: white;
+  background: #eaf8fb;
+  color: var(--tuhh-navy);
 }
 
 .candidate-table tbody tr:nth-child(even) {
@@ -356,8 +363,8 @@
 }
 
 .penguin-table th {
-  background: var(--tuhh-navy);
-  color: white;
+  background: #eaf8fb;
+  color: var(--tuhh-navy);
 }
 
 .penguin-table tbody tr:nth-child(even) {
@@ -375,15 +382,6 @@
 
 .penguin-table input[type="radio"] {
   accent-color: var(--tuhh-cyan);
-  cursor: pointer;
-}
-
-.counterfactuals-submit,
-.dataset-page-jump button {
-  padding: 9px 16px;
-  border: 0;
-  background: var(--tuhh-navy);
-  color: white;
   cursor: pointer;
 }
 
@@ -484,28 +482,28 @@
 .feature-effects-form {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: flex-end;
   gap: 12px;
 }
 
-.feature-effects-form label {
-  color: var(--tuhh-navy);
-  font-weight: 700;
+.feature-effect-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.feature-effects-form select {
+.feature-effect-control label {
+  color: var(--tuhh-navy);
+  font-weight: 700;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.feature-effect-control select {
   min-width: 220px;
   padding: 9px 10px;
   border: 1px solid var(--border);
   background: white;
-}
-
-.feature-effects-form button {
-  padding: 9px 16px;
-  border: 0;
-  background: var(--tuhh-navy);
-  color: white;
-  cursor: pointer;
 }
 
 .feature-effects-grid {
@@ -516,6 +514,7 @@
 }
 
 .effect-plot-card {
+  position: relative;
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: 8px;

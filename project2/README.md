@@ -84,6 +84,8 @@ shown for Task 1 therefore correspond to the model selected by Task 2.
   explainability library.
 - Displays one probability curve per species.
 - Links the PDP and ALE plots to the currently selected model type and lambda.
+- Explains in the UI that PDP and ALE summarize model behavior and should not
+  be interpreted as causal proof.
 
 ## HCAI Concepts Applied
 

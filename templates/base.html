@@ -35,6 +35,16 @@
             </div>
         </div>
 
+        <div class="plot-modal" id="plot-modal" aria-hidden="true" role="dialog" aria-label="Expanded plot">
+            <div class="plot-modal-content">
+                <button type="button" class="plot-modal-close" onclick="closePlotModal()" aria-label="Close expanded plot">
+                    &times;
+                </button>
+                <img id="plot-modal-image" src="" alt="">
+                <p id="plot-modal-title"></p>
+            </div>
+        </div>
+
         {% block script %}
         {% endblock script %}
         <script>
@@ -110,6 +120,79 @@
                     });
                 });
             })();
+
+            function openPlotModal(imageUrl, title) {
+                const modal = document.getElementById("plot-modal");
+                const modalImage = document.getElementById("plot-modal-image");
+                const modalTitle = document.getElementById("plot-modal-title");
+                if (!modal || !modalImage || !modalTitle || !imageUrl) {
+                    return;
+                }
+                modalImage.src = imageUrl;
+                modalImage.alt = title || "Expanded plot";
+                modalTitle.textContent = title || "";
+                modal.classList.add("plot-modal-visible");
+                modal.setAttribute("aria-hidden", "false");
+            }
+
+            function closePlotModal() {
+                const modal = document.getElementById("plot-modal");
+                const modalImage = document.getElementById("plot-modal-image");
+                if (!modal || !modalImage) {
+                    return;
+                }
+                modal.classList.remove("plot-modal-visible");
+                modal.setAttribute("aria-hidden", "true");
+                modalImage.src = "";
+            }
+
+            document.addEventListener("click", function (event) {
+                const infoTrigger = event.target.closest(".info-explainer-trigger");
+                if (infoTrigger) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const popup = infoTrigger.closest(".info-explainer-popup");
+                    const isOpen = popup?.classList.contains("is-open");
+                    document.querySelectorAll(".info-explainer-popup.is-open").forEach(function (openPopup) {
+                        openPopup.classList.remove("is-open");
+                        openPopup.querySelector(".info-explainer-trigger")?.setAttribute("aria-expanded", "false");
+                    });
+                    if (popup && !isOpen) {
+                        popup.classList.add("is-open");
+                        infoTrigger.setAttribute("aria-expanded", "true");
+                    }
+                    return;
+                }
+
+                document.querySelectorAll(".info-explainer-popup.is-open").forEach(function (popup) {
+                    popup.classList.remove("is-open");
+                    popup.querySelector(".info-explainer-trigger")?.setAttribute("aria-expanded", "false");
+                });
+
+                const zoomTarget = event.target.closest("[data-zoom-src]");
+                if (zoomTarget) {
+                    openPlotModal(
+                        zoomTarget.dataset.zoomSrc,
+                        zoomTarget.dataset.zoomTitle || zoomTarget.getAttribute("aria-label"),
+                    );
+                    return;
+                }
+
+                const modal = document.getElementById("plot-modal");
+                if (modal && event.target === modal) {
+                    closePlotModal();
+                }
+            });
+
+            document.addEventListener("keydown", function (event) {
+                if (event.key === "Escape") {
+                    closePlotModal();
+                    document.querySelectorAll(".info-explainer-popup.is-open").forEach(function (popup) {
+                        popup.classList.remove("is-open");
+                        popup.querySelector(".info-explainer-trigger")?.setAttribute("aria-expanded", "false");
+                    });
+                }
+            });
         </script>
     </body>
 </html>

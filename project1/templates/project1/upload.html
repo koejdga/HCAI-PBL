@@ -118,8 +118,14 @@
     <form method="post" enctype="multipart/form-data" class="upload-form">
       {% csrf_token %}
       <input type="hidden" name="action" value="upload" />
-      {{ form.as_p }}
+      <p>
+        {{ form.file.label_tag }}
+        {{ form.file }}
+      </p>
       <button type="submit">Visualize</button>
+      {% if upload_error %}
+      <p class="upload-error">{{ upload_error }}</p>
+      {% endif %}
     </form>
 
 	    {% if dataset_summary %}
@@ -203,6 +209,15 @@
 	              <small>Remove rows with any missing value before visualization and training.</small>
 	            </span>
 	          </label>
+	          <div class="info-explainer-popup">
+	            <button type="button" class="info-explainer-trigger" aria-expanded="false">
+	              {% include "project3/components/info_icon.svg" %}
+	              <span>Why does missing-value handling matter?</span>
+	            </button>
+	            <div class="info-explainer-content">
+	              Missing values affect fairness and reliability. Keeping rows preserves more data, while dropping rows keeps only complete examples and may remove some groups more than others.
+	            </div>
+	          </div>
 	        </fieldset>
 
 	        <fieldset class="feature-fieldset">
@@ -229,6 +244,15 @@
 	            </label>
 	            {% endif %}
 	            {% endfor %}
+	          </div>
+	          <div class="info-explainer-popup">
+	            <button type="button" class="info-explainer-trigger" aria-expanded="false">
+	              {% include "project3/components/info_icon.svg" %}
+	              <span>How should I choose features?</span>
+	            </button>
+	            <div class="info-explainer-content">
+	              Use columns that are reasonable inputs for prediction. Avoid ID columns or columns that directly reveal the target because they can make the model look better than it really is.
+	            </div>
 	          </div>
 	        </fieldset>
 
@@ -292,13 +316,18 @@
       <h2>Overview</h2>
       <div class="plot-gallery">
         {% for visualization in overview_visualizations %}
-        <div class="plot-card">
+        <button
+          type="button"
+          class="plot-card plot-zoom-card"
+          onclick="openPlotModal('{{ visualization.url|escapejs }}', '{{ visualization.title|escapejs }}')"
+          aria-label="Open {{ visualization.title }} larger"
+        >
           <img
             src="{{ visualization.url }}"
             alt="{{ visualization.title }}"
             class="generated-plot"
           />
-        </div>
+        </button>
         {% endfor %}
       </div>
     </section>
@@ -351,6 +380,7 @@
             src="{{ visualization.url }}"
             alt="{{ visualization.title }}"
             class="generated-plot"
+            onclick="openPlotModal('{{ visualization.url|escapejs }}', '{{ visualization.title|escapejs }}')"
           />
         </div>
         {% endfor %}
@@ -390,6 +420,7 @@
           </option>
           {% endfor %}
         </select>
+        <p class="scatter-selection-note" id="scatter-selection-note" aria-live="polite"></p>
 
         <button type="button" onclick="createScatterPlot()">
           Build scatter plot
@@ -417,6 +448,7 @@
             src="{{ visualization.url }}"
             alt="{{ visualization.title }}"
             class="generated-plot"
+            onclick="openPlotModal('{{ visualization.url|escapejs }}', '{{ visualization.title|escapejs }}')"
           />
         </div>
         {% endfor %}
@@ -431,6 +463,15 @@
         <strong>{{ task_type|title }}</strong>.
         The score is computed on a held-out test set.
       </p>
+      <div class="info-explainer-popup">
+        <button type="button" class="info-explainer-trigger" aria-expanded="false">
+          {% include "project3/components/info_icon.svg" %}
+          <span>What does the detected task mean?</span>
+        </button>
+        <div class="info-explainer-content">
+          Classification predicts categories, while regression predicts numeric values. The app detects this from the selected target column.
+        </div>
+      </div>
 
       <form method="post" class="training-form" data-scroll-target="#training-section">
         {% csrf_token %}
@@ -484,6 +525,15 @@
             The trained model should beat this reference before its score is
             considered useful.
           </p>
+          <div class="info-explainer-popup">
+            <button type="button" class="info-explainer-trigger" aria-expanded="false">
+              {% include "project3/components/info_icon.svg" %}
+              <span>Why compare with a baseline?</span>
+            </button>
+            <div class="info-explainer-content">
+              A baseline is a simple reference model. It helps show whether the trained model improves on a naive prediction rule.
+            </div>
+          </div>
         </div>
 
         <div class="model-comparison-grid">
@@ -742,7 +792,11 @@
     image.src = plot.url;
     image.alt = plot.title;
     image.className = "generated-plot";
+    image.addEventListener("click", function () {
+      openPlotModal(plot.url, plot.title);
+    });
     card.appendChild(image);
+
     markVisualizationStepComplete();
     return card;
   }
@@ -832,6 +886,11 @@
     if (!xFeatureSelect || !yFeatureSelect) {
       return;
     }
+    if (xFeatureSelect.value === yFeatureSelect.value) {
+      setPlotError("Please choose two different features for a scatter plot.");
+      showToast("Choose a different Y feature before building the scatter plot.");
+      return;
+    }
 
     const result = await postPlotAction({
       action: "scatter",
@@ -840,6 +899,33 @@
     });
     if (result) {
       handlePlotResponse(result.response, result.data, "scatter-gallery");
+    }
+  }
+
+  function updateScatterFeatureOptions() {
+    const xFeatureSelect = document.getElementById("x_feature");
+    const yFeatureSelect = document.getElementById("y_feature");
+    const note = document.getElementById("scatter-selection-note");
+    if (!xFeatureSelect || !yFeatureSelect) {
+      return;
+    }
+
+    Array.from(yFeatureSelect.options).forEach(function (option) {
+      option.disabled = option.value === xFeatureSelect.value;
+    });
+
+    if (xFeatureSelect.value === yFeatureSelect.value) {
+      const nextOption = Array.from(yFeatureSelect.options).find(function (option) {
+        return !option.disabled;
+      });
+      if (nextOption) {
+        yFeatureSelect.value = nextOption.value;
+      }
+      if (note) {
+        note.textContent = "Y feature was changed automatically so X and Y stay different.";
+      }
+    } else if (note) {
+      note.textContent = "";
     }
   }
 
@@ -889,6 +975,17 @@
     document.querySelectorAll(".plot-card-duplicate").forEach(function (card) {
       card.classList.remove("plot-card-duplicate");
     });
+  });
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const xFeatureSelect = document.getElementById("x_feature");
+    const yFeatureSelect = document.getElementById("y_feature");
+    if (xFeatureSelect && yFeatureSelect) {
+      updateScatterFeatureOptions();
+      xFeatureSelect.addEventListener("change", updateScatterFeatureOptions);
+      yFeatureSelect.addEventListener("change", updateScatterFeatureOptions);
+    }
+
   });
 </script>
 {% endblock script %}

@@ -31,6 +31,15 @@
       choose a model and lambda, compare the selected model, inspect local
       counterfactuals, then review the PDP and ALE feature-effect plots.
     </div>
+    <div class="info-explainer-popup">
+      <button type="button" class="info-explainer-trigger" aria-expanded="false">
+        {% include "project3/components/info_icon.svg" %}
+        <span>Show explainability workflow information</span>
+      </button>
+      <div class="info-explainer-content">
+        This page follows an HCAI explainability workflow: choose a model, balance accuracy with simplicity, inspect local counterfactual examples, and then compare global feature-effect plots.
+      </div>
+    </div>
 
     <section id="model-selection" class="task-two-panel" aria-labelledby="task-two-title">
       <h3 id="task-two-title">Accuracy and Simplicity</h3>
@@ -49,7 +58,9 @@
         />
 
         <div class="lambda-heading">
-          <label for="lambda">Simplicity preference &lambda;:</label>
+          <label for="lambda">
+            Simplicity preference &lambda;:
+          </label>
           <output id="lambda-value" for="lambda">{{ lambda_value }}</output>
         </div>
 
@@ -76,8 +87,8 @@
           </div>
         </div>
 
-        <div>
-          <div style="padding-bottom: 0.5em">
+        <div class="model-type-options">
+          <div class="model-type-heading">
             <strong>Select a model type:</strong>
           </div>
 
@@ -89,7 +100,7 @@
               value="decision-tree"
               {% if model_type == "decision-tree" or not model_type %}checked{% endif %}
             />
-            <label style="font-weight: 400" for="decision-tree"
+            <label for="decision-tree"
               >Decision Tree</label
             >
           </div>
@@ -102,16 +113,25 @@
               value="logistic-regression"
               {% if model_type == "logistic-regression" %}checked{% endif %}
             />
-            <label style="font-weight: 400" for="logistic-regression"
+            <label for="logistic-regression"
               >Logistic Regression</label
             >
           </div>
         </div>
 
-        <button style="margin-top: 0.75em" type="submit">
+        <button class="compact-action-button preference-button" type="submit">
           Apply preference
         </button>
       </form>
+      <div class="info-explainer-popup">
+        <button type="button" class="info-explainer-trigger" aria-expanded="false">
+          {% include "project3/components/info_icon.svg" %}
+          <span>What does lambda control?</span>
+        </button>
+        <div class="info-explainer-content">
+          Lambda controls how much the interface prefers a simpler model. Lower values focus more on test accuracy; higher values prefer fewer leaves or fewer active features.
+        </div>
+      </div>
 
       <div class="candidate-table-container">
         <table class="candidate-table">
@@ -144,19 +164,21 @@
         >
       </div>
 
-      <div class="lambda-explanation" id="lambda-help">
-        <strong>What does &lambda; mean?</strong>
-        <p>
+      <div class="info-explainer-popup lambda-explanation" id="lambda-help">
+        <button type="button" class="info-explainer-trigger" aria-expanded="false">
+          {% include "project3/components/info_icon.svg" %}
+          <span>What does &lambda; mean?</span>
+        </button>
+        <div class="info-explainer-content">
           A low value prioritizes test accuracy. A high value gives more
           importance to a smaller model that may be easier to understand. Lambda
           selects between trained candidates; it is not the model's training
           parameter.
-        </p>
-        <p>
+          <br /><br />
           Selection score =
           <strong>test accuracy - &lambda; &times; normalized complexity</strong>.
           Higher scores are preferred.
-        </p>
+        </div>
       </div>
     </section>
 
@@ -208,7 +230,6 @@
         These are the data and preprocessing choices behind the displayed
         result.
       </p>
-
       <dl class="transparency-grid">
         <div>
           <dt>Prediction target</dt>
@@ -244,11 +265,15 @@
         </div>
       </dl>
 
-      <p class="transparency-warning">
-        <strong>Important:</strong> Removing incomplete rows is simple and
-        reproducible, but it may reduce representativeness if missing data is
-        concentrated in a particular group.
-      </p>
+      <div class="info-explainer-popup transparency-warning">
+        <button type="button" class="info-explainer-trigger" aria-expanded="false">
+          {% include "project3/components/info_icon.svg" %}
+          <span>Important note about missing rows</span>
+        </button>
+        <div class="info-explainer-content">
+          Removing incomplete rows is simple and reproducible, but it may reduce representativeness if missing data is concentrated in a particular group.
+        </div>
+      </div>
     </section>
 
     <div id="tree-explanation">
@@ -264,7 +289,12 @@
         </p>
       </div>
 
-      <div class="tree-image-container">
+      <div
+        class="tree-image-container zoomable-plot"
+        data-zoom-src="{{ tree_image_url }}"
+        data-zoom-title="Decision tree trained on the Palmer Penguins dataset"
+        aria-label="Open decision tree larger"
+      >
         <img
           id="tree-image-element"
           src="{{ tree_image_url }}"
@@ -277,6 +307,15 @@
 
     <div id="counterfactuals">
       <h2>Counterfactuals</h2>
+      <div class="info-explainer-popup">
+        <button type="button" class="info-explainer-trigger" aria-expanded="false">
+          {% include "project3/components/info_icon.svg" %}
+          <span>What are counterfactuals?</span>
+        </button>
+        <div class="info-explainer-content">
+          Counterfactuals show small input changes that would change the model prediction. They are local explanations for one selected row.
+        </div>
+      </div>
 
       <form method="get" id="counterfactuals-form" class="counterfactuals-form task-two-panel">
         <input type="hidden" name="lambda" value="{{ lambda_value }}" />
@@ -427,6 +466,15 @@
         These global explanations use the currently selected model type and
         lambda value. Each plot shows one curve per species.
       </p>
+      <div class="info-explainer-popup">
+        <button type="button" class="info-explainer-trigger" aria-expanded="false">
+          {% include "project3/components/info_icon.svg" %}
+          <span>What do PDP and ALE show?</span>
+        </button>
+        <div class="info-explainer-content">
+          PDP and ALE plots are global explanations. They summarize how one feature is associated with model predictions across the dataset. They are explanatory tools, not proof that the feature causes the prediction.
+        </div>
+      </div>
 
       <form method="get" id="feature-effects-form" class="task-two-panel feature-effects-form">
         <input type="hidden" name="lambda" value="{{ lambda_value }}" />
@@ -439,20 +487,27 @@
           value="{{ dataset_page.number }}"
         />
 
-        <label for="feature-effect-feature">Numeric feature</label>
-        <select id="feature-effect-feature" name="feature-effect-feature">
-          {% for option in feature_effect_options %}
-            <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>
-              {{ option.label }}
-            </option>
-          {% endfor %}
-        </select>
+        <div class="feature-effect-control">
+          <label for="feature-effect-feature">Numeric feature</label>
+          <select id="feature-effect-feature" name="feature-effect-feature">
+            {% for option in feature_effect_options %}
+              <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>
+                {{ option.label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
 
         <button type="submit">Update plots</button>
       </form>
 
       <div class="feature-effects-grid">
-        <article class="effect-plot-card">
+        <article
+          class="effect-plot-card zoomable-plot"
+          data-zoom-src="{{ pdp_image_url }}"
+          data-zoom-title="Partial dependence plot for {{ feature_effect_feature_label }}"
+          aria-label="Open partial dependence plot larger"
+        >
           <h3>Partial Dependence Plot</h3>
           <img
             id="pdp-image-element"
@@ -461,7 +516,12 @@
           />
         </article>
 
-        <article class="effect-plot-card">
+        <article
+          class="effect-plot-card zoomable-plot"
+          data-zoom-src="{{ ale_image_url }}"
+          data-zoom-title="Accumulated local effects plot for {{ feature_effect_feature_label }}"
+          aria-label="Open accumulated local effects plot larger"
+        >
           <h3>Accumulated Local Effects Plot</h3>
           <img
             id="ale-image-element"
@@ -493,9 +553,6 @@
             event.preventDefault();
             updateDashboard("counterfactuals");
           }
-        });
-        datasetPageInput.addEventListener("blur", function () {
-          updateDashboard("counterfactuals");
         });
       }
 
@@ -543,6 +600,7 @@
               if (data.tree_image_url) {
                 treeContainer.style.display = "block";
                 treeImage.src = data.tree_image_url;
+                treeImage.closest("[data-zoom-src]")?.setAttribute("data-zoom-src", data.tree_image_url);
               } else if (updateScope !== "model") {
                 treeContainer.style.display = "none";
               }
@@ -553,10 +611,14 @@
             if (pdpImage && data.pdp_image_url) {
               pdpImage.src = data.pdp_image_url;
               pdpImage.alt = `Partial dependence plot for ${data.feature_effect_feature_label}`;
+              pdpImage.closest("[data-zoom-src]")?.setAttribute("data-zoom-src", data.pdp_image_url);
+              pdpImage.closest("[data-zoom-title]")?.setAttribute("data-zoom-title", `Partial dependence plot for ${data.feature_effect_feature_label}`);
             }
             if (aleImage && data.ale_image_url) {
               aleImage.src = data.ale_image_url;
               aleImage.alt = `Accumulated local effects plot for ${data.feature_effect_feature_label}`;
+              aleImage.closest("[data-zoom-src]")?.setAttribute("data-zoom-src", data.ale_image_url);
+              aleImage.closest("[data-zoom-title]")?.setAttribute("data-zoom-title", `Accumulated local effects plot for ${data.feature_effect_feature_label}`);
             }
 
             const datasetTableBody = document.getElementById("dataset-table-body");
@@ -582,12 +644,6 @@
                 });
                 tr.innerHTML = rowHtml;
                 datasetTableBody.appendChild(tr);
-              });
-
-              datasetTableBody.querySelectorAll("[name='selected-row']").forEach((input) => {
-                input.addEventListener("change", function () {
-                  updateDashboard("counterfactuals");
-                });
               });
 
               const selectedRowData = data.dataset_page_rows.find((row) => row.selected);
@@ -624,20 +680,9 @@
         updateDashboard("counterfactuals");
       });
 
-      counterfactualsForm.addEventListener("change", function (event) {
-        event.preventDefault();
-        updateDashboard("counterfactuals");
-      });
-
       if (featureEffectsForm) {
         featureEffectsForm.addEventListener("submit", function (event) {
           event.preventDefault();
-          updateDashboard("effects");
-        });
-      }
-
-      if (featureEffectSelect) {
-        featureEffectSelect.addEventListener("change", function () {
           updateDashboard("effects");
         });
       }

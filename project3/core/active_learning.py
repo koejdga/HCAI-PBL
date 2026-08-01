@@ -29,6 +29,20 @@ def selected_query_indices(strategy, train_examples, predicted_labels, margins, 
             selected_indices.extend(remaining[: query_budget - len(selected_indices)])
         return selected_indices[:query_budget]
 
+    if strategy == "stream_selective":
+        threshold = float(np.quantile(margins, 0.35)) if len(margins) else 0.0
+        selected_indices = [
+            idx for idx, margin in enumerate(margins)
+            if margin <= threshold
+        ]
+        if len(selected_indices) < query_budget:
+            selected_set = set(selected_indices)
+            selected_indices.extend(
+                idx for idx in np.argsort(margins)
+                if idx not in selected_set
+            )
+        return [int(index) for index in selected_indices[:query_budget]]
+
     return [int(index) for index in np.argsort(margins)[:query_budget]]
 
 def competence_from_queries(y_true, expert_predictions):
@@ -182,6 +196,7 @@ def compare_active_learning_strategies(train_examples, test_examples, baseline, 
         ("balanced_uncertainty", "Balanced uncertainty"),
         ("uncertainty", "Uncertainty only"),
         ("random", "Random sample"),
+        ("stream_selective", "Stream selective sampling"),
     ]
     rows = []
     for strategy, label in strategies:

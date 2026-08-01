@@ -43,6 +43,8 @@ from .core.deferral import (
     evaluate_confidence_threshold_defer,
     evaluate_competence_aware_defer,
     class_metric_rows,
+    predict_expert,
+    prediction_margins,
     DEFAULT_DEFER_RATE,
     DEFAULT_QUERY_BUDGET,
 )
@@ -50,6 +52,7 @@ from .core.active_learning import (
     active_learning_queries,
     build_human_expert_context,
     compare_active_learning_strategies,
+    selected_query_indices,
     CLASS_IDS,
 )
 
@@ -90,6 +93,22 @@ def _store_cached_project3_results(cache_key, payload):
 
 
 PROJECT3_BASE_CACHE = OrderedDict()
+PROJECT3_BUDGET_CACHE = OrderedDict()
+
+
+def default_expert_config(query_budget=None):
+    """Use a transparent default expert when the user has not configured one."""
+    config = {
+        "prefix": "expert-one",
+        "type": "REALISTIC",
+        "fields": [],
+        "competence_level": "more-competent",
+        "cost_presence": "absent",
+        "cost": None,
+    }
+    if query_budget is not None:
+        config["query_budget"] = query_budget
+    return config
 
 
 def _get_cached_base_context(cache_key):
@@ -104,6 +123,112 @@ def _store_cached_base_context(cache_key, payload):
     PROJECT3_BASE_CACHE.move_to_end(cache_key)
     while len(PROJECT3_BASE_CACHE) > PROJECT3_RESULT_CACHE_MAX:
         PROJECT3_BASE_CACHE.popitem(last=False)
+
+
+def _get_cached_budget_convergence(cache_key):
+    if cache_key in PROJECT3_BUDGET_CACHE:
+        PROJECT3_BUDGET_CACHE.move_to_end(cache_key)
+        return PROJECT3_BUDGET_CACHE[cache_key]
+    return None
+
+
+def _store_cached_budget_convergence(cache_key, payload):
+    PROJECT3_BUDGET_CACHE[cache_key] = payload
+    PROJECT3_BUDGET_CACHE.move_to_end(cache_key)
+    while len(PROJECT3_BUDGET_CACHE) > PROJECT3_RESULT_CACHE_MAX:
+        PROJECT3_BUDGET_CACHE.popitem(last=False)
+
+
+def build_budget_convergence_analysis(train_examples, baseline, query_budget, expert_configs):
+    """Estimate when more expert queries stop improving competence much."""
+    max_budget = max(1, min(query_budget, len(train_examples)))
+    if max_budget <= 5:
+        budgets = list(range(1, max_budget + 1))
+    else:
+        step = max(5, max_budget // 8)
+        budgets = sorted(set([5, *range(step, max_budget + 1, step), max_budget]))
+
+    rows = []
+    previous_accuracy = None
+    small_gain_streak = 0
+    recommended_budget = None
+    texts = [example["text"] for example in train_examples]
+    decision_scores = baseline["pipeline"].decision_function(texts)
+    margins = prediction_margins(decision_scores)
+    predicted_labels = baseline["pipeline"].predict(texts)
+    expert_config = expert_configs[0] if expert_configs else default_expert_config(max_budget)
+    expert_predictions = [predict_expert(example, expert_config) for example in train_examples]
+
+    for budget in budgets:
+        selected_indices = selected_query_indices(
+            "balanced_uncertainty",
+            train_examples,
+            predicted_labels,
+            margins,
+            budget,
+        )
+        correct = sum(
+            1
+            for idx in selected_indices
+            if expert_predictions[idx] == train_examples[idx]["label"]
+        )
+        accuracy = round(correct / len(selected_indices) * 100, 2) if selected_indices else 0.0
+        improvement = None if previous_accuracy is None else round(accuracy - previous_accuracy, 2)
+
+        if improvement is not None and abs(improvement) < 1.0:
+            small_gain_streak += 1
+        else:
+            small_gain_streak = 0
+        if recommended_budget is None and small_gain_streak >= 2:
+            recommended_budget = budget
+
+        rows.append({
+            "budget": budget,
+            "accuracy_percent": round(accuracy, 2),
+            "improvement_percent": "baseline" if improvement is None else improvement,
+            "recommended": False,
+        })
+        previous_accuracy = accuracy
+
+    if recommended_budget is None and rows:
+        recommended_budget = rows[-1]["budget"]
+    for row in rows:
+        row["recommended"] = row["budget"] == recommended_budget
+
+    plot_url = save_budget_convergence_plot(rows)
+    return {
+        "rows": rows,
+        "recommended_budget": recommended_budget,
+        "plot_url": plot_url,
+        "note": "Recommended where estimated competence gain becomes smaller than 1 percentage point for two consecutive budget steps.",
+    }
+
+
+def save_budget_convergence_plot(rows, filename="budget_convergence.png"):
+    path = os.path.join(artifact_dir(), filename)
+    figure, axis = plt.subplots(figsize=(7, 4))
+    budgets = [row["budget"] for row in rows]
+    accuracies = [row["accuracy_percent"] for row in rows]
+    axis.plot(budgets, accuracies, marker="o", color="#007c92", linewidth=2)
+    recommended = next((row for row in rows if row["recommended"]), None)
+    if recommended:
+        axis.axvline(recommended["budget"], color="#002b49", linestyle="--", linewidth=1.5)
+        axis.text(
+            recommended["budget"],
+            recommended["accuracy_percent"],
+            f" recommended: {recommended['budget']}",
+            color="#002b49",
+            fontsize=9,
+            va="bottom",
+        )
+    axis.set_title("Expert Query Budget Convergence", fontweight="bold", color="#002b49")
+    axis.set_xlabel("Query budget")
+    axis.set_ylabel("Estimated expert competence (%)")
+    axis.grid(True, alpha=0.25)
+    figure.tight_layout()
+    figure.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(figure)
+    return settings.MEDIA_URL + f"project3/{filename}"
 
 
 def sample_examples(examples, count=5):
@@ -135,7 +260,7 @@ def _compute_project3_results(train_examples, test_examples, defer_rate, query_b
 
     active_learning_by_strategy = {}
     scatter_plots = {}
-    for strat in ["balanced_uncertainty", "uncertainty", "random"]:
+    for strat in ["balanced_uncertainty", "uncertainty", "random", "stream_selective"]:
         al_data = active_learning_queries(
             train_examples, baseline, query_budget, strategy=strat, expert_configs=expert_configs
         )
@@ -154,8 +279,6 @@ def _compute_project3_results(train_examples, test_examples, defer_rate, query_b
     competence_team = evaluate_competence_aware_defer(
         test_examples, baseline, expert_results, active_learning["competence_by_class"], expert_configs=expert_configs
     )
-
-    print("DEFERRAL TOTAL: ", competence_team["deferred_total"])
 
     l2d_linear_classifier = L2DClassifier(
         model_type=L2DLinearModel,
@@ -544,8 +667,10 @@ def build_project3_results(request):
         
     query_budget = max(expert_one_query_budget, expert_two_query_budget, human_limit)
     expert_configs = parse_requested_experts(request)
+    using_default_expert = False
     if not expert_configs:
-        raise ValueError("No experts have been configured yet. Please configure the expert(s) in the form below and click 'Apply expert's accuracy'.")
+        expert_configs = [default_expert_config(expert_one_query_budget)]
+        using_default_expert = True
 
     expert_configs[0]["query_budget"] = expert_one_query_budget
     if len(expert_configs) > 1:
@@ -570,6 +695,15 @@ def build_project3_results(request):
     human_expert = build_human_expert_context(
         request, base["train_examples"], human_al, limit=human_limit
     )
+    budget_convergence = _get_cached_budget_convergence(cache_key)
+    if budget_convergence is None:
+        budget_convergence = build_budget_convergence_analysis(
+            base["train_examples"],
+            base["baseline"],
+            query_budget,
+            expert_configs,
+        )
+        _store_cached_budget_convergence(cache_key, budget_convergence)
 
     if hasattr(request, "session"):
         request.session["project3_last_query_params"] = request.GET.dict()
@@ -633,9 +767,12 @@ def build_project3_results(request):
         "human_expert": human_expert,
         "human_expert_strategy": human_strategy,
         "human_expert_budget": human_limit,
+        "budget_convergence": budget_convergence,
         "sample_examples": base["sample_examples"],
         "report_url": "report/",
         "expert_count": len(expert_configs),
+        "using_default_expert": using_default_expert,
+        "default_expert_message": "No expert was selected, so the app used a default realistic expert with no query cost." if using_default_expert else "",
         "saved_configs": request.session.get("project3_saved_configs", []) if hasattr(request, "session") else [],
     }
 
@@ -957,7 +1094,8 @@ def _prepare_active_learning_strategies(cfg_results):
     for strat_key, strat_name, strat_desc in [
         ("balanced_uncertainty", "Balanced Uncertainty", "Selects low-margin classifier examples while balancing across predicted classes."),
         ("uncertainty", "Uncertainty-only", "Selects examples where the classifier's predictions have the lowest margin, without balancing across classes."),
-        ("random", "Random Querying", "Selects training examples uniformly at random to query the expert.")
+        ("random", "Random Querying", "Selects training examples uniformly at random to query the expert."),
+        ("stream_selective", "Stream Selective Sampling", "Processes examples in stream order and queries the expert only for uncertain examples until the budget is used.")
     ]:
         al_data = cfg_results.get("active_learning_by_strategy", {}).get(strat_key, {})
         active_learning_strategies.append({

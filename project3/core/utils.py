@@ -86,10 +86,13 @@ def balanced_sample(examples, max_rows):
     by_class = {class_id: [] for class_id in CLASS_IDS}
     for example in examples:
         by_class[example["label"]].append(example)
-    per_class = max(1, max_rows // len(CLASS_IDS))
     sampled = []
-    for class_id in CLASS_IDS:
-        sampled.extend(by_class[class_id][:per_class])
+    base_per_class = max_rows // len(CLASS_IDS)
+    remainder = max_rows % len(CLASS_IDS)
+    for index, class_id in enumerate(CLASS_IDS):
+        # Keep the sample balanced while preserving the exact requested row count.
+        class_limit = base_per_class + (1 if index < remainder else 0)
+        sampled.extend(by_class[class_id][:class_limit])
     return sampled[:max_rows]
 
 def build_fallback_dataset():

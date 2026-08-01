@@ -1,6 +1,7 @@
 Django>=5.0
 matplotlib
 numpy
+pandas # required for project 2 data preparation
 scikit-learn
 palmerpenguins>=0.1.4 # required for project 2
 torch # required for project 3 learning-to-defer model
