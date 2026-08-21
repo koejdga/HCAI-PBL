@@ -4,13 +4,13 @@ from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.urls import reverse
 
 from . import views as project3_views
-from .core.utils import build_fallback_dataset
+from .core.utils import balanced_sample, build_fallback_dataset
+from .core.deferral import _correctness_probability, evaluate_simulated_expert
 from .views import (
     CLASS_NAMES,
     active_learning_queries,
     build_project3_results,
-    evaluate_simulated_expert,
-    evaluate_learning_to_defer,
+    evaluate_confidence_threshold_defer,
     parse_sample_size,
     train_baseline_classifier,
 )
@@ -23,11 +23,35 @@ class Project3ExperimentTests(SimpleTestCase):
         self.assertEqual(parse_sample_size("-4", 100), 100)
         self.assertEqual(parse_sample_size("25", 100), 25)
 
+    def test_balanced_sample_keeps_requested_row_count_with_remainder(self):
+        examples = [
+            {"label": class_id, "text": f"class {class_id} row {index}"}
+            for class_id in [1, 2, 3, 4]
+            for index in range(600)
+        ]
+
+        self.assertEqual(len(balanced_sample(examples, 1999)), 1999)
+
+    def test_stream_selective_sampling_respects_query_budget(self):
+        examples = [
+            {"label": 1 + (index % 4), "text": f"stream row {index}"}
+            for index in range(20)
+        ]
+        predicted_labels = [1 + (index % 4) for index in range(20)]
+        margins = [0.01 * index for index in range(20)]
+
+        selected = project3_views.selected_query_indices(
+            "stream_selective", examples, predicted_labels, margins, 6
+        )
+
+        self.assertEqual(len(selected), 6)
+        self.assertEqual(selected[0], 0)
+
     def test_baseline_and_expert_return_metrics(self):
         train_examples, test_examples = build_fallback_dataset()
         baseline = train_baseline_classifier(train_examples, test_examples)
         expert = evaluate_simulated_expert(test_examples)
-        team = evaluate_learning_to_defer(test_examples, baseline, expert, 0.25)
+        team = evaluate_confidence_threshold_defer(test_examples, baseline, expert, 0.25)
         active_learning = active_learning_queries(train_examples, baseline, 12)
 
         self.assertGreaterEqual(baseline["accuracy"], 0)
@@ -39,9 +63,74 @@ class Project3ExperimentTests(SimpleTestCase):
         self.assertEqual(active_learning["query_budget"], 12)
         self.assertEqual(set(expert["per_class"].keys()), set(CLASS_NAMES.values()))
 
+    def test_simulated_expert_respects_fields_and_competence_level(self):
+        _, test_examples = build_fallback_dataset()
+
+        sports_specialist = evaluate_simulated_expert(
+            test_examples, expert_fields=[2], competence_level="more-competent"
+        )
+        less_competent_specialist = evaluate_simulated_expert(
+            test_examples, expert_fields=[2], competence_level="less-competent"
+        )
+
+        self.assertGreater(
+            sports_specialist["per_class"]["Sports"]["accuracy"],
+            sports_specialist["per_class"]["Business"]["accuracy"],
+        )
+        self.assertGreater(
+            sports_specialist["accuracy"],
+            less_competent_specialist["accuracy"],
+        )
+        self.assertGreater(
+            _correctness_probability(2, [2], "more-competent", "The team won the game."),
+            _correctness_probability(3, [2], "more-competent", "The bank reported earnings."),
+        )
+
+    def test_competence_aware_defer_trivial_expert(self):
+        from .core.deferral import evaluate_competence_aware_defer, evaluate_trivial_expert
+        from .core.utils import CLASS_IDS
+
+        train_examples, test_examples = build_fallback_dataset()
+        baseline = train_baseline_classifier(train_examples, test_examples)
+        expert = evaluate_trivial_expert(test_examples, expert_fields=CLASS_IDS)
+        expert_configs = [{
+            "prefix": "expert-one",
+            "type": "TRIVIAL",
+            "fields": CLASS_IDS,
+            "competence_level": "",
+            "cost_presence": "absent",
+            "cost": 0.0
+        }]
+
+        results = evaluate_competence_aware_defer(
+            test_examples,
+            baseline,
+            expert,
+            competence_by_class={},
+            expert_configs=expert_configs
+        )
+
+        self.assertGreater(results["deferred_total"], 0)
+        self.assertGreaterEqual(results["useful_defer"], 0)
+        self.assertEqual(results["harmful_defer"], 0)
+
 
 class Project3ViewTests(TestCase):
     def test_project3_page_loads(self):
+        response = self.client.get(
+            reverse("project3:index"),
+            {"train-size": "40", "test-size": "20", "expert-one-type": "REALISTIC"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Active Learning for Learning-to-Defer")
+        self.assertContains(response, "Baseline Classifier")
+        self.assertContains(response, "Simulated Expert")
+        self.assertContains(response, "Policy Comparison")
+        self.assertContains(response, "Expert Queries")
+        self.assertContains(response, "Human Expert")
+
+    def test_project3_page_loads_no_experts(self):
         response = self.client.get(
             reverse("project3:index"),
             {"train-size": "40", "test-size": "20"},
@@ -50,10 +139,10 @@ class Project3ViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Active Learning for Learning-to-Defer")
         self.assertContains(response, "Baseline Classifier")
-        self.assertContains(response, "Simulated Expert")
-        self.assertContains(response, "Team Policy")
-        self.assertContains(response, "Expert Queries")
-        self.assertContains(response, "Human Expert")
+        self.assertContains(response, "No expert was selected")
+        self.assertTrue(response.context["using_default_expert"])
+        self.assertEqual(response.context["expert_count"], 1)
+        self.assertIn("policy_rows", response.context)
 
     def test_build_project3_results_is_cached_for_same_parameters(self):
         project3_views.PROJECT3_RESULT_CACHE.clear()
@@ -61,7 +150,7 @@ class Project3ViewTests(TestCase):
         factory = RequestFactory()
         request = factory.get(
             "/project3/",
-            {"train-size": "20", "test-size": "10", "defer-rate": "0.2", "query-budget": "8"},
+            {"train-size": "20", "test-size": "10", "defer-rate": "0.2", "expert-one-type": "REALISTIC"},
         )
 
         dataset = {
@@ -95,10 +184,10 @@ class Project3ViewTests(TestCase):
             def __init__(self, *args, **kwargs):
                 pass
 
-            def fit(self, train_examples):
+            def fit(self, train_examples, *args, **kwargs):
                 return self
 
-            def predict_and_evaluate(self, test_examples):
+            def predict_and_evaluate(self, test_examples, *args, **kwargs):
                 return {
                     "policy_name": "Dummy policy",
                     "accuracy": 0.65,
@@ -118,28 +207,68 @@ class Project3ViewTests(TestCase):
         ), patch(
             "project3.views.compare_active_learning_strategies", return_value=[]
         ), patch(
-            "project3.views.evaluate_learning_to_defer",
+            "project3.views.evaluate_confidence_threshold_defer",
             return_value={"policy_name": "Confidence threshold", "accuracy": 0.65, "deferred_total": 2, "non_deferred_total": 8, "useful_defer": 1, "harmful_defer": 0},
         ), patch(
             "project3.views.evaluate_competence_aware_defer",
             return_value={"policy_name": "Competence-aware", "accuracy": 0.65, "deferred_total": 2, "non_deferred_total": 8, "useful_defer": 1, "harmful_defer": 0},
         ), patch("project3.views.class_metric_rows", return_value=[]), patch(
             "project3.views.save_bar_plot", return_value="/media/mock.png"
-        ), patch("project3.views.TrueL2DClassifier", DummyClassifier), patch(
-            "project3.views.TrueL2DClassifier_2", DummyClassifier
-        ):
+        ), patch("project3.views.L2DClassifier", DummyClassifier):
             build_project3_results(request)
             build_project3_results(request)
 
         self.assertEqual(mocked_dataset.call_count, 2)
         self.assertEqual(mocked_baseline.call_count, 1)
         self.assertEqual(mocked_expert.call_count, 1)
-        self.assertEqual(mocked_active_learning.call_count, 1)
+        self.assertEqual(mocked_active_learning.call_count, 4)
+
+    def test_expert_accuracy_preview_returns_json(self):
+        html_response = self.client.get(reverse("project3:index"), {"expert-one-type": "REALISTIC"})
+        self.assertEqual(html_response.status_code, 200)
+        self.assertContains(html_response, 'class="table-wrap accuracy-preview-table-wrap"')
+        self.assertContains(html_response, 'id="expert-class-accuracy-body"')
+
+        response = self.client.get(
+            reverse("project3:index"),
+            {
+                "format": "json",
+                "expert-one": "TRIVIAL",
+                "expert-one-fields": "2",
+                "expert-two": "REALISTIC",
+                "expert-two-fields": "1,4",
+                "expert-two-competence-level": "more-competent",
+                "expert-two-cost-presence": "present",
+                "expert-two-cost": "0.5",
+                "test-size": "20",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"].split(";")[0], "application/json")
+        data = response.json()
+        self.assertIn("accuracy_percent", data)
+        self.assertIn("experts", data)
+        self.assertIn("expert_class_rows", data)
+        self.assertIn("expert_settings", data)
+        self.assertEqual(len(data["experts"]), 2)
+        self.assertEqual(data["expert_count"], 2)
+        self.assertEqual(len(data["expert_class_rows"]), len(CLASS_NAMES) + 1)
+        self.assertEqual(data["expert_settings"][0]["fields"], [2])
+        self.assertEqual(data["expert_settings"][1]["competence_level"], "more-competent")
+        self.assertEqual(data["expert_settings"][1]["cost"], 0.5)
+        first_row = data["expert_class_rows"][0]
+        self.assertIn("accuracy_percent", first_row)
+        self.assertIn("correct", first_row)
+        self.assertIn("total", first_row)
+        self.assertIn("expert_2_accuracy_percent", first_row)
+        self.assertIn("expert_2_correct", first_row)
+        self.assertIn("expert_2_total", first_row)
 
     def test_human_labels_can_be_submitted(self):
         response = self.client.get(
             reverse("project3:index"),
-            {"train-size": "40", "test-size": "20"},
+            {"train-size": "40", "test-size": "20", "expert-one-type": "REALISTIC"},
         )
         self.assertEqual(response.status_code, 200)
 
@@ -156,3 +285,20 @@ class Project3ViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
+
+    def test_clear_config_history_can_post_from_report_buttons(self):
+        session = self.client.session
+        session["project3_saved_configs"] = [{"id": "cfg_1", "label": "Demo config"}]
+        session.save()
+
+        response = self.client.post(reverse("project3:index"), {"action": "clear-configs"})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.client.session.get("project3_saved_configs"), [])
+
+        session = self.client.session
+        session["project3_saved_configs"] = [{"id": "cfg_2", "label": "Demo config"}]
+        session.save()
+
+        response = self.client.post(reverse("project3:report"), {"action": "clear-configs"})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.client.session.get("project3_saved_configs"), [])

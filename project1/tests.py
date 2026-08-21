@@ -1,5 +1,7 @@
 from django.test import SimpleTestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
 
+from .forms import CSVUploadForm
 from .views import (
     build_baseline_comparison,
     build_progress_state,
@@ -9,6 +11,20 @@ from .views import (
 
 
 class BaselineModelTests(SimpleTestCase):
+    def test_upload_form_rejects_non_csv_files(self):
+        form = CSVUploadForm(
+            files={
+                "file": SimpleUploadedFile(
+                    "notes.txt",
+                    b"not,a,csv",
+                    content_type="text/plain",
+                )
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("Please upload a CSV file.", form.errors["file"])
+
     def test_classification_result_includes_majority_class_baseline(self):
         dataset = {
             "column_names": ["feature", "target"],

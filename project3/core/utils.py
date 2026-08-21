@@ -13,8 +13,8 @@ CLASS_IDS = list(CLASS_NAMES.keys())
 
 TRAIN_URL = "https://raw.githubusercontent.com/mhjabreel/CharCnn_Keras/master/data/ag_news_csv/train.csv"
 TEST_URL = "https://raw.githubusercontent.com/mhjabreel/CharCnn_Keras/master/data/ag_news_csv/test.csv"
-DEFAULT_TRAIN_SIZE = 8000
-DEFAULT_TEST_SIZE = 2000
+DEFAULT_TRAIN_SIZE = 2000
+DEFAULT_TEST_SIZE = 1000
 
 FALLBACK_ROWS = [
     (1, "UN leaders discuss humanitarian aid", "Diplomats met to coordinate relief and peace talks."),
@@ -86,10 +86,13 @@ def balanced_sample(examples, max_rows):
     by_class = {class_id: [] for class_id in CLASS_IDS}
     for example in examples:
         by_class[example["label"]].append(example)
-    per_class = max(1, max_rows // len(CLASS_IDS))
     sampled = []
-    for class_id in CLASS_IDS:
-        sampled.extend(by_class[class_id][:per_class])
+    base_per_class = max_rows // len(CLASS_IDS)
+    remainder = max_rows % len(CLASS_IDS)
+    for index, class_id in enumerate(CLASS_IDS):
+        # Keep the sample balanced while preserving the exact requested row count.
+        class_limit = base_per_class + (1 if index < remainder else 0)
+        sampled.extend(by_class[class_id][:class_limit])
     return sampled[:max_rows]
 
 def build_fallback_dataset():
@@ -113,15 +116,113 @@ def load_ag_news_dataset(train_size, test_size):
         "source": source,
     }
 
-def save_bar_plot(filename, title, labels, values, ylabel):
+def save_bar_plot(filename, title, labels, values, ylabel, color="#00a6b2"):
     path = os.path.join(artifact_dir(), filename)
-    figure, axis = plt.subplots(figsize=(8, 4.5))
-    axis.bar(labels, values, color="#00a6b2")
-    axis.set_title(title)
-    axis.set_ylabel(ylabel)
-    axis.set_ylim(0, max(100, max(values) + 5 if values else 100))
-    axis.grid(axis="y", alpha=0.25)
+    figure, axis = plt.subplots(figsize=(8.5, 5))
+    bars = axis.bar(labels, values, color=color)
+    axis.set_title(title, pad=15, fontweight='bold', color='#002D3A')
+    axis.set_ylabel(ylabel, fontweight='bold')
+    
+    min_val = min(values) if values else 0
+    max_val = max(values) if values else 100
+    span = max_val - min_val
+    padding = span * 0.15 if span > 0 else 10
+    
+    lower_lim = min_val - padding if min_val < 0 else 0
+    upper_lim = max_val + padding if max_val > 0 else 10
+    axis.set_ylim(lower_lim, upper_lim)
+    
+    # Rotate labels
+    plt.xticks(rotation=15, ha='right')
+    
+    axis.grid(axis="y", linestyle='--', alpha=0.5)
+    axis.axhline(0, color='#333333', linewidth=1.2, zorder=2)
+    
+    for bar in bars:
+        yval = bar.get_height()
+        if yval is not None:
+            if isinstance(yval, float):
+                label_text = f"{yval:.2f}" if yval % 1 != 0 else f"{int(yval)}"
+            else:
+                label_text = str(yval)
+            offset = (span * 0.015) if yval >= 0 else -(span * 0.03)
+            va_align = 'bottom' if yval >= 0 else 'top'
+            axis.text(
+                bar.get_x() + bar.get_width()/2.0,
+                yval + offset,
+                label_text,
+                ha='center',
+                va=va_align,
+                fontsize=9,
+                fontweight='bold',
+                color='#002D3A'
+            )
+            
     figure.tight_layout()
     figure.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(figure)
+    return settings.MEDIA_URL + f"project3/{filename}"
+
+
+def save_active_learning_scatter_plot(train_examples, active_learning, filename="active_learning_scatter.png"):
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.decomposition import TruncatedSVD
+    import numpy as np
+
+    train_texts = [ex["text"] for ex in train_examples]
+    train_labels = [ex["label"] for ex in train_examples]
+    
+    vectorizer = TfidfVectorizer(max_features=5000, stop_words="english")
+    X_train = vectorizer.fit_transform(train_texts)
+    
+    svd = TruncatedSVD(n_components=2, random_state=42)
+    X_2d = svd.fit_transform(X_train)
+    
+    path = os.path.join(artifact_dir(), filename)
+    figure, axis = plt.subplots(figsize=(7, 5))
+    
+    # Plot all background points
+    axis.scatter(
+        X_2d[:, 0], 
+        X_2d[:, 1], 
+        c="#cbd5e1", 
+        alpha=0.4, 
+        s=6, 
+        label="Dataset background",
+        edgecolors="none"
+    )
+    
+    # Plot selected query points
+    selected_indices = active_learning.get("selected_indices", [])
+    if len(selected_indices) > 0:
+        selected_indices = np.array(selected_indices)
+        X_selected = X_2d[selected_indices]
+        labels_selected = np.array(train_labels)[selected_indices]
+        
+        # Color palette for classes: World, Sports, Business, Sci/Tech
+        # Colors: World: blue, Sports: green, Business: orange, Sci/Tech: purple
+        class_colors = {1: "#3b82f6", 2: "#10b981", 3: "#f97316", 4: "#8b5cf6"}
+        
+        for class_id in CLASS_IDS:
+            class_mask = labels_selected == class_id
+            if np.any(class_mask):
+                axis.scatter(
+                    X_selected[class_mask, 0],
+                    X_selected[class_mask, 1],
+                    c=class_colors[class_id],
+                    s=40,
+                    marker="*",
+                    label=CLASS_NAMES[class_id],
+                    edgecolors="none"
+                )
+
+    axis.set_title("Active Learning Queries in Semantic Space", pad=15, fontweight='bold', color='#002D3A')
+    axis.legend(loc="upper right", frameon=True, fontsize=9)
+    axis.set_xlabel("SVD Component 1", fontweight='bold')
+    axis.set_ylabel("SVD Component 2", fontweight='bold')
+    
+    figure.tight_layout()
+    figure.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(figure)
+    
     return settings.MEDIA_URL + f"project3/{filename}"

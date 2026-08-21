@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from palmerpenguins import load_penguins
 from django.conf import settings
+from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.shortcuts import render
 from django.http import JsonResponse
@@ -55,8 +56,22 @@ C_OPTIONS = [0.001, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 100.0]
 DEFAULT_LAMBDA = 0.20
 MIN_LAMBDA = 0.0
 MAX_LAMBDA = 1.0
+COUNTERFACTUAL_ATTEMPTS = [
+    {"N": 2000, "variance_scale": 0.10},
+    {"N": 4000, "variance_scale": 0.20},
+    {"N": 8000, "variance_scale": 0.35},
+]
 DATASET_PAGE_SIZE = 12
 CLASS_NAMES = ["Adelie", "Chinstrap", "Gentoo"]
+CONTENT_MENU_ITEMS = [
+    {"label": "Model selection", "href": "#model-selection"},
+    {"label": "Results", "href": "#model-results"},
+    {"label": "Data transparency", "href": "#data-transparency"},
+    {"label": "Tree explanation", "href": "#tree-explanation"},
+    {"label": "Counterfactuals", "href": "#counterfactuals"},
+    {"label": "Feature effects", "href": "#feature-effects"},
+]
+PROJECT2_CACHE_TIMEOUT = 60 * 30
 
 
 def format_feature_name(feature_name):
@@ -144,7 +159,7 @@ def train_decision_tree(penguins, max_leaf_nodes=5, split_data=None):
 
 
 def train_tree_candidates(penguins, lambda_value):
-    """Select a tree using prediction error and normalized complexity."""
+    """Select the tree maximizing accuracy minus complexity penalty."""
     split_data = split_penguin_data(penguins)
     candidates = []
     maximum_leaves = max(MAX_LEAF_OPTIONS)
@@ -159,11 +174,8 @@ def train_tree_candidates(penguins, lambda_value):
         tree = result["pipeline"].named_steps["model"]
         leaf_count = tree.get_n_leaves()
 
-        # Lower values are better: error measures mistakes and leaves measure
-        # how difficult the model may be to inspect.
-        prediction_error = 1 - result["accuracy"]
         normalized_complexity = leaf_count / maximum_leaves
-        selection_score = prediction_error + lambda_value * normalized_complexity
+        selection_score = result["accuracy"] - lambda_value * normalized_complexity
 
         candidates.append(
             {
@@ -174,7 +186,7 @@ def train_tree_candidates(penguins, lambda_value):
             }
         )
 
-    selected = min(
+    selected = max(
         candidates,
         key=lambda candidate: candidate["selection_score"],
     )
@@ -373,6 +385,36 @@ def calculate_mad_l1_distance(original_x, synthetic_df, penguins_df):
     return distances
 
 
+def find_counterfactuals(pipeline, penguins, original_x, desired_class):
+    """Retry local sampling with wider noise if no counterfactual is found."""
+    attempted_rows = 0
+    for attempt in COUNTERFACTUAL_ATTEMPTS:
+        synthetic_points = sample_local_points(
+            penguins,
+            original_x,
+            N=attempt["N"],
+            variance_scale=attempt["variance_scale"],
+        )
+        attempted_rows += len(synthetic_points)
+        synthetic_points["predicted_species"] = pipeline.predict(synthetic_points)
+
+        matching_points = synthetic_points[
+            synthetic_points["predicted_species"] == desired_class
+        ].copy()
+        if matching_points.empty:
+            continue
+
+        matching_points["distance"] = calculate_mad_l1_distance(
+            original_x,
+            matching_points,
+            penguins,
+        )
+        top_counterfactuals = matching_points.sort_values(by="distance").head(5)
+        return build_counterfactual_rows(top_counterfactuals), attempted_rows
+
+    return [], attempted_rows
+
+
 def compute_pdp(pipeline, penguins, feature_name, grid_size=30):
     """Compute partial dependence values for each species without a PDP library."""
     feature_values = penguins[feature_name]
@@ -450,6 +492,8 @@ def save_feature_effect_plot(effect_data, plot_kind, feature_name, model_type, l
     safe_lambda = f"{lambda_value:.2f}".replace(".", "_")
     image_name = f"{plot_kind}_{model_type}_{feature_name}_{safe_lambda}.png"
     image_path = os.path.join(output_dir, image_name)
+    if os.path.exists(image_path):
+        return settings.MEDIA_URL + f"project2/{image_name}"
 
     figure, axis = plt.subplots(figsize=(9, 5))
     for class_name in CLASS_NAMES:
@@ -480,11 +524,17 @@ def save_feature_effect_plot(effect_data, plot_kind, feature_name, model_type, l
     return settings.MEDIA_URL + f"project2/{image_name}"
 
 
-def save_tree_plot(pipeline):
+def save_tree_plot(pipeline, leaf_count, create_if_missing=True):
     output_dir = os.path.join(settings.MEDIA_ROOT, "project2")
     os.makedirs(output_dir, exist_ok=True)
 
-    image_path = os.path.join(output_dir, "decision_tree.png")
+    image_name = f"decision_tree.png_leaves_{leaf_count}.png"
+    image_path = os.path.join(output_dir, image_name)
+    if os.path.exists(image_path):
+        return settings.MEDIA_URL + f"project2/{image_name}"
+    if not create_if_missing:
+        return None
+
     preprocessor = pipeline.named_steps["preprocess"]
     trained_tree = pipeline.named_steps["model"]
     feature_names = [
@@ -505,7 +555,7 @@ def save_tree_plot(pipeline):
     figure.savefig(image_path, dpi=150, bbox_inches="tight")
     plt.close(figure)
 
-    return settings.MEDIA_URL + "project2/decision_tree.png"
+    return settings.MEDIA_URL + f"project2/{image_name}"
 
 
 def train_logistic_regression(split_data, C=1.0):
@@ -518,7 +568,11 @@ def train_logistic_regression(split_data, C=1.0):
             (
                 "model",
                 LogisticRegression(
-                    penalty="l1", C=C, solver="saga", random_state=42, max_iter=5000
+                    C=C,
+                    l1_ratio=1.0,
+                    solver="saga",
+                    random_state=42,
+                    max_iter=5000,
                 ),
             ),
         ]
@@ -547,10 +601,8 @@ def train_regression_candidates(penguins, lambda_value):
         non_zero_weights = np.count_nonzero(model.coef_)
         total_weights = model.coef_.size  # n_classes * n_features
 
-        # Higher lambda penalizes models with more active weights
-        prediction_error = 1 - result["accuracy"]
         normalized_complexity = non_zero_weights / total_weights
-        selection_score = prediction_error + lambda_value * normalized_complexity
+        selection_score = result["accuracy"] - lambda_value * normalized_complexity
 
         candidates.append(
             {
@@ -562,7 +614,7 @@ def train_regression_candidates(penguins, lambda_value):
             }
         )
 
-    selected = min(
+    selected = max(
         candidates,
         key=lambda candidate: candidate["selection_score"],
     )
@@ -575,59 +627,94 @@ def index(request):
 
     lambda_value = parse_lambda(request.GET.get("lambda"))
     model_type = request.GET.get("model-type", "decision-tree")
+    update_scope = request.GET.get("update-scope", "all")
     counterfactuals_desired_class = request.GET.get("desired-class", "adelie")
     feature_effect_feature = parse_feature_effect_feature(
         request.GET.get("feature-effect-feature")
     )
 
-    regression_result, regression_candidates = train_regression_candidates(
-        penguins, lambda_value
-    )
-    tree_result, tree_candidates = train_tree_candidates(penguins, lambda_value)
+    # Train only the selected model family; logistic regression is slow and is
+    # unnecessary when the user is comparing decision-tree candidates.
+    model_cache_key = f"project2:model-candidates:{model_type}:{lambda_value:.3f}"
+    cached_model = cache.get(model_cache_key)
+    if cached_model is None:
+        if model_type == "logistic-regression":
+            cached_model = train_regression_candidates(penguins, lambda_value)
+        else:
+            cached_model = train_tree_candidates(penguins, lambda_value)
+        cache.set(model_cache_key, cached_model, PROJECT2_CACHE_TIMEOUT)
 
-    active_result = regression_result if model_type == "logistic-regression" else tree_result
+    active_result, active_candidates = cached_model
     active_pipeline = active_result["pipeline"]
     dataset_context = build_dataset_page(penguins, request)
-
-    if dataset_context["selected_dataset_row"] is not None:
-        original_x = {
-            column: dataset_context["selected_dataset_row"]["values"][column]
-            for column in FEATURE_COLUMNS
-        }
-    else:
-        original_x = penguins.iloc[0][FEATURE_COLUMNS].to_dict()
-
-    synthetic_points = sample_local_points(penguins, original_x, N=2000)
-    predictions = active_pipeline.predict(synthetic_points)
-    synthetic_points["predicted_species"] = predictions
-
-    target_match_str = counterfactuals_desired_class.capitalize()
-    successful_cfs = synthetic_points[synthetic_points["predicted_species"] == target_match_str].copy()
+    needs_counterfactuals = update_scope in {"all", "counterfactuals"}
+    needs_effects = update_scope in {"all", "effects"}
 
     counterfactual_rows = []
-    if not successful_cfs.empty:
-        successful_cfs["distance"] = calculate_mad_l1_distance(original_x, successful_cfs, penguins)
-        top_cfs = successful_cfs.sort_values(by="distance").head(5)
-        counterfactual_rows = build_counterfactual_rows(top_cfs)
+    counterfactual_attempted_rows = 0
+    pdp_image_url = None
+    ale_image_url = None
 
-    pdp_data = compute_pdp(active_pipeline, penguins, feature_effect_feature)
-    ale_data = compute_ale(active_pipeline, penguins, feature_effect_feature)
-    pdp_image_url = save_feature_effect_plot(
-        pdp_data,
-        "pdp",
-        feature_effect_feature,
-        model_type,
-        lambda_value,
-    )
-    ale_image_url = save_feature_effect_plot(
-        ale_data,
-        "ale",
-        feature_effect_feature,
-        model_type,
-        lambda_value,
-    )
+    if needs_counterfactuals:
+        if dataset_context["selected_dataset_row"] is not None:
+            original_x = {
+                column: dataset_context["selected_dataset_row"]["values"][column]
+                for column in FEATURE_COLUMNS
+            }
+        else:
+            original_x = penguins.iloc[0][FEATURE_COLUMNS].to_dict()
+
+        target_match_str = counterfactuals_desired_class.capitalize()
+        counterfactual_cache_key = (
+            "project2:counterfactuals:"
+            f"{model_type}:{lambda_value:.3f}:{counterfactuals_desired_class}:"
+            f"{dataset_context['selected_row_id']}"
+        )
+        cached_counterfactuals = cache.get(counterfactual_cache_key)
+        if cached_counterfactuals is None:
+            cached_counterfactuals = find_counterfactuals(
+                active_pipeline,
+                penguins,
+                original_x,
+                target_match_str,
+            )
+            cache.set(
+                counterfactual_cache_key,
+                cached_counterfactuals,
+                PROJECT2_CACHE_TIMEOUT,
+            )
+        counterfactual_rows, counterfactual_attempted_rows = cached_counterfactuals
+
+    if needs_effects:
+        effects_cache_key = (
+            f"project2:effects:{model_type}:{lambda_value:.3f}:{feature_effect_feature}"
+        )
+        cached_effects = cache.get(effects_cache_key)
+        if cached_effects is None:
+            cached_effects = {
+                "pdp": compute_pdp(active_pipeline, penguins, feature_effect_feature),
+                "ale": compute_ale(active_pipeline, penguins, feature_effect_feature),
+            }
+            cache.set(effects_cache_key, cached_effects, PROJECT2_CACHE_TIMEOUT)
+
+        pdp_image_url = save_feature_effect_plot(
+            cached_effects["pdp"],
+            "pdp",
+            feature_effect_feature,
+            model_type,
+            lambda_value,
+        )
+        ale_image_url = save_feature_effect_plot(
+            cached_effects["ale"],
+            "ale",
+            feature_effect_feature,
+            model_type,
+            lambda_value,
+        )
 
     if model_type == "logistic-regression":
+        regression_result = active_result
+        regression_candidates = active_candidates
         selected_model_description = (
             f"Selected logistic regression model: C = {regression_result['C']}, "
             f"{int(regression_result['non_zero_weights'])} non-zero weights, "
@@ -659,6 +746,8 @@ def index(request):
             ],
         }
     else:
+        tree_result = active_result
+        tree_candidates = active_candidates
         selected_model_description = (
             f"Selected tree: maximum {int(tree_result['max_leaf_nodes'])} leaves, "
             f"{int(tree_result['leaf_count'])} actual leaves, "
@@ -676,7 +765,11 @@ def index(request):
             "complexity_label": "Leaf Count",
             "complexity_description": complexity_description,
             "selection_score": float(round(tree_result["selection_score"], 4)),
-            "tree_image_url": save_tree_plot(tree_result["pipeline"]),
+            "tree_image_url": save_tree_plot(
+                tree_result["pipeline"],
+                int(tree_result["leaf_count"]),
+                create_if_missing=update_scope != "model",
+            ),
             "selected_model_description": selected_model_description,
             "candidate_models": [
                 {
@@ -690,7 +783,6 @@ def index(request):
             ],
         }
 
-    model_data["counterfactual_rows"] = counterfactual_rows
     model_data["dataset_columns"] = dataset_context["dataset_columns"]
     model_data["dataset_column_labels"] = dataset_context["dataset_column_labels"]
     model_data["dataset_page_rows"] = list(dataset_context["dataset_page"].object_list)
@@ -698,8 +790,14 @@ def index(request):
     model_data["feature_effect_feature_label"] = DISPLAY_COLUMN_LABELS[
         feature_effect_feature
     ]
-    model_data["pdp_image_url"] = pdp_image_url
-    model_data["ale_image_url"] = ale_image_url
+
+    if needs_counterfactuals:
+        model_data["counterfactual_rows"] = counterfactual_rows
+        model_data["counterfactual_attempted_rows"] = counterfactual_attempted_rows
+
+    if needs_effects:
+        model_data["pdp_image_url"] = pdp_image_url
+        model_data["ale_image_url"] = ale_image_url
 
     if request.GET.get("format") == "json":
         return JsonResponse(model_data)
@@ -740,5 +838,6 @@ def index(request):
         **dataset_context,
         "counterfactual_rows": counterfactual_rows,
         "DISPLAY_COLUMN_LABELS": DISPLAY_COLUMN_LABELS,
+        "content_menu_items": CONTENT_MENU_ITEMS,
     }
     return render(request, "project2/index.html", context)
