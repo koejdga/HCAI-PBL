@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block site_context %}Project 4: Preference Elicitation{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'project4/style.css' %}" />
+{% endblock %}
+
+{% block content %}
+<div class="box project4-box">
+  <!-- Table of Contents Menu (identical to project3 style) -->
+  {% include "components/content_menu.html" with menu_items=content_menu_items %}
+
+  <!-- Download PDF Report action at the top -->
+  <div class="header-actions">
+    <a class="btn-report" href="{% url 'project4:report' %}">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+      Download PDF Report
+    </a>
+  </div>
+
+  <div class="title-container">
+    <h1 class="title" style="margin-bottom: 25px;">Preference Elicitation Study</h1>
+  </div>
+
+  <!-- Success Notification Banner -->
+  <div id="success-banner" class="success-banner">
+    ✨ Rankings submitted successfully! Thank you for participating.
+  </div>
+
+  <!-- SECTION 1: DESIGN 1 -->
+  <section class="design-section" id="design-1-section">
+    <h2>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="9" y1="9" x2="15" y2="15"></line>
+        <line x1="15" y1="9" x2="9" y2="15"></line>
+      </svg>
+      Design 1: Pairwise Selection
+    </h2>
+    <p class="subtitle">Select the movie you would rather watch. Progress through 5 pairs to help us estimate your preference vector \(w\).</p>
+
+    <!-- Progress Tracker -->
+    <div class="progress-container" id="d1-progress-container">
+      <span class="progress-text" id="d1-progress-text">Step 1 of 5</span>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="d1-progress-bar" style="width: 20%;"></div>
+      </div>
+    </div>
+
+    <div class="question-text" id="d1-question-text">
+      Which movie would you choose?
+    </div>
+
+    <!-- Movie Pairs Containers -->
+    <div id="pairs-wrapper">
+      {% for pair in design1_pairs %}
+      <div class="pair-container" id="pair-{{ pair.pair_index }}" style="{% if not forloop.first %}display: none;{% endif %}" data-pair-idx="{{ pair.pair_index }}">
+        <div class="pair-movies">
+          <!-- Movie 1 Card -->
+          <div class="movie-card" data-movie-id="pair-{{ pair.pair_index }}-m1" onclick="selectMovie(this)">
+            <div class="movie-badge-selection">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div>
+              <div class="movie-meta-row">
+                <span class="meta-badge rating-badge">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+                  </svg>
+                  {{ pair.movie1.imdb_score }}
+                </span>
+                <span class="meta-badge">{{ pair.movie1.year }}</span>
+                <span class="meta-badge">{{ pair.movie1.duration }} min</span>
+              </div>
+              <h3 class="movie-title-large">{{ pair.movie1.title }}</h3>
+              <div class="movie-details-list">
+                <div><span class="label">Director:</span><span>{{ pair.movie1.director }}</span></div>
+              </div>
+            </div>
+            <div class="movie-genres-row">
+              {% for genre in pair.movie1.genres %}
+              <span class="genre-tag">{{ genre }}</span>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Movie 2 Card -->
+          <div class="movie-card" data-movie-id="pair-{{ pair.pair_index }}-m2" onclick="selectMovie(this)">
+            <div class="movie-badge-selection">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div>
+              <div class="movie-meta-row">
+                <span class="meta-badge rating-badge">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+                  </svg>
+                  {{ pair.movie2.imdb_score }}
+                </span>
+                <span class="meta-badge">{{ pair.movie2.year }}</span>
+                <span class="meta-badge">{{ pair.movie2.duration }} min</span>
+              </div>
+              <h3 class="movie-title-large">{{ pair.movie2.title }}</h3>
+              <div class="movie-details-list">
+                <div><span class="label">Director:</span><span>{{ pair.movie2.director }}</span></div>
+              </div>
+            </div>
+            <div class="movie-genres-row">
+              {% for genre in pair.movie2.genres %}
+              <span class="genre-tag">{{ genre }}</span>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Completion Card -->
+    <div id="d1-completion" class="completion-view" style="display: none;">
+      <div class="completion-icon">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </div>
+      <h3>Design 1 Completed!</h3>
+      <p>Your preferences for Design 1 have been captured. You can restart selection or scroll down to try the Design 2 ranking interface.</p>
+      <button class="btn-restart" onclick="restartDesign1()">Restart Selection</button>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="navigation-bar" id="d1-navigation">
+      <button class="btn-next" id="d1-next-btn" disabled onclick="nextPair()">
+        Next Pair
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- SECTION 2: DESIGN 2 -->
+  <section class="design-section" id="design-2-section">
+    <h2>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="8" y1="6" x2="21" y2="6"></line>
+        <line x1="8" y1="12" x2="21" y2="12"></line>
+        <line x1="8" y1="18" x2="21" y2="18"></line>
+        <line x1="3" y1="6" x2="3.01" y2="6"></line>
+        <line x1="3" y1="12" x2="3.01" y2="12"></line>
+        <line x1="3" y1="18" x2="3.01" y2="18"></line>
+      </svg>
+      Design 2: Ranking Interface
+    </h2>
+    <p class="subtitle">Drag and drop the movies to rank them from your most preferred (Rank 1) to least preferred (Rank 10).</p>
+    
+    <div class="drag-instruction">
+      💡 Tip: Drag and drop movies inside the list to reorder them according to your preferences.
+    </div>
+
+    <!-- List of movies to rank -->
+    <div class="ranking-list" id="sortable-list">
+      {% for movie in design2_movies %}
+      <div class="ranking-item" draggable="true" data-movie-title="{{ movie.title }}">
+        <div class="drag-handle">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="9" cy="12" r="1"></circle>
+            <circle cx="9" cy="5" r="1"></circle>
+            <circle cx="9" cy="19" r="1"></circle>
+            <circle cx="15" cy="12" r="1"></circle>
+            <circle cx="15" cy="5" r="1"></circle>
+            <circle cx="15" cy="19" r="1"></circle>
+          </svg>
+        </div>
+        <div class="rank-number">{{ forloop.counter }}</div>
+        <div class="ranking-movie-info">
+          <div>
+            <div class="ranking-movie-title">{{ movie.title }}</div>
+            <div class="ranking-movie-director">{{ movie.director }} · {{ movie.year }}</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <div class="ranking-movie-genres">
+              {% for genre in movie.genres|slice:":2" %}
+              <span class="genre-tag">{{ genre }}</span>
+              {% endfor %}
+            </div>
+            <div class="ranking-movie-score">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+              </svg>
+              {{ movie.imdb_score }}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Submit Rankings Button -->
+    <div class="submit-ranking-container">
+      <button class="btn-submit-ranking" onclick="submitRankings()">
+        Submit Rankings
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </button>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+  // ==================== DESIGN 1 STATE & LOGIC ====================
+  let currentPairIdx = 1;
+  const totalPairs = 5;
+  const selections = {}; // maps pair_idx -> selected movie card ID
+
+  function selectMovie(cardElement) {
+    const parentContainer = cardElement.closest('.pair-container');
+    const pairIdx = parentContainer.dataset.pairIdx;
+    
+    // De-select any already selected card in this pair
+    parentContainer.querySelectorAll('.movie-card').forEach(card => {
+      card.classList.remove('selected');
+    });
+    
+    // Select this card
+    cardElement.classList.add('selected');
+    selections[pairIdx] = cardElement.dataset.movieId;
+    
+    // Enable the "Next" button
+    document.getElementById('d1-next-btn').disabled = false;
+  }
+
+  function nextPair() {
+    if (currentPairIdx < totalPairs) {
+      // Hide current pair
+      document.getElementById(`pair-${currentPairIdx}`).style.display = 'none';
+      
+      // Increment step
+      currentPairIdx++;
+      
+      // Show next pair
+      document.getElementById(`pair-${currentPairIdx}`).style.display = 'block';
+      
+      // Update progress tracker
+      document.getElementById('d1-progress-text').innerText = `Step ${currentPairIdx} of ${totalPairs}`;
+      document.getElementById('d1-progress-bar').style.width = `${(currentPairIdx / totalPairs) * 100}%`;
+      
+      // Check if this pair already has a selection, otherwise disable the Next button
+      if (!selections[currentPairIdx]) {
+        document.getElementById('d1-next-btn').disabled = true;
+      }
+      
+      // Update next button label at final step
+      if (currentPairIdx === totalPairs) {
+        document.getElementById('d1-next-btn').innerHTML = `
+          Finish Selection
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+        `;
+      }
+    } else {
+      // Finish reached, show completion screen
+      document.getElementById(`pair-${currentPairIdx}`).style.display = 'none';
+      document.getElementById('d1-progress-container').style.display = 'none';
+      document.getElementById('d1-question-text').style.display = 'none';
+      document.getElementById('d1-navigation').style.display = 'none';
+      
+      document.getElementById('d1-completion').style.display = 'block';
+      
+      // Log selected choices to console for debug
+      console.log("Design 1 choices completed:", selections);
+    }
+  }
+
+  function restartDesign1() {
+    // Reset selections
+    for (let k in selections) delete selections[k];
+    
+    // Hide completion, show interface elements
+    document.getElementById('d1-completion').style.display = 'none';
+    document.getElementById('d1-progress-container').style.display = 'flex';
+    document.getElementById('d1-question-text').style.display = 'block';
+    document.getElementById('d1-navigation').style.display = 'flex';
+    
+    // Clear selections in DOM
+    document.querySelectorAll('.movie-card').forEach(card => card.classList.remove('selected'));
+    
+    // Reset to step 1
+    currentPairIdx = 1;
+    document.getElementById(`pair-${currentPairIdx}`).style.display = 'block';
+    for (let i = 2; i <= totalPairs; i++) {
+      document.getElementById(`pair-${i}`).style.display = 'none';
+    }
+    
+    document.getElementById('d1-progress-text').innerText = `Step 1 of ${totalPairs}`;
+    document.getElementById('d1-progress-bar').style.width = `20%`;
+    document.getElementById('d1-next-btn').disabled = true;
+    document.getElementById('d1-next-btn').innerHTML = `
+      Next Pair
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+        <polyline points="12 5 19 12 12 19"></polyline>
+      </svg>
+    `;
+  }
+
+  // ==================== DESIGN 2 STATE & LOGIC ====================
+  const sortableList = document.getElementById('sortable-list');
+  let dragEl = null;
+
+  // Add drag and drop event listeners
+  sortableList.addEventListener('dragstart', function(e) {
+    dragEl = e.target.closest('.ranking-item');
+    if (!dragEl) return;
+    dragEl.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+
+  sortableList.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    const overItem = e.target.closest('.ranking-item');
+    if (!overItem || overItem === dragEl) return;
+    
+    // Determine whether the cursor is over the upper or lower half of the item
+    const rect = overItem.getBoundingClientRect();
+    const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
+    
+    sortableList.insertBefore(dragEl, next ? overItem.nextSibling : overItem);
+    
+    // Update ranking badges numbers
+    updateRankings();
+  });
+
+  sortableList.addEventListener('dragend', function(e) {
+    if (dragEl) {
+      dragEl.classList.remove('dragging');
+      dragEl = null;
+    }
+    updateRankings();
+  });
+
+  function updateRankings() {
+    const items = sortableList.querySelectorAll('.ranking-item');
+    items.forEach((item, idx) => {
+      item.querySelector('.rank-number').innerText = idx + 1;
+    });
+  }
+
+  function submitRankings() {
+    const rankedMovies = [];
+    const items = sortableList.querySelectorAll('.ranking-item');
+    items.forEach((item, idx) => {
+      rankedMovies.push({
+        rank: idx + 1,
+        title: item.dataset.movieTitle
+      });
+    });
+    
+    console.log("Design 2 rankings submitted:", rankedMovies);
+    
+    // Show success banner
+    const banner = document.getElementById('success-banner');
+    banner.style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Auto-hide success banner after 4 seconds
+    setTimeout(() => {
+      banner.style.display = 'none';
+    }, 4000);
+  }
+</script>
+{% endblock %}

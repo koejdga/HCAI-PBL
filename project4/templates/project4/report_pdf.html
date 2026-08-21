@@ -1,0 +1,215 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Project 4: Preference Elicitation Report</title>
+    <link rel="stylesheet" href="{% static 'pdf_report.css' %}" />
+</head>
+<body>
+
+    <!-- Dynamic Repeating Footer Frame Content -->
+    <div id="footerContent">
+        <div style="text-align: right; font-size: 8pt; color: #526270; border-top: 1px solid #d7e3ec; padding-top: 4px;">
+            Human-Centric Artificial Intelligence | Page <pdf:pagenumber /> of <pdf:pagecount />
+        </div>
+    </div>
+
+    <!-- ==================================================== -->
+    <!-- PAGE 1: TITLE PAGE & TABLE OF CONTENTS               -->
+    <!-- ==================================================== -->
+    <div class="report-title" style="text-align: center; margin-top: 50px; font-size: 28pt;">Project 4: Preference Elicitation</div>
+    <div style="text-align: center; font-size: 16pt; color: #526270; margin-bottom: 30px; font-family: Helvetica, Arial, sans-serif;">Human-Centric Artificial Intelligence</div>
+    <div class="title-divider" style="margin-bottom: 30px;"></div>
+
+    <div class="metadata-box">
+        Source: <span>Movie Metadata CSV</span> | Total Movies: <span>5043</span> | Extracted Feature Dimensions: <span>89</span> | Target Framework: <span>Django & HCAI-PBL</span>
+    </div>
+
+    <div class="toc-title">Table of Contents</div>
+    <div class="toc-divider"></div>
+
+    <ul class="toc-list">
+        <li>
+            <a href="#dataset-and-methods">1. Dataset and Methods</a>
+            <ul class="toc-sublist">
+                <li><a href="#dataset-section">1.1 Dataset & Feature Selection</a></li>
+                <li><a href="#model-section">1.2 Preference Model & Normalization</a></li>
+            </ul>
+        </li>
+        <li>
+            <a href="#user-study">2. User Study</a>
+            <ul class="toc-sublist">
+                <li><a href="#interfaces-section">2.1 Preference Elicitation Interfaces (Design 1 & Design 2)</a></li>
+                <li><a href="#design-section">2.2 User Study Design & Methodology</a></li>
+            </ul>
+        </li>
+    </ul>
+
+    <!-- PAGE BREAK -->
+    <div style="page-break-before: always;"></div>
+
+    <!-- ==================================================== -->
+    <!-- PAGE 2: SECTION 1: DATASET AND METHODS               -->
+    <!-- ==================================================== -->
+    <a name="dataset-and-methods"></a>
+    <div class="section-heading-1" id="dataset-and-methods">1. Dataset and Methods</div>
+    
+    <a name="dataset-section"></a>
+    <div class="section-heading-2" id="dataset-section">1.1 Dataset & Feature Selection</div>
+    <p>
+        The goal of this project is to design a movie recommender system that quickly adapts to the preferences of a new user. We utilize the <strong>IMDB 5000 Movie Dataset</strong> containing metadata of approximately 5000 movies. Unlike traditional collaborative filtering datasets, this does not contain prior user rating data, making content-based preference elicitation essential.
+    </p>
+    <p>
+        We extract a compact 89-dimensional movie representation vector <i>x</i>, discarding irrelevant high-cardinality features to avoid overfitting. The selected feature space is summarized below:
+    </p>
+
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Feature Group</th>
+                <th>Dimensions</th>
+                <th>Type</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="row-even">
+                <td>Genres</td>
+                <td>22</td>
+                <td>Binary (One-Hot)</td>
+                <td>Top 21 genres (including Western) + fallback 'other' category.</td>
+            </tr>
+            <tr class="row-odd">
+                <td>Directors</td>
+                <td>51</td>
+                <td>Binary (One-Hot)</td>
+                <td>Top 50 directors by occurrence + fallback 'other' category.</td>
+            </tr>
+            <tr class="row-even">
+                <td>Demographics & Language</td>
+                <td>2</td>
+                <td>Binary (Indicators)</td>
+                <td>Indicators for USA production (country) and English language.</td>
+            </tr>
+            <tr class="row-odd">
+                <td>Content Rating</td>
+                <td>5</td>
+                <td>Binary (One-Hot)</td>
+                <td>Ratings (R, PG-13, PG, G) + fallback 'other' rating.</td>
+            </tr>
+            <tr class="row-even">
+                <td>Numerical features</td>
+                <td>6</td>
+                <td>Continuous</td>
+                <td>IMDB score, duration, release year, and popularity counts.</td>
+            </tr>
+            <tr class="row-odd">
+                <td>Interactions</td>
+                <td>2</td>
+                <td>Continuous</td>
+                <td>Multiplicative indicators ('indie_gem' and 'blockbuster').</td>
+            </tr>
+            <tr class="row-total">
+                <td>Total Vector Size</td>
+                <td>88 Features (89 cols)</td>
+                <td>Mixed</td>
+                <td>Excludes movie_title (used as a tracking identifier only).</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <a name="model-section"></a>
+    <div class="section-heading-2" id="model-section">1.2 Preference Model & Normalization</div>
+    <p>
+        In this study, a movie recommendation utility is modeled as <i>U(x) = w<sup>T</sup>x</i>, where <i>x</i> is a movie's feature representation vector and <i>w</i> is the user's latent preference vector. The objective of the preference elicitation process is to estimate <i>w</i> rapidly and accurately from a limited number of user interactions, such as pairwise selections (Design 1) or ranking tasks (Design 2).
+    </p>
+    <p>
+        To model pairwise user choices, we assume user preferences follow a <strong>Bradley-Terry model</strong>, where the probability that a user prefers movie <i>A</i> over movie <i>B</i> (written as <i>A &gt; B</i>) is given by:
+    </p>
+    <div style="text-align: center; margin: 15px 0;">
+        <table align="center" style="border: none; margin: 0 auto; width: auto; border-collapse: collapse;">
+            <tr>
+                <td style="border: none; padding: 0 5px; vertical-align: middle; font-size: 11pt; font-style: italic; font-weight: bold;">
+                    <i>P(A &gt; B) = </i>
+                </td>
+                <td style="border: none; padding: 0; vertical-align: middle; text-align: center;">
+                    <table style="border: none; width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="border: none; padding: 2px 8px; text-align: center; border-bottom: 1px solid #172033; font-style: italic; font-size: 11pt;">
+                                exp(<i>U</i>(<i>x</i><sub>A</sub>))
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="border: none; padding: 2px 8px; text-align: center; font-style: italic; font-size: 11pt;">
+                                exp(<i>U</i>(<i>x</i><sub>A</sub>)) + exp(<i>U</i>(<i>x</i><sub>B</sub>))
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <p>
+        To ensure stable preference vector learning, features must have comparable scales. We apply:
+    </p>
+    <ul>
+        <li><strong>Min-Max Scaling:</strong> Maps <code>imdb_score</code> and <code>duration</code> to the range [0, 1]. We also min-max scale the release year continuously, or bin it into one-hot eras (Pre-1990s, 1990s, 2000s, 2010s) to allow non-linear era modeling.</li>
+        <li><strong>Log-Transformation + Scaling:</strong> Heavily right-skewed counts (<code>num_voted_users</code>, <code>movie_facebook_likes</code>, and <code>cast_total_facebook_likes</code>) are normalized using log(<i>x</i> + 1), then scaled to [0, 1].</li>
+        <li><strong>Feature Interactions:</strong> To allow our linear utility function to capture non-linear preference structures, we engineered two interaction features: <code>feature_interact_indie_gem</code> (imdb_score * (1 - normalized_votes)) and <code>feature_interact_blockbuster</code> (imdb_score * normalized_votes).</li>
+        <li><strong>Median Imputation:</strong> Fills missing values (108 missing years, 15 missing durations) using the dataset medians (2005.0 year, 103.0 minutes).</li>
+    </ul>
+
+    <!-- PAGE BREAK -->
+    <div style="page-break-before: always;"></div>
+
+    <!-- ==================================================== -->
+    <!-- PAGE 3: SECTION 2: USER STUDY                        -->
+    <!-- ==================================================== -->
+    <a name="user-study"></a>
+    <div class="section-heading-1" id="user-study">2. User Study</div>
+    
+    <a name="interfaces-section"></a>
+    <div class="section-heading-2" id="interfaces-section">2.1 Preference Elicitation Interfaces (Design 1 & Design 2)</div>
+    <p>
+        We designed and implemented two distinct preference elicitation interfaces to compare how user utility vectors are learned:
+    </p>
+    <ul>
+        <li>
+            <strong>Design 1: Pairwise Selection Interface.</strong> The user is presented with 5 sequential pairs of movies (10 movies total) and selects their preferred movie in each pair. 
+            The progress is tracked via a visual progressive step counter, and the selected card highlights in green with a micro-animated checkmark.
+        </li>
+        <li>
+            <strong>Design 2: Ranking Interface.</strong> The user is presented with a single set of 10 movies and is asked to reorder them from most preferred to least preferred. 
+            We implement this using a lightweight, high-performance HTML5 drag-and-drop system. Rank badge numbers (1 to 10) adjust in real-time as elements are dragged and dropped.
+        </li>
+    </ul>
+    <p>
+        To prevent learning bias, the 20 movies sampled on page load are unique and do not repeat across either interface.
+    </p>
+
+    <a name="design-section"></a>
+    <div class="section-heading-2" id="design-section">2.2 User Study Design & Methodology</div>
+    <p>
+        The objective of the user study is to compare the performance, accuracy, and user experience of these two elicitation styles:
+    </p>
+    <div class="info-callout">
+        <strong>Primary Hypothesis:</strong> Design 2 (Ranking) allows for faster and more accurate estimation of the user's preference vector <i>w</i> per movie shown, but incurs a higher subjective cognitive load per task than Design 1 (Pairwise).
+    </div>
+    
+    <p><strong>Experimental Protocol:</strong></p>
+    <ol>
+        <li><strong>Task Allocation:</strong> Within-subject experimental design. Each participant performs both elicitation tasks (5 rounds of pairwise selections, and 1 round of ranking 10 items). The order of the tasks is counterbalanced to eliminate fatigue or learning biases.</li>
+        <li><strong>Evaluation & Recommendation:</strong> The elicited latent preference vector <i>w</i> is estimated from the user choices. A recommendation set of 10 movies is generated using the estimated utility <i>U</i>(<i>x</i>) = <i>w</i><sup>T</sup><i>x</i>.</li>
+        <li><strong>Feedback Phase:</strong> The recommendation set is presented to the user. The participant rates the relevance of the recommended movies. They then complete a survey based on the NASA-TLX scale to measure perceived cognitive load, effort, and frustration for each design.</li>
+    </ol>
+    
+    <p><strong>Key Metrics to Compare:</strong></p>
+    <ul>
+        <li><strong>Elicitation Efficiency:</strong> Convergence speed of <i>w</i> (parameterized via prediction accuracy on a hold-out validation set of movies).</li>
+        <li><strong>Cognitive Load:</strong> Subjective task workload scores collected during the feedback phase.</li>
+        <li><strong>Interaction Time:</strong> Total time taken by the user to complete each interface step.</li>
+    </ul>
+
+</body>
+</html>
