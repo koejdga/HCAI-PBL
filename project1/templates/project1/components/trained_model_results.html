@@ -1,0 +1,132 @@
+{% if training_result %}
+<div class="training-result-v2-container">
+  <p class="training-result-v2-heading">
+    Selected model: <span class="text-cyan">{{ training_result.model }}</span>
+  </p>
+
+  <h4 class="training-result-v2-subheading">Model Performance Metrics Comparison</h4>
+  <div class="training-result-table-container">
+    <table class="training-result-table">
+      <thead>
+        <tr class="training-result-table-header-row">
+          <th>Evaluation Metric</th>
+          <th class="training-result-table-th-cyan">Trained Model (Best params: {{ training_result.best.parameter }}{% if training_result.enable_poly %}, Poly{% endif %})</th>
+          <th class="training-result-table-th-gray">Simple Baseline Reference</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if training_result.task_type == "classification" %}
+        <tr class="training-result-table-row">
+          <td class="training-result-table-cell-metric">
+            <span>Accuracy</span>
+            <div class="info-explainer-popup display-inline-block">
+              <button type="button" class="info-explainer-trigger info-explainer-trigger-reset" aria-expanded="false">
+                {% include "components/info_icon.svg" %}
+              </button>
+              <div class="info-explainer-content info-explainer-content-reset">
+                Fraction of predictions that are correct. Best for balanced classification.
+              </div>
+            </div>
+          </td>
+          <td class="training-result-table-cell-bold-green">{{ training_result.best.display_score }}</td>
+          <td class="training-result-table-cell-gray">{{ training_result.baseline.display_score }}</td>
+        </tr>
+        <tr class="training-result-table-row">
+          <td class="training-result-table-cell-metric">
+            <span>Balanced Accuracy</span>
+            <div class="info-explainer-popup display-inline-block">
+              <button type="button" class="info-explainer-trigger info-explainer-trigger-reset" aria-expanded="false">
+                {% include "components/info_icon.svg" %}
+              </button>
+              <div class="info-explainer-content info-explainer-content-reset">
+                Average accuracy across classes. Essential if your dataset has imbalanced label counts.
+              </div>
+            </div>
+          </td>
+          <td class="training-result-table-cell-bold-green">{{ training_result.best.display_balanced_accuracy }}</td>
+          <td class="training-result-table-cell-gray">{{ training_result.baseline.display_balanced_accuracy }}</td>
+        </tr>
+        <tr class="training-result-table-row">
+          <td class="training-result-table-cell-metric">
+            <span>F1-Score</span>
+            <div class="info-explainer-popup display-inline-block">
+              <button type="button" class="info-explainer-trigger info-explainer-trigger-reset" aria-expanded="false">
+                {% include "components/info_icon.svg" %}
+              </button>
+              <div class="info-explainer-content info-explainer-content-reset">
+                Harmonic mean of precision and recall. Balances false positives and false negatives.
+              </div>
+            </div>
+          </td>
+          <td class="training-result-table-cell-bold-green">{{ training_result.best.display_f1_score }}</td>
+          <td class="training-result-table-cell-gray">{{ training_result.baseline.display_f1_score }}</td>
+        </tr>
+        {% else %}
+        <tr class="training-result-table-row">
+          <td class="training-result-table-cell-metric">
+            <span>R²</span>
+            <div class="info-explainer-popup display-inline-block">
+              <button type="button" class="info-explainer-trigger info-explainer-trigger-reset" aria-expanded="false">
+                {% include "components/info_icon.svg" %}
+              </button>
+              <div class="info-explainer-content info-explainer-content-reset">
+                Variance in the target explained by the model's features (1.0 is perfect, 0.0 matches baseline).
+              </div>
+            </div>
+          </td>
+          <td class="training-result-table-cell-bold-green">{{ training_result.best.display_score }}</td>
+          <td class="training-result-table-cell-gray">{{ training_result.baseline.display_score }}</td>
+        </tr>
+        <tr class="training-result-table-row">
+          <td class="training-result-table-cell-metric">
+            <span>RMSE</span>
+            <div class="info-explainer-popup display-inline-block">
+              <button type="button" class="info-explainer-trigger info-explainer-trigger-reset" aria-expanded="false">
+                {% include "components/info_icon.svg" %}
+              </button>
+              <div class="info-explainer-content info-explainer-content-reset">
+                Average standard deviation of prediction residuals (regression error magnitude). Lower is better.
+              </div>
+            </div>
+          </td>
+          <td class="training-result-table-cell-bold-red">{{ training_result.best.display_rmse }}</td>
+          <td class="training-result-table-cell-gray">{{ training_result.baseline.display_rmse }}</td>
+        </tr>
+        {% endif %}
+        <tr class="training-result-table-row">
+          <td class="training-result-table-cell-metric">
+            <span>Training Time</span>
+            <div class="info-explainer-popup display-inline-block">
+              <button type="button" class="info-explainer-trigger info-explainer-trigger-reset" aria-expanded="false">
+                {% include "components/info_icon.svg" %}
+              </button>
+              <div class="info-explainer-content info-explainer-content-reset">
+                CPU time elapsed during model fitting. Useful for assessing real-world scalability.
+              </div>
+            </div>
+          </td>
+          <td class="training-result-table-cell-bold-blue">{{ training_result.best.display_training_time }}</td>
+          <td class="training-result-table-cell-gray">{{ training_result.baseline.display_training_time }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Export and Reproducibility Subsection -->
+  <div class="reproducibility-subsection">
+    <h4 class="reproducibility-heading">Export & Reproducibility</h4>
+    <p class="reproducibility-text">Export the trained pipeline for deployment or download the complete Python script to reproduce this model in your local workspace.</p>
+    <div class="reproducibility-buttons-row">
+      <a href="?export=joblib" class="preset-btn reproducibility-download-btn">
+        Download Trained Pipeline (.joblib)
+      </a>
+      <a href="?export=pkl" class="preset-btn reproducibility-download-btn">
+        Download Trained Pipeline (.pkl)
+      </a>
+      <a href="?export=py" class="preset-btn reproducibility-download-btn">
+        Download Python Reproduction Script (.py)
+      </a>
+    </div>
+  </div>
+</div>
+{% endif %}

@@ -1,0 +1,30 @@
+<div class="univariate-explorer-section">
+  <h4 class="subheading data-audit-subheading" id="feature-distributions">Feature Distribution Explorer (Univariate Analysis)</h4>
+  
+  <div class="plot-control univariate-plot-control" data-plot-type="univariate" data-gallery-id="univariate-gallery">
+    {% csrf_token %}
+    <label for="univariate_feature">Feature</label>
+    <select id="univariate_feature" name="feature" required class="univariate-select">
+      {% for col in column_config_options %}
+      <option value="{{ col.name }}">
+        {{ col.name }} ({{ col.type }})
+      </option>
+      {% endfor %}
+    </select>
+    <button type="button" onclick="createUnivariatePlot()" class="build-plot-btn">
+      Show distribution plot
+    </button>
+  </div>
+  
+  <!-- Gallery for Univariate plots -->
+  <div class="plot-gallery univariate-plot-gallery" id="univariate-gallery">
+    {% for visualization in univariate_plots %}
+    <div class="plot-card {% if visualization.highlight %}plot-card-duplicate{% endif %}" data-plot-key="{{ visualization.key }}">
+      <button type="button" class="remove-plot-button" aria-label="Remove plot" title="Remove plot" onclick="removeUnivariatePlot('{{ visualization.feature|escapejs }}')">
+        &times;
+      </button>
+      <img src="{{ visualization.url }}" alt="{{ visualization.title }}" class="generated-plot" onclick="openPlotModal('{{ visualization.url|escapejs }}', '{{ visualization.title|escapejs }}')" />
+    </div>
+    {% endfor %}
+  </div>
+</div>

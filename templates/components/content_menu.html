@@ -1,19 +1,74 @@
-<nav class="section-nav" aria-label="Plot sections">
-  <button type="button" class="section-nav-toggle" onclick="toggleSectionNav()">
-    Contents
+<nav id="section-nav" class="section-nav" aria-label="Plot sections" style="padding-bottom: 12px">
+  <button type="button" class="section-nav-toggle" onclick="toggleSectionNav()" style="display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box;">
+    <span>Contents</span>
+    <svg id="section-nav-arrow" viewBox="0 0 24 24" width="16" height="16" style="transition: transform 0.25s ease; transform: rotate(180deg); fill: currentColor; margin-left: 8px;">
+      <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+    </svg>
   </button>
   <div class="section-nav-links" id="section-nav-links">
     {% for item in menu_items %}
-    <a href="{{ item.href }}">{{ item.label }}</a>
+      {% if item.children %}
+        <!-- Section with subsections -->
+        <div class="section-nav-group">
+          {% if item.href %}
+            <a href="{{ item.href }}" class="section-nav-heading">{{ item.label }}</a>
+          {% else %}
+            <span class="section-nav-heading">{{ item.label }}</span>
+          {% endif %}
+          <div class="section-nav-sublinks">
+            {% for sub in item.children %}
+              <a href="{{ sub.href }}" class="section-nav-sublink">{{ sub.label }}</a>
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <!-- Plain section -->
+        <a href="{{ item.href }}">{{ item.label }}</a>
+      {% endif %}
     {% endfor %}
-</div>
+  </div>
 </nav>
 
 <script>
+  const SECTION_NAV_STORAGE_KEY = "hcai-section-nav-collapsed";
+
+  function updateSectionNavPadding() {
+    const nav = document.getElementById("section-nav");
+    const links = document.getElementById("section-nav-links");
+    if (!nav || !links) return;
+    nav.style.paddingBottom = links.classList.contains("section-nav-links-collapsed") ? "0" : "12px";
+  }
+
+  function applySectionNavState() {
+    const links = document.getElementById("section-nav-links");
+    const arrow = document.getElementById("section-nav-arrow");
+    if (!links) return;
+
+    const savedValue = localStorage.getItem(SECTION_NAV_STORAGE_KEY);
+    const isCollapsed = savedValue === "true";
+    links.classList.toggle("section-nav-links-collapsed", isCollapsed);
+
+    if (arrow) {
+      arrow.style.transform = isCollapsed ? "rotate(0deg)" : "rotate(180deg)";
+    }
+
+    updateSectionNavPadding();
+  }
+
   function toggleSectionNav() {
     const links = document.getElementById("section-nav-links");
-    if (links) {
-      links.classList.toggle("section-nav-links-collapsed");
+    const arrow = document.getElementById("section-nav-arrow");
+    if (!links) return;
+
+    const isCollapsed = !links.classList.contains("section-nav-links-collapsed");
+    links.classList.toggle("section-nav-links-collapsed", isCollapsed);
+    localStorage.setItem(SECTION_NAV_STORAGE_KEY, String(isCollapsed));
+
+    if (arrow) {
+      arrow.style.transform = isCollapsed ? "rotate(0deg)" : "rotate(180deg)";
     }
+    updateSectionNavPadding();
   }
+
+  applySectionNavState();
 </script>

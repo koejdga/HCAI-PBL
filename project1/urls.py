@@ -6,4 +6,5 @@ app_name = "project1"
 urlpatterns = [
     path("", views.index, name="index"),
     path("upload/", views.upload_csv, name="upload"),
+    path("report/", views.pdf_summary_report, name="report"),
 ]

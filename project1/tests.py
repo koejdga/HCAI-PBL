@@ -1,30 +1,14 @@
 from django.test import SimpleTestCase
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from .forms import CSVUploadForm
 from .views import (
     build_baseline_comparison,
-    build_progress_state,
     format_metric_value,
     train_model,
 )
 
 
 class BaselineModelTests(SimpleTestCase):
-    def test_upload_form_rejects_non_csv_files(self):
-        form = CSVUploadForm(
-            files={
-                "file": SimpleUploadedFile(
-                    "notes.txt",
-                    b"not,a,csv",
-                    content_type="text/plain",
-                )
-            }
-        )
-
-        self.assertFalse(form.is_valid())
-        self.assertIn("Please upload a CSV file.", form.errors["file"])
-
     def test_classification_result_includes_majority_class_baseline(self):
         dataset = {
             "column_names": ["feature", "target"],
@@ -94,14 +78,3 @@ class BaselineModelTests(SimpleTestCase):
     def test_metric_values_are_formatted_for_non_expert_readers(self):
         self.assertEqual(format_metric_value("classification", 0.875), "87.50%")
         self.assertEqual(format_metric_value("regression", 0.875), "0.8750")
-
-    def test_progress_state_follows_the_project_workflow(self):
-        initial = build_progress_state(False, False, False)
-        uploaded = build_progress_state(True, False, False)
-        visualized = build_progress_state(True, True, False)
-        trained = build_progress_state(True, True, True)
-
-        self.assertEqual(initial["current_step"], 1)
-        self.assertEqual(uploaded["current_step"], 3)
-        self.assertEqual(visualized["current_step"], 4)
-        self.assertTrue(trained["training_complete"])

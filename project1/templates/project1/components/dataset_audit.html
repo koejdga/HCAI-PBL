@@ -1,0 +1,30 @@
+<section class="dataset-config-panel" id="setup-section">
+  <div class="dataset-config-heading">
+    <h2 class="data-management-heading" id="dataset-audit">2. DATASET AUDIT</h2>
+  </div>
+  <form method="post" class="dataset-config-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="configure_dataset" />
+
+    {% include "project1/components/target_selector.html" %}
+
+    {% include "project1/components/column_statistics.html" %}
+
+    {% include "project1/components/missing_value_handling.html" %}
+
+    {% include "project1/components/univariate_explorer.html" %}
+
+    {% include "project1/components/dashed_separator.html" %}
+
+    {% include "project1/components/correlation_matrix.html" %}
+
+    {% include "project1/components/scatter_plot_builder.html" %}
+
+    {% include "project1/components/feature_selection.html" %}
+
+    <p class="configuration-note">
+      Applying a new setup refreshes plots and clears previous model results.
+    </p>
+    <button type="submit" id="apply-setup-btn" class="apply-setup-btn">Apply dataset setup</button>
+  </form>
+</section>

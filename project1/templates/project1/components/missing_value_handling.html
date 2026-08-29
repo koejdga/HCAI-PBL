@@ -1,0 +1,100 @@
+<fieldset class="missing-policy-fieldset p1-missing-policy-fieldset">
+  <legend id="missing-value-handling">Missing-value handling</legend>
+  {% if has_missing_values %}
+  <div class="missing-policy-grid">
+    <label class="missing-policy-option">
+      <input
+        type="radio"
+        name="missing_policy"
+        value="impute_system"
+        onchange="onMissingPolicyChange()"
+        {% if dataset.missing_policy == 'impute_system' or not dataset.missing_policy or dataset.missing_policy == 'impute' %}checked{% endif %}
+      />
+      <span>
+        <strong>Use system imputation recommendations</strong>
+        <small>Automatically impute missing values using recommended strategies.</small>
+      </span>
+    </label>
+    
+    <label class="missing-policy-option">
+      <input
+        type="radio"
+        name="missing_policy"
+        value="drop"
+        onchange="onMissingPolicyChange()"
+        {% if dataset.missing_policy == 'drop' %}checked{% endif %}
+      />
+      <span>
+        <strong>Drop missing rows</strong>
+        <small>Remove rows with any missing values before training.</small>
+        {% if drop_missing_info and drop_missing_info.count > 0 %}
+        <span class="drop-info-text-inline">
+          ⚠️ Selecting this will remove {{ drop_missing_info.count }} rows ({{ drop_missing_info.percentage }} of the dataset).
+        </span>
+        {% endif %}
+      </span>
+    </label>
+
+    <label class="missing-policy-option">
+      <input
+        type="radio"
+        name="missing_policy"
+        value="impute_manual"
+        onchange="onMissingPolicyChange()"
+        {% if dataset.missing_policy == 'impute_manual' %}checked{% endif %}
+      />
+      <span>
+        <strong>Manually select strategies</strong>
+        <small>Configure custom imputation strategies for each feature individually.</small>
+      </span>
+    </label>
+  </div>
+
+  <div class="info-explainer-popup mt-12">
+    <button type="button" class="info-explainer-trigger" aria-expanded="false">
+      {% include "components/info_icon.svg" %}
+      <span>Why does missing-value handling matter?</span>
+    </button>
+    <div class="info-explainer-content">
+      Missing values affect fairness and reliability. Keeping rows preserves more data, while dropping rows keeps only complete examples and may remove some groups more than others.
+    </div>
+  </div>
+  
+  <!-- Individual Manual Configuration List -->
+  <div id="manual-imputation-settings" class="manual-imputation-settings" style="display: {% if dataset.missing_policy == 'impute_manual' %}block{% else %}none{% endif %};">
+    <strong class="manual-imputation-heading">Individual Feature Imputation Strategies</strong>
+    <div class="manual-imputation-list">
+      {% for col in audit_columns %}
+        {% if col.missing_count > 0 and col.name != dataset.target %}
+          <div class="manual-imputation-item">
+            <div>
+              <strong class="manual-imputation-item-name">{{ col.name }}</strong>
+              <span class="manual-imputation-item-meta">({{ col.type }}, {{ col.missing_count }} missing)</span>
+              <div class="manual-imputation-item-rec">
+                💡 System recommendation: 
+                {% if col.suggested_strategy == 'most_frequent' %}
+                  <strong>Most Frequent (Mode)</strong>
+                {% elif col.suggested_strategy == 'median' %}
+                  <strong>Median</strong>
+                {% else %}
+                  <strong>Mean</strong>
+                {% endif %}
+              </div>
+            </div>
+            <div>
+              <select name="impute_strategy_{{ col.name }}" class="manual-imputation-select">
+                <option value="mean" {% if col.impute_strategy == 'mean' %}selected{% endif %} {% if col.type == 'categorical' %}disabled{% endif %}>Mean</option>
+                <option value="median" {% if col.impute_strategy == 'median' %}selected{% endif %} {% if col.type == 'categorical' %}disabled{% endif %}>Median</option>
+                <option value="most_frequent" {% if col.impute_strategy == 'most_frequent' %}selected{% endif %}>Most Frequent (Mode)</option>
+                <option value="drop_rows" {% if col.impute_strategy == 'drop_rows' %}selected{% endif %}>Drop rows</option>
+              </select>
+            </div>
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <p class="data-management-text no-missing-values-note">No missing values in this dataset.</p>
+  {% endif %}
+</fieldset>

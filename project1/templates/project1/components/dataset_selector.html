@@ -1,0 +1,90 @@
+  <section class="data-management-section">
+    <h2 class="data-management-heading" id="data-management">1. DATA MANAGEMENT</h2>
+    
+    <!-- Subheading: Dataset Examples -->
+    <div class="dataset-examples-section">
+      <h3 class="subheading data-management-subheading" id="dataset-examples">Dataset Examples</h3>
+      <p class="data-management-text">Choose a model from a list of preloaded datasets:</p>
+      
+      <form method="post" id="select-example-form" class="select-example-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="select_example" />
+        <input type="hidden" name="dataset_name" id="selected-dataset-name" value="" />
+        
+        <div class="dataset-grid">
+          <div class="dataset-card {% if active_dataset_name == 'iris.csv' %}selected{% endif %}" data-filename="iris.csv">
+            <div class="dataset-name">Iris Flower</div>
+            <div class="dataset-info">Multiclass target: 4 features, 150 rows</div>
+          </div>
+          <div class="dataset-card {% if active_dataset_name == 'diabetes.csv' %}selected{% endif %}" data-filename="diabetes.csv">
+            <div class="dataset-name">Diabetes</div>
+            <div class="dataset-info">Binary target: 8 features, 768 rows</div>
+          </div>
+          <div class="dataset-card {% if active_dataset_name == 'breast_cancer.csv' %}selected{% endif %}" data-filename="breast_cancer.csv">
+            <div class="dataset-name">Breast Cancer</div>
+            <div class="dataset-info">Binary target: 30 features, 569 rows</div>
+          </div>
+          <div class="dataset-card {% if active_dataset_name == 'wine.csv' %}selected{% endif %}" data-filename="wine.csv">
+            <div class="dataset-name">Wine</div>
+            <div class="dataset-info">Multiclass target: 13 features, 178 rows</div>
+          </div>
+          <div class="dataset-card {% if active_dataset_name == 'housing.csv' %}selected{% endif %}" data-filename="housing.csv">
+            <div class="dataset-name">California Housing</div>
+            <div class="dataset-info">Regression target: 8 features, 20,640 rows</div>
+          </div>
+
+          <div class="dataset-card {% if active_dataset_name == 'auto-mpg.csv' %}selected{% endif %}" data-filename="auto-mpg.csv">
+            <div class="dataset-name">Auto MPG Dataset</div>
+            <div class="dataset-info">Regression target: 6 features, 398 rows</div>
+          </div>
+        </div>
+        
+        <button type="submit" id="select-example-btn" disabled>Select</button>
+      </form>
+    </div>
+
+    <!-- Subheading: Upload Custom CSV -->
+    <div class="custom-upload-section" id="upload-section">
+      <h3 class="subheading data-management-subheading" id="upload-csv">Upload Custom CSV</h3>
+      <form method="post" enctype="multipart/form-data" class="upload-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="upload" />
+        <div class="upload-row">
+          <label for="csv-file-input">Select a CSV file:</label>
+          <input type="file" id="csv-file-input" name="file" accept=".csv" required />
+        </div>
+        <button type="submit" id="upload-csv-btn" disabled>Upload</button>
+        {% if upload_error %}
+        <p class="upload-error">{{ upload_error }}</p>
+        {% endif %}
+      </form>
+    </div>
+
+    {% include "project1/components/dashed_separator.html" %}
+
+    <!-- Subheading: Your Datasets -->
+    <div class="your-datasets-section" style="padding-top: 20px;">
+      <h3 class="subheading data-management-subheading" id="your-datasets">Your Datasets</h3>
+      {% if uploaded_datasets %}
+      <p class="data-management-text">Choose from your uploaded datasets:</p>
+      <form method="post" id="select-uploaded-form" class="select-example-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="select_uploaded" />
+        <input type="hidden" name="dataset_name" id="selected-uploaded-name" value="" />
+        
+        <div class="dataset-grid">
+          {% for ds in uploaded_datasets %}
+          <div class="dataset-card {% if active_dataset_name == ds.name %}selected{% endif %}" data-filename="{{ ds.name }}">
+            <div class="dataset-name">{{ ds.name }}</div>
+            <div class="dataset-info">{{ ds.info }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        
+        <button type="submit" id="select-uploaded-btn" disabled>Select</button>
+      </form>
+      {% else %}
+      <p class="data-management-text" style="font-style: italic;">No uploaded datasets yet.</p>
+      {% endif %}
+    </div>
+  </section>

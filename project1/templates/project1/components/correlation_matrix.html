@@ -1,0 +1,35 @@
+{% if correlation_data %}
+<div class="correlation-matrix-header">
+  <h4 class="subheading data-audit-subheading" id="feature-correlation-matrix">Feature Correlation Matrix</h4>
+  <button type="button" id="toggle-correlation-matrix-btn" class="compact-action-button toggle-corr-btn">
+    {% include "project1/components/open_eye_icon.svg" %}
+    {% include "project1/components/closed_eye_icon.svg" %}
+    <span class="btn-text">Hide feature correlation matrix</span>
+  </button>
+</div>
+
+<div class="correlation-matrix-container">
+  <table class="correlation-table">
+    <thead>
+      <tr>
+        <th class="correlation-table-left-header">Column</th>
+        {% for feat in correlation_data.features %}
+        <th>{{ feat }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in correlation_data.matrix_rows %}
+      <tr>
+        <td class="correlation-table-row-name">{{ row.feature }}</td>
+        {% for cell in row.cells %}
+        <td class="correlation-cell" style="background-color: {{ cell.bg_color }}; color: {{ cell.text_color }};" title="Correlation: {{ cell.val|floatformat:4 }}">
+          {{ cell.val|floatformat:2 }}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}

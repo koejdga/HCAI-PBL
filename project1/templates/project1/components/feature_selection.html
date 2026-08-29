@@ -1,0 +1,71 @@
+<fieldset class="feature-fieldset p1-feature-fieldset">
+  <legend id="feature-columns-for-training">Feature columns used for training</legend>
+  
+  {% if id_columns %}
+  <div class="alert-warning id-alert-warning">
+    <strong class="alert-warning-strong">Likely ID columns excluded</strong>
+    <span class="alert-warning-span">Excluded by default: {{ id_columns|join:", " }}. Review the feature list if these columns are meaningful.</span>
+  </div>
+  {% endif %}
+  
+  <!-- Quick Action Presets -->
+  <div class="preset-buttons p1-preset-buttons">
+    <button type="button" class="preset-btn" data-preset="all">
+      Select All
+    </button>
+    <button type="button" class="preset-btn" data-preset="top5">
+      Select Top 5 Most Relevant
+    </button>
+    <button type="button" class="preset-btn" data-preset="filter-low">
+      Select All Except Low Relevance (|r| &ge; 0.1)
+    </button>
+  </div>
+
+  <!-- Sorting Toggle -->
+  <div class="sorting-toggle p1-sorting-toggle">
+    <span>Sort features:</span>
+    <button type="button" class="sort-features-btn active" data-sort-by="relevance">
+      By Target Relevance
+    </button>
+    <button type="button" class="sort-features-btn" data-sort-by="order">
+      By Dataset Order
+    </button>
+  </div>
+
+  <div class="feature-option-grid">
+    {% for column in column_config_options|dictsortreversed:"abs_correlation_r" %}
+    {% if not column.is_target %}
+    <label class="feature-option {% if column.likely_id or column.suggest_exclude %}feature-option-warning{% endif %}" data-relevance="{{ column.abs_correlation_r }}" data-order="{{ column.dataset_order }}">
+      <input
+        type="checkbox"
+        name="features"
+        value="{{ column.name }}"
+        {% if column.is_feature %}checked{% endif %}
+      />
+      <span>
+        <strong>{{ column.name }}</strong>
+        <span class="correlation-badge {% if column.suggest_exclude %}low-relevance{% endif %}">
+          {{ column.correlation_label }}
+        </span>
+        <small class="feature-option-small">
+          {{ column.type }},
+          {{ column.unique_count }} unique{% if column.missing_count %},
+          {{ column.missing_count }} missing{% endif %}{% if column.likely_id %},
+          likely ID{% endif %}
+        </small>
+      </span>
+    </label>
+    {% endif %}
+    {% endfor %}
+  </div>
+  
+  <div class="info-explainer-popup mt-12">
+    <button type="button" class="info-explainer-trigger" aria-expanded="false">
+      {% include "components/info_icon.svg" %}
+      <span>How should I choose features?</span>
+    </button>
+    <div class="info-explainer-content">
+      Use columns that are reasonable inputs for prediction. Avoid ID columns or columns that directly reveal the target because they can make the model look better than it really is.
+    </div>
+  </div>
+</fieldset>

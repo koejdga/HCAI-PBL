@@ -1,0 +1,64 @@
+{% if audit_columns %}
+<div class="audit-table-header">
+  <h4 class="subheading data-audit-subheading" id="column-statistics">Column Statistics & Imputation Recommendations</h4>
+  <button type="button" id="toggle-missing-features-btn" class="compact-action-button toggle-missing-btn">
+    {% include "project1/components/open_eye_icon.svg" %}
+    {% include "project1/components/closed_eye_icon.svg" %}
+    <span class="btn-text">Hide non-missing features</span>
+  </button>
+</div>
+<div class="audit-table-container">
+  <table class="audit-table">
+    <thead>
+      <tr class="audit-table-head-row">
+        <th>Column Name</th>
+        <th>Type</th>
+        <th>Missing Count (%)</th>
+        <th>Min</th>
+        <th>Max</th>
+        <th>Mean</th>
+        <th>Median</th>
+        <th>Imputation Recommendation</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for col in audit_columns %}
+      <tr class="{% if col.missing_count > 0 and col.suggest_median or col.missing_count > 0 and col.suggest_mode %}recommendation-row{% endif %}">
+        <td><strong>{{ col.name }}</strong></td>
+        <td>{{ col.type }}</td>
+        <td class="col-missing-value" data-missing="{% if col.missing_count > 0 %}true{% else %}false{% endif %}">
+          {% if col.missing_count > 0 %}
+          <span class="missing-count-highlight">{{ col.missing_count }} ({{ col.missing_percentage }})</span>
+          {% else %}
+          0 (0%)
+          {% endif %}
+        </td>
+        <td>{% if col.type == 'numeric' or col.type == 'Low-cardinality discrete' %}{{ col.min|floatformat:2 }}{% else %}—{% endif %}</td>
+        <td>{% if col.type == 'numeric' or col.type == 'Low-cardinality discrete' %}{{ col.max|floatformat:2 }}{% else %}—{% endif %}</td>
+        <td>{% if col.type == 'numeric' or col.type == 'Low-cardinality discrete' %}{{ col.mean|floatformat:2 }}{% else %}—{% endif %}</td>
+        <td>{% if col.type == 'numeric' or col.type == 'Low-cardinality discrete' %}{{ col.median|floatformat:2 }}{% else %}—{% endif %}</td>
+        <td>
+          {% if col.missing_count == 0 %}
+          <span class="audit-badge success-badge">
+            No missing values
+          </span>
+          {% elif col.suggest_mode %}
+          <span class="audit-badge warning-badge" title="This is a categorical or low-cardinality column. Mode imputation is recommended.">
+            ⚠️ Suggest Mode
+          </span>
+          {% elif col.suggest_median %}
+          <span class="audit-badge warning-badge" title="This column has potential outliers. Median imputation is recommended.">
+            ⚠️ Suggest Median
+          </span>
+          {% else %}
+          <span class="audit-badge warning-badge" title="Standard numeric column. Mean imputation is recommended.">
+            ⚠️ Suggest Mean
+          </span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}

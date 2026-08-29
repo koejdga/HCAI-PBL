@@ -1,0 +1,135 @@
+<div class="manual-explorer-subsection">
+  <h3 class="subheading model-training-subheading" id="manual-explorer">Manual Explorer</h3>
+  <p class="data-management-text">Choose a model to train:</p>
+  
+  <!-- Algorithm Grid/Table -->
+  <div class="model-selection-table-container">
+    <table class="model-selection-table">
+      <thead>
+        <tr class="model-selection-table-header-row">
+          <th class="col-alg">Algorithm</th>
+          <th class="col-classification">Classification (Categorical/Discrete Target)</th>
+          <th class="col-regression">Regression (Continuous Target)</th>
+          <th class="col-scaling">Requires Scaling?</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Row 1: Logistic / Linear -->
+        <tr class="model-selection-table-row">
+          <td class="model-selection-table-cell-alg">
+            Logistic / Linear Regression
+            <div class="model-selection-table-cell-desc">Baseline linear approach; fast and highly interpretable.</div>
+          </td>
+          <td class="model-selection-table-cell">
+            <button type="button" class="model-choice-btn {% if task_type == 'classification' %}active{% else %}disabled{% endif %}" data-model-value="logistic_regression" {% if task_type != 'classification' %}disabled{% endif %}>
+              <strong class="model-choice-name">Logistic Regression</strong>
+              <div class="model-choice-desc">Outputs class probabilities.</div>
+            </button>
+          </td>
+          <td class="model-selection-table-cell-flex">
+            <button type="button" class="model-choice-btn {% if task_type == 'regression' %}active{% else %}disabled{% endif %}" data-model-value="linear_regression" {% if task_type != 'regression' %}disabled{% endif %}>
+              <strong class="model-choice-name">Linear Regression</strong>
+              <div class="model-choice-desc">Standard ordinary least squares.</div>
+            </button>
+            <button type="button" class="model-choice-btn {% if task_type == 'regression' %}active{% else %}disabled{% endif %}" data-model-value="ridge_regression" {% if task_type != 'regression' %}disabled{% endif %}>
+              <strong class="model-choice-name">Ridge Regression</strong>
+              <div class="model-choice-desc">L2 regularized; handles multicollinearity.</div>
+            </button>
+            <button type="button" class="model-choice-btn {% if task_type == 'regression' %}active{% else %}disabled{% endif %}" data-model-value="lasso_regression" {% if task_type != 'regression' %}disabled{% endif %}>
+              <strong class="model-choice-name">Lasso Regression</strong>
+              <div class="model-choice-desc">L1 regularized; performs feature selection.</div>
+            </button>
+          </td>
+          <td class="model-selection-table-cell-center-red">
+            Yes <span class="model-selection-table-cell-center-sub">(for regularization)</span>
+          </td>
+        </tr>
+        <!-- Row 2: KNN -->
+        <tr class="model-selection-table-row">
+          <td class="model-selection-table-cell-alg">
+            k-Nearest Neighbors
+            <div class="model-selection-table-cell-desc">Instance-based model predicting from closest training points.</div>
+          </td>
+          <td class="model-selection-table-cell">
+            <button type="button" class="model-choice-btn {% if task_type == 'classification' %}active{% else %}disabled{% endif %}" data-model-value="knn_classifier" {% if task_type != 'classification' %}disabled{% endif %}>
+              <strong class="model-choice-name">KNeighborsClassifier</strong>
+              <div class="model-choice-desc">Majority voting among neighbors.</div>
+            </button>
+          </td>
+          <td class="model-selection-table-cell">
+            <button type="button" class="model-choice-btn {% if task_type == 'regression' %}active{% else %}disabled{% endif %}" data-model-value="knn_regressor" {% if task_type != 'regression' %}disabled{% endif %}>
+              <strong class="model-choice-name">KNeighborsRegressor</strong>
+              <div class="model-choice-desc">Average values of neighbors.</div>
+            </button>
+          </td>
+          <td class="model-selection-table-cell-center-red">
+            Yes <span class="model-selection-table-cell-center-sub">(Distance scale-sensitive)</span>
+          </td>
+        </tr>
+        <!-- Row 3: SVM -->
+        <tr class="model-selection-table-row">
+          <td class="model-selection-table-cell-alg">
+            Support Vector Machines
+            <div class="model-selection-table-cell-desc">Effective in high-dimensional spaces using kernel tricks.</div>
+          </td>
+          <td class="model-selection-table-cell">
+            <button type="button" class="model-choice-btn {% if task_type == 'classification' %}active{% else %}disabled{% endif %}" data-model-value="svc" {% if task_type != 'classification' %}disabled{% endif %}>
+              <strong class="model-choice-name">SVC</strong>
+              <div class="model-choice-desc">Finds optimal hyperplane separator.</div>
+            </button>
+          </td>
+          <td class="model-selection-table-cell">
+            <button type="button" class="model-choice-btn {% if task_type == 'regression' %}active{% else %}disabled{% endif %}" data-model-value="svr" {% if task_type != 'regression' %}disabled{% endif %}>
+              <strong class="model-choice-name">SVR</strong>
+              <div class="model-choice-desc">Fits error margins around predictions.</div>
+            </button>
+          </td>
+          <td class="model-selection-table-cell-center-red">Yes</td>
+        </tr>
+        <!-- Row 4: Random Forest -->
+        <tr class="model-selection-table-row">
+          <td class="model-selection-table-cell-alg">
+            Random Forest
+            <div class="model-selection-table-cell-desc">Ensemble tree models; captures non-linear relations.</div>
+          </td>
+          <td class="model-selection-table-cell">
+            <button type="button" class="model-choice-btn {% if task_type == 'classification' %}active{% else %}disabled{% endif %}" data-model-value="random_forest_classifier" {% if task_type != 'classification' %}disabled{% endif %}>
+              <strong class="model-choice-name">RandomForestClassifier</strong>
+              <div class="model-choice-desc">Averaged decision tree consensus.</div>
+            </button>
+          </td>
+          <td class="model-selection-table-cell">
+            <button type="button" class="model-choice-btn {% if task_type == 'regression' %}active{% else %}disabled{% endif %}" data-model-value="random_forest_regressor" {% if task_type != 'regression' %}disabled{% endif %}>
+              <strong class="model-choice-name">RandomForestRegressor</strong>
+              <div class="model-choice-desc">Averaged continuous regression trees.</div>
+            </button>
+          </td>
+          <td class="model-selection-table-cell-center-green">No</td>
+        </tr>
+        <!-- Row 5: Naive Bayes -->
+        <tr class="model-selection-table-row">
+          <td class="model-selection-table-cell-alg">
+            Gaussian Naive Bayes
+            <div class="model-selection-table-cell-desc">Probabilistic classifier based on feature independence.</div>
+          </td>
+          <td class="model-selection-table-cell">
+            <button type="button" class="model-choice-btn {% if task_type == 'classification' %}active{% else %}disabled{% endif %}" data-model-value="gaussian_nb" {% if task_type != 'classification' %}disabled{% endif %}>
+              <strong class="model-choice-name">GaussianNB</strong>
+              <div class="model-choice-desc">Fast classification reference.</div>
+            </button>
+          </td>
+          <td class="model-selection-table-cell">
+            <button type="button" class="model-choice-btn disabled" disabled>
+              <strong class="model-choice-name disabled-text">Not applicable</strong>
+              <div class="model-choice-desc disabled-text">(Classification only)</div>
+            </button>
+          </td>
+          <td class="model-selection-table-cell-center-green">No</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Hidden model input for state tracking -->
+  <input type="hidden" id="manual-model-input" value="{% if training_result %}{{ training_result.model_value }}{% endif %}" />
+</div>

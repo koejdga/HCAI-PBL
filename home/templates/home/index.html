@@ -24,7 +24,8 @@
         <ul class="student-list">
             {% for student in students %}
                 <li class="student-item">
-                    <span class="student-name">{{ student.name }}</span> –
+                    <span class="student-name">{{ student.name }}</span>
+                    <span class="student-sep">–</span>
                     <span class="student-id">{{ student.matriculation }}</span>
                 </li>
             {% empty %}
