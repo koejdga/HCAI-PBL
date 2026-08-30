@@ -611,18 +611,23 @@
   function syncFeatureOptionsWithPredictionTarget(targetValue) {
     document.querySelectorAll(".feature-option").forEach(function (option) {
       const checkbox = option.querySelector("input[type='checkbox']");
-      const isSelectedTarget = option.getAttribute("data-feature-name") === targetValue;
-
-      option.style.display = isSelectedTarget ? "none" : "";
       if (!checkbox) return;
 
+      const featureName = option.getAttribute("data-feature-name");
+      const isSelectedTarget = featureName === targetValue;
+      const wasPreviousTarget = checkbox.dataset.wasPredictionTarget === "true";
+
+      option.style.display = isSelectedTarget ? "none" : "";
       checkbox.disabled = isSelectedTarget;
+
       if (isSelectedTarget) {
         checkbox.checked = false;
-      } else if (checkbox.dataset.wasPredictionTarget === "true") {
-        checkbox.checked = true;
+        checkbox.dataset.wasPredictionTarget = "true";
+      } else if (wasPreviousTarget) {
+        const isLikelyId = option.getAttribute("data-likely-id") === "true";
+        checkbox.checked = !isLikelyId;
+        checkbox.dataset.wasPredictionTarget = "false";
       }
-      checkbox.dataset.wasPredictionTarget = isSelectedTarget ? "true" : "false";
     });
   }
 
@@ -826,6 +831,11 @@
             initializeButtons();
             initializeManualModelExplorer();
             
+            // Re-apply content menu collapsed/expanded state if defined
+            if (typeof applySectionNavState === "function") {
+              applySectionNavState();
+            }
+            
             // Re-initialize scatter feature options if present in new DOM
             const xFeatureSelect = document.getElementById("x_feature");
             const yFeatureSelect = document.getElementById("y_feature");
@@ -952,10 +962,21 @@
     if (container && containerVisible) {
       container.style.display = "block";
     }
+
+    const trainBtn = document.getElementById("manual-train-btn");
+    if (trainBtn) {
+      if (modelVal) {
+        trainBtn.disabled = false;
+      } else {
+        trainBtn.disabled = true;
+      }
+    }
   }
 
   function initializeManualModelExplorer() {
     const modelInput = document.getElementById("manual-model-input");
+    const trainBtn = document.getElementById("manual-train-btn");
+    const container = document.getElementById("hyperparameters-container");
     if (modelInput && modelInput.value) {
       const modelVal = modelInput.value;
       const card = document.querySelector(`.model-choice-btn[data-model-value="${modelVal}"]`);
@@ -972,6 +993,10 @@
       
       // Update parameter fields (keep checkbox values if already checked)
       updateHyperparametersGrid(modelVal, false);
+      if (trainBtn) trainBtn.disabled = false;
+    } else {
+      if (trainBtn) trainBtn.disabled = true;
+      if (container) container.style.display = "none";
     }
   }
 

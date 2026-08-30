@@ -670,7 +670,7 @@ button:disabled {
   display: block;
   padding: 8px 10px;
   color: var(--tuhh-navy);
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.2;
   text-decoration: none;
 }

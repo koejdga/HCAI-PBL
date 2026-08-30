@@ -303,7 +303,7 @@
 
 /* Audit Table Styling */
 .audit-table-container {
-  margin: 20px 0 24px 0;
+  margin: -20px 0 24px 0;
   overflow-x: auto;
 }
 
@@ -566,6 +566,10 @@
   margin-bottom: 16px;
 }
 
+.no-missing-values-note {
+  margin: 0;
+}
+
 .drop-info-text-inline {
   display: block;
   margin-top: 6px;
@@ -688,7 +692,6 @@
   justify-content: space-between;
   align-items: center;
   margin-top: 20px;
-  margin-bottom: 12px;
   flex-wrap: wrap;
   gap: 12px;
 }
@@ -904,12 +907,6 @@
   color: #718096;
 }
 
-.hyperparameters-container {
-  border-top: 1px dashed var(--border);
-  padding-top: 20px;
-  margin-bottom: 30px;
-}
-
 .hyperparameters-subheading {
   margin-top: 0;
   margin-bottom: 12px;
@@ -921,6 +918,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  margin-top: 20px;
 }
 
 .hyperparameters-sweeps-fields {
@@ -957,6 +955,15 @@
   cursor: pointer;
   font-size: 15px;
   box-shadow: 0 4px 6px rgba(0, 141, 162, 0.2);
+  margin-bottom: 20px;
+}
+
+.train-model-submit-btn:disabled {
+  background-color: #99d6df;
+  color: var(--p1-surface-blue);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .training-result-v2-container {
@@ -970,6 +977,7 @@
 .training-result-v2-heading {
   font-size: 14.5px;
   color: var(--p1-navy);
+  margin-top: 0;
   margin-bottom: 16px;
   font-weight: bold;
 }

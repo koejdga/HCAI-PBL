@@ -30,6 +30,7 @@ from .core.visualization import (
 )
 from .core.training import (
     TASK_OPTIONS,
+    MODEL_NAME_MAPPING,
     calculate_average_target,
     get_effective_task_type,
     training_model_options,
@@ -40,6 +41,15 @@ from .core.training import (
     build_baseline_comparison,
     format_metric_value,
 )
+
+EXAMPLE_DATASET_TARGETS = {
+    "iris.csv": "variety",
+    "diabetes.csv": "Outcome",
+    "breast_cancer.csv": "diagnosis",
+    "wine.csv": "Wine",
+    "housing.csv": "median_house_value",
+    "auto-mpg.csv": "mpg",
+}
 
 def index(request):
     return upload_csv(request)
@@ -366,6 +376,10 @@ def upload_csv(request):
         if not training_result:
             return HttpResponse("No trained model result found in session.", status=404)
         
+        if "model" not in training_result or not training_result["model"]:
+            model_val = training_result.get("model_value")
+            training_result["model"] = MODEL_NAME_MAPPING.get(model_val, model_val)
+        
         if export_format in ["joblib", "pkl"]:
             file_key = "joblib_path" if export_format == "joblib" else "pkl_path"
             file_path = training_result.get(file_key)
@@ -434,6 +448,11 @@ def upload_csv(request):
                     with open(file_path, "rb") as file:
                         dataset = parse_csv_dataset(file)
                     dataset["name"] = dataset_name
+                    
+                    target_col = EXAMPLE_DATASET_TARGETS.get(dataset_name)
+                    if target_col and target_col in dataset["column_names"]:
+                        dataset = configure_dataset(dataset, target=target_col)
+                    
                     request.session["project1_dataset"] = dataset
                     reset_project1_outputs(request)
 
@@ -524,6 +543,9 @@ def upload_csv(request):
                 result = calculate_average_target(dataset)
                 training_result = request.session.get("project1_training_result")
                 if training_result:
+                    if "model" not in training_result or not training_result["model"]:
+                        model_val = training_result.get("model_value")
+                        training_result["model"] = MODEL_NAME_MAPPING.get(model_val, model_val)
                     selected_model = training_result.get("model_value")
                     test_size_percent = training_result.get(
                         "test_size_percent", test_size_percent
@@ -796,6 +818,9 @@ def upload_csv(request):
             result = calculate_average_target(dataset)
             training_result = request.session.get("project1_training_result")
             if training_result:
+                if "model" not in training_result or not training_result["model"]:
+                    model_val = training_result.get("model_value")
+                    training_result["model"] = MODEL_NAME_MAPPING.get(model_val, model_val)
                 selected_model = training_result.get("model_value")
                 test_size_percent = training_result.get(
                     "test_size_percent", test_size_percent

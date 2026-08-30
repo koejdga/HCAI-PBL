@@ -25,6 +25,20 @@ TASK_OPTIONS = [
     {"value": "regression", "label": "Regression"},
 ]
 
+MODEL_NAME_MAPPING = {
+    "logistic_regression": "Logistic Regression",
+    "linear_regression": "Linear Regression",
+    "ridge_regression": "Ridge Regression",
+    "lasso_regression": "Lasso Regression",
+    "knn_classifier": "KNeighborsClassifier",
+    "knn_regressor": "KNeighborsRegressor",
+    "svc": "SVC",
+    "svr": "SVR",
+    "random_forest_classifier": "RandomForestClassifier",
+    "random_forest_regressor": "RandomForestRegressor",
+    "gaussian_nb": "GaussianNB",
+}
+
 def calculate_average_target(dataset):
     target = dataset["target"]
     target_column = dataset["columns"][target]
@@ -489,6 +503,7 @@ def train_model(dataset, model_name, test_size_percent, selected_params=None, en
         pickle.dump(best_pipeline, f)
 
     return {
+        "model": MODEL_NAME_MAPPING.get(model_name, model_name),
         "model_value": model_name,
         "test_size_percent": test_size_percent,
         "enable_poly": enable_poly,

@@ -1,14 +1,14 @@
-<!-- Hidden container that expands on click of Select model -->
-<div id="hyperparameters-container" class="hyperparameters-container" style="{% if training_result %}display: block;{% else %}display: none;{% endif %}">
-  <h4 class="hyperparameters-subheading">Hyperparameters & Feature Options</h4>
-  
-  <form method="post" class="manual-train-form">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="train_model" />
-    <input type="hidden" name="test_size" id="manual-test-size-input" value="{{ test_size_percent|default:'20' }}" />
-    <input type="hidden" name="model" id="manual-model-hidden-input" value="{% if training_result %}{{ training_result.model_value }}{% endif %}" />
-    <input type="hidden" id="manual-selected-param-input" value="{% if training_result.selected_params %}{{ training_result.selected_params.0 }}{% endif %}" />
+<form method="post" class="manual-train-form">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="train_model" />
+  <input type="hidden" name="test_size" id="manual-test-size-input" value="{{ test_size_percent|default:'20' }}" />
+  <input type="hidden" name="model" id="manual-model-hidden-input" value="{% if training_result %}{{ training_result.model_value }}{% endif %}" />
+  <input type="hidden" id="manual-selected-param-input" value="{% if training_result.selected_params %}{{ training_result.selected_params.0 }}{% endif %}" />
 
+  <!-- Hidden container that expands on click of Select model -->
+  <div id="hyperparameters-container" class="hyperparameters-container" style="{% if training_result %}display: block;{% else %}display: none;{% endif %}">
+    <h4 class="hyperparameters-subheading">Hyperparameters & Feature Options</h4>
+    
     <!-- Sweeps parameter select dropdown -->
     <div id="hyperparameters-sweeps-fields" class="hyperparameters-sweeps-fields">
       <!-- Dynamically populated by JavaScript based on model -->
@@ -21,19 +21,19 @@
         Enable Polynomial & Interaction Features (Degree 2)
       </label>
     </div>
+  </div>
 
-    <!-- Train a model button -->
-    <div class="train-btn-row">
-      <button type="submit" id="manual-train-btn" class="train-model-submit-btn">
-        Train a model
+  <!-- Train a model button -->
+  <div class="train-btn-row">
+    <button type="submit" id="manual-train-btn" class="train-model-submit-btn" {% if not training_result %}disabled{% endif %}>
+      Train a model
+    </button>
+    <div id="manual-loading-message" role="status" aria-live="polite" style="display: none;">
+      <span class="inline-loading-spinner" aria-hidden="true"></span>
+      <span>Training model...</span>
+      <button type="button" class="manual-cancel-button" aria-label="Cancel training">
+        Cancel
       </button>
-      <div id="manual-loading-message" role="status" aria-live="polite" style="display: none;">
-        <span class="inline-loading-spinner" aria-hidden="true"></span>
-        <span>Training model...</span>
-        <button type="button" class="manual-cancel-button" aria-label="Cancel training">
-          Cancel
-        </button>
-      </div>
     </div>
-  </form>
-</div>
+  </div>
+</form>

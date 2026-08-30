@@ -34,8 +34,7 @@
 
   <div class="feature-option-grid">
     {% for column in column_config_options|dictsortreversed:"abs_correlation_r" %}
-    {% if not column.is_target %}
-    <label class="feature-option {% if column.likely_id or column.suggest_exclude %}feature-option-warning{% endif %}" data-relevance="{{ column.abs_correlation_r }}" data-order="{{ column.dataset_order }}">
+    <label class="feature-option {% if column.likely_id or column.suggest_exclude %}feature-option-warning{% endif %}" data-feature-name="{{ column.name }}" data-likely-id="{% if column.likely_id %}true{% else %}false{% endif %}" data-relevance="{{ column.abs_correlation_r }}" data-order="{{ column.dataset_order }}">
       <input
         type="checkbox"
         name="features"
@@ -55,7 +54,6 @@
         </small>
       </span>
     </label>
-    {% endif %}
     {% endfor %}
   </div>
   
