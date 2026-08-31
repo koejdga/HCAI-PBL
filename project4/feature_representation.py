@@ -1,17 +1,35 @@
 import pandas as pd
 import numpy as np
+from dataclasses import dataclass
 
-def print_missing_values(df):
+
+@dataclass
+class MovieFeatureMatrix:
+    """
+    Numeric movie feature matrix plus the metadata needed by the study UI.
+    """
+    movies: list
+    features: pd.DataFrame
+    feature_columns: list
+    feature_labels: dict
+    assumptions: list
+    warnings: list
+
+
+def print_missing_values(df, verbose=True):
     """
     Prints the number of missing values for each column in the dataframe.
     """
+    if not verbose:
+        return
     print("\n--- Missing Values Per Column in Dataset ---")
     missing_counts = df.isnull().sum()
     for col, count in missing_counts.items():
         print(f"  {col}: {count}")
     print("--------------------------------------------")
 
-def get_top_genres(df, top_n=20):
+
+def get_top_genres(df, top_n=20, verbose=True):
     """
     Extracts all genres, counts their frequencies, prints top N and discarded ones,
     and returns a list of the top N genres.
@@ -28,18 +46,20 @@ def get_top_genres(df, top_n=20):
     top_genres = list(genre_counts.head(top_n).index)
     discarded_genres = list(genre_counts.tail(max(0, len(genre_counts) - top_n)).index)
     
-    print(f"\n--- Genre Processing (Top {top_n}) ---")
-    print(f"Top {len(top_genres)} Genres Retained:")
-    for idx, genre in enumerate(top_genres, 1):
-        print(f"  {idx}. {genre} (count: {genre_counts[genre]})")
-    print(f"\nDiscarded Genres (grouped into 'feature_genre_other'):")
-    for idx, genre in enumerate(discarded_genres, 1):
-        print(f"  {idx}. {genre} (count: {genre_counts[genre]})")
-    print("-------------------------------------")
+    if verbose:
+        print(f"\n--- Genre Processing (Top {top_n}) ---")
+        print(f"Top {len(top_genres)} Genres Retained:")
+        for idx, genre in enumerate(top_genres, 1):
+            print(f"  {idx}. {genre} (count: {genre_counts[genre]})")
+        print(f"\nDiscarded Genres (grouped into 'feature_genre_other'):")
+        for idx, genre in enumerate(discarded_genres, 1):
+            print(f"  {idx}. {genre} (count: {genre_counts[genre]})")
+        print("-------------------------------------")
     
     return top_genres
 
-def get_top_directors(df, top_n=50):
+
+def get_top_directors(df, top_n=50, verbose=True):
     """
     Extracts director counts, prints the top N, and returns a list of top N directors.
     """
@@ -48,12 +68,13 @@ def get_top_directors(df, top_n=50):
     
     top_directors = list(director_counts.head(top_n).index)
     
-    print(f"\n--- Director Processing (Top {top_n}) ---")
-    print(f"Top {len(top_directors)} Directors Retained (sample of top 10):")
-    for idx, director in enumerate(top_directors[:10], 1):
-        print(f"  {idx}. {director} (count: {director_counts[director]})")
-    print(f"Total directors retained: {len(top_directors)}")
-    print("-----------------------------------------")
+    if verbose:
+        print(f"\n--- Director Processing (Top {top_n}) ---")
+        print(f"Top {len(top_directors)} Directors Retained (sample of top 10):")
+        for idx, director in enumerate(top_directors[:10], 1):
+            print(f"  {idx}. {director} (count: {director_counts[director]})")
+        print(f"Total directors retained: {len(top_directors)}")
+        print("-----------------------------------------")
     
     return top_directors
 
@@ -234,7 +255,7 @@ def transform_row(row, top_genres, top_directors, scaler_params, year_encoding='
     
     return features
 
-def process_dataset(df, year_encoding='minmax', top_n_genres=21, top_n_directors=50):
+def process_dataset(df, year_encoding='minmax', top_n_genres=21, top_n_directors=50, verbose=True):
     """
     Takes the full original dataset and returns the full modified dataset containing features.
     The original dataset is not modified.
@@ -249,11 +270,11 @@ def process_dataset(df, year_encoding='minmax', top_n_genres=21, top_n_directors
     - A modified DataFrame containing only the movie identifier and the feature representation columns.
     """
     # 1. Print missing values for the original dataset
-    print_missing_values(df)
+    print_missing_values(df, verbose=verbose)
     
     # 2. Get top genres and directors
-    top_genres = get_top_genres(df, top_n=top_n_genres)
-    top_directors = get_top_directors(df, top_n=top_n_directors)
+    top_genres = get_top_genres(df, top_n=top_n_genres, verbose=verbose)
+    top_directors = get_top_directors(df, top_n=top_n_directors, verbose=verbose)
     
     # 3. Compute scaling and imputation parameters
     scaler_params = compute_scaler_params(df)
@@ -272,6 +293,142 @@ def process_dataset(df, year_encoding='minmax', top_n_genres=21, top_n_directors
         
     features_df = pd.DataFrame(feature_rows)
     return features_df
+
+
+def clean_movie_title(value):
+    """
+    Normalizes titles from the IMDB CSV so they are stable session identifiers.
+    """
+    if pd.isnull(value):
+        return ""
+    return str(value).replace("\xa0", " ").strip()
+
+
+def get_feature_columns(features_df):
+    """
+    Returns the numeric columns used in U(x) = w^T x.
+    """
+    return [col for col in features_df.columns if col.startswith("feature_")]
+
+
+def humanize_feature_name(feature_name):
+    """
+    Converts backend feature names into short labels for explanations.
+    """
+    replacements = {
+        "feature_year_normalized": "release year",
+        "feature_imdb_score_normalized": "IMDB score",
+        "feature_duration_normalized": "duration",
+        "feature_num_voted_users_normalized": "viewer votes",
+        "feature_movie_facebook_likes_normalized": "movie likes",
+        "feature_cast_total_facebook_likes_normalized": "cast popularity",
+        "feature_is_usa": "USA production",
+        "feature_is_english": "English language",
+        "feature_interact_indie_gem": "well-rated niche movie",
+        "feature_interact_blockbuster": "well-rated popular movie",
+    }
+    if feature_name in replacements:
+        return replacements[feature_name]
+    if feature_name.startswith("feature_genre_"):
+        return f"genre: {feature_name.removeprefix('feature_genre_').replace('_', ' ')}"
+    if feature_name.startswith("feature_director_"):
+        return f"director: {feature_name.removeprefix('feature_director_').replace('_', ' ')}"
+    if feature_name.startswith("feature_rating_"):
+        return f"content rating: {feature_name.removeprefix('feature_rating_').replace('_', ' ')}"
+    if feature_name.startswith("feature_era_"):
+        return f"era: {feature_name.removeprefix('feature_era_').replace('_', ' ')}"
+    return feature_name.removeprefix("feature_").replace("_", " ")
+
+
+def coerce_numeric_features(features_df, feature_columns=None):
+    """
+    Ensures all model features are finite numeric values.
+    """
+    if feature_columns is None:
+        feature_columns = get_feature_columns(features_df)
+
+    numeric_features = features_df.copy()
+    numeric_features[feature_columns] = numeric_features[feature_columns].apply(pd.to_numeric, errors="coerce")
+    numeric_features[feature_columns] = numeric_features[feature_columns].replace([np.inf, -np.inf], np.nan)
+    numeric_features[feature_columns] = numeric_features[feature_columns].fillna(0.0)
+    return numeric_features
+
+
+def movie_metadata_from_row(row, movie_id):
+    """
+    Builds the small movie object shared by the study UI and recommendation output.
+    """
+    genres = []
+    if not pd.isnull(row.get("genres")):
+        genres = [genre.strip() for genre in str(row.get("genres")).split("|") if genre.strip()]
+
+    return {
+        "movie_id": movie_id,
+        "title": movie_id,
+        "year": int(row["title_year"]) if not pd.isnull(row.get("title_year")) else "Unknown Year",
+        "director": str(row["director_name"]).strip() if not pd.isnull(row.get("director_name")) else "Unknown Director",
+        "genres": genres,
+        "imdb_score": float(row["imdb_score"]) if not pd.isnull(row.get("imdb_score")) else 0.0,
+        "duration": int(row["duration"]) if not pd.isnull(row.get("duration")) else "Unknown Duration",
+    }
+
+
+def build_movie_feature_matrix(df, year_encoding="minmax", top_n_genres=21, top_n_directors=50):
+    """
+    Cleans the IMDB movie metadata and returns numeric vectors plus UI metadata.
+    """
+    source_count = len(df)
+    working_df = df.copy()
+    working_df["movie_id"] = working_df["movie_title"].apply(clean_movie_title)
+    working_df = working_df[working_df["movie_id"] != ""]
+    after_title_drop = len(working_df)
+    working_df = working_df.drop_duplicates(subset=["movie_id"], keep="first")
+
+    features_df = process_dataset(
+        working_df,
+        year_encoding=year_encoding,
+        top_n_genres=top_n_genres,
+        top_n_directors=top_n_directors,
+        verbose=False,
+    )
+    features_df["movie_id"] = working_df["movie_id"].values
+    features_df["movie_title"] = working_df["movie_id"].values
+
+    feature_columns = get_feature_columns(features_df)
+    features_df = coerce_numeric_features(features_df, feature_columns)
+
+    movies = [
+        movie_metadata_from_row(row, movie_id)
+        for movie_id, (_, row) in zip(features_df["movie_id"].tolist(), working_df.iterrows())
+    ]
+
+    warnings = []
+    missing_title_count = source_count - after_title_drop
+    duplicate_count = after_title_drop - len(working_df)
+    if missing_title_count:
+        warnings.append(f"{missing_title_count} rows without movie titles were removed.")
+    if duplicate_count:
+        warnings.append(f"{duplicate_count} duplicate movie titles were removed.")
+    if not feature_columns:
+        warnings.append("No usable numeric feature columns were extracted.")
+
+    assumptions = [
+        "Movie titles are used as session-local identifiers.",
+        "Missing numeric values are median-imputed before normalization.",
+        "High-cardinality genres and directors are represented with top categories plus an 'other' fallback.",
+        "Feature vectors are content-based; no personal data or historic user ratings are stored.",
+    ]
+
+    feature_labels = {name: humanize_feature_name(name) for name in feature_columns}
+
+    return MovieFeatureMatrix(
+        movies=movies,
+        features=features_df,
+        feature_columns=feature_columns,
+        feature_labels=feature_labels,
+        assumptions=assumptions,
+        warnings=warnings,
+    )
 
 if __name__ == "__main__":
     # If run as a script, process the local movie_metadata.csv and print basic info
