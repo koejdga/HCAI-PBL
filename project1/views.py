@@ -1292,6 +1292,7 @@ def upload_csv(request):
     dataset = None
     result = None
     error = None
+    upload_error = None
     duplicate_message = None
     overview_visualizations = []
     feature_target_plots = []
@@ -1333,6 +1334,8 @@ def upload_csv(request):
                     overview_visualizations = save_overview_visualizations(dataset)
                 except Exception as e:
                     error = f"Error processing file: {str(e)}"
+            else:
+                upload_error = form.errors.get("file", ["Please upload a CSV file."])[0]
         else:
             form = CSVUploadForm()
             dataset = ensure_dataset_configuration(
@@ -1594,6 +1597,7 @@ def upload_csv(request):
             "form": form,
             "result": result,
             "error": error,
+            "upload_error": upload_error,
             "duplicate_message": duplicate_message,
             "overview_visualizations": overview_visualizations,
             "feature_target_plots": feature_target_plots,

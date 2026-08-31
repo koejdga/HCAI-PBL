@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        @page {
+            size: a4 portrait;
+            margin: 1cm;
+        }
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            color: #172033;
+            font-size: 9.5pt;
+            line-height: 1.4;
+        }
+        h1 {
+            color: #0c243c;
+            font-size: 16pt;
+            border-bottom: 2px solid #00c1d4;
+            padding-bottom: 4px;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #0c243c;
+            font-size: 13pt;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #d7e3ec;
+            padding-bottom: 2px;
+        }
+        h3 {
+            color: #0c243c;
+            font-size: 11pt;
+            margin-top: 12px;
+            margin-bottom: 6px;
+        }
+        h4 {
+            color: #0c243c;
+            font-size: 10pt;
+            margin-top: 10px;
+            margin-bottom: 4px;
+        }
+        p {
+            margin-top: 0;
+            margin-bottom: 8px;
+            color: #333333;
+        }
+        .dataset-summary {
+            background-color: #f8f9fc;
+            padding: 8px 12px;
+            border: 1px solid #d7e3ec;
+            border-left: 4px solid #00c1d4;
+            margin-bottom: 15px;
+            font-size: 9pt;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 6px;
+            margin-bottom: 15px;
+        }
+        th {
+            background-color: #0c243c;
+            color: #ffffff;
+            font-weight: bold;
+            padding: 6px 8px;
+            text-align: left;
+            font-size: 9pt;
+        }
+        td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #d7e3ec;
+            text-align: left;
+            font-size: 8.5pt;
+        }
+        .total-row {
+            background-color: #e6f2ff;
+            font-weight: bold;
+        }
+        .light-frame {
+            background-color: #fafafa;
+            border: 1px solid #d7e3ec;
+            padding: 10px 12px;
+            margin-bottom: 15px;
+        }
+        .plot-container {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .plot-container img {
+            max-width: 80%;
+            height: auto;
+        }
+        .plot-grid {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        .plot-grid td {
+            border: none;
+            padding: 4px;
+            text-align: center;
+            width: 50%;
+        }
+        .plot-grid img {
+            width: 100%;
+            max-width: 250px;
+            height: auto;
+        }
+        pdftoc {
+            color: #0c243c;
+        }
+        .main-title {
+            color: #0c243c;
+            font-size: 20pt;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #00c1d4;
+            padding-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-title">Active Learning for Learning-to-Defer</div>
+
+    <div class="dataset-summary">
+        <strong>Source:</strong> {{ dataset_source }} | 
+        <strong>Training subset:</strong> {{ train_rows }} of {{ full_train_rows }} | 
+        <strong>Test subset:</strong> {{ test_rows }} of {{ full_test_rows }} |
+        <strong>Deferral rate:</strong> {{ defer_rate_percent }}%
+    </div>
+
+    <h2 style="color: #0c243c; border-bottom: 2px solid #00c1d4; padding-bottom: 4px; margin-top: 15px; margin-bottom: 10px;">Table of Contents</h2>
+    
+    <p style="margin-bottom: 6px;"><a href="#sec-baseline" style="color: #0c243c; text-decoration: none; font-weight: bold;">1. Baseline Classifier</a></p>
+    
+    <p style="margin-bottom: 6px;"><a href="#sec-architecture" style="color: #0c243c; text-decoration: none; font-weight: bold;">2. Architecture Explanation and Justification</a></p>
+    
+    {% for cfg in selected_configs %}
+    <p style="margin-top: 10px; margin-bottom: 4px; font-weight: bold; color: #0c243c;">
+        <a href="#sec-defer_{{ forloop.counter }}" style="color: #0c243c; text-decoration: none; font-weight: bold;">{{ forloop.counter|add:2 }}. Config {{ forloop.counter }}: {{ cfg.label }}</a>
+    </p>
+    <p style="margin-top: 0; margin-bottom: 2px; padding-left: 20px; font-size: 9pt;">
+        <a href="#sec-defer_{{ forloop.counter }}" style="color: #4f5d75; text-decoration: none; font-weight: bold;">&bull; {{ forloop.counter|add:2 }}.1. Learning to Defer</a>
+    </p>
+    <p style="margin-top: 0; margin-bottom: 2px; padding-left: 40px; font-size: 8.5pt;">
+        <a href="#sec-expert-sim_{{ forloop.counter }}" style="color: #6c7a89; text-decoration: none;">&bull; {{ forloop.counter|add:2 }}.1.1. Simulated Expert(s)</a>
+    </p>
+    <p style="margin-top: 0; margin-bottom: 2px; padding-left: 40px; font-size: 8.5pt;">
+        <a href="#sec-policy-comp_{{ forloop.counter }}" style="color: #6c7a89; text-decoration: none;">&bull; {{ forloop.counter|add:2 }}.1.2. Policy Comparison Table</a>
+    </p>
+    <p style="margin-top: 0; margin-bottom: 2px; padding-left: 40px; font-size: 8.5pt;">
+        <a href="#sec-query-alloc_{{ forloop.counter }}" style="color: #6c7a89; text-decoration: none;">&bull; {{ forloop.counter|add:2 }}.1.3. Query Allocation by Class and Expert</a>
+    </p>
+    <p style="margin-top: 0; margin-bottom: 2px; padding-left: 40px; font-size: 8.5pt;">
+        <a href="#sec-plots_{{ forloop.counter }}" style="color: #6c7a89; text-decoration: none;">&bull; {{ forloop.counter|add:2 }}.1.4. Policy Performance Visualizations</a>
+    </p>
+    
+    <p style="margin-top: 4px; margin-bottom: 2px; padding-left: 20px; font-size: 9pt;">
+        <a href="#sec-active_{{ forloop.counter }}" style="color: #4f5d75; text-decoration: none; font-weight: bold;">&bull; {{ forloop.counter|add:2 }}.2. Active Learning</a>
+    </p>
+    {% for strat in cfg.active_learning_strategies %}
+    <p style="margin-top: 0; margin-bottom: 2px; padding-left: 40px; font-size: 8.5pt;">
+        <a href="#sec-active-queries_{{ forloop.parentloop.counter }}_{{ strat.key }}" style="color: #6c7a89; text-decoration: none;">&bull; {{ forloop.parentloop.counter|add:2 }}.2.{{ forloop.counter }}. Expert Queries ({{ strat.name }} Strategy)</a>
+    </p>
+    {% endfor %}
+    <p style="margin-top: 0; margin-bottom: 2px; padding-left: 40px; font-size: 8.5pt;">
+        <a href="#sec-strategy-comp_{{ forloop.counter }}" style="color: #6c7a89; text-decoration: none;">&bull; {{ forloop.counter|add:2 }}.2.{{ cfg.active_learning_strategies|length|add:1 }}. Query Strategy Comparison</a>
+    </p>
+    {% endfor %}
+    
+    <p style="margin-top: 10px;"><a href="#sec-examples" style="color: #0c243c; text-decoration: none; font-weight: bold;">{{ selected_configs|length|add:3 }}. Sample Test Examples</a></p>
+
+    <pdf:nextpage />
+
+    <!-- Section 1: Baseline Classifier -->
+    <a name="sec-baseline"></a>
+    <h1>1. Baseline Classifier</h1>
+    <p>
+      The baseline uses all available labels in the selected training subset. It
+      represents the standard automated classifier that the later human-AI team
+      should aim to match or improve.
+    </p>
+    <p>Uses TF-IDF features and a linear SVM classifier.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Class Name</th>
+          <th>Accuracy</th>
+          <th>Correct / Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in baseline_class_rows %}
+        <tr {% if row.is_total %}class="total-row"{% endif %}>
+          <td>{{ row.class_name }}</td>
+          <td>{{ row.accuracy_percent }}%</td>
+          <td>{{ row.correct }} / {{ row.total }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Section 2: Architecture Explanation and Justification -->
+    <pdf:nextpage />
+    <a name="sec-architecture"></a>
+    <h1>2. Architecture Explanation and Justification</h1>
+    
+    <h3>2.1. Learning to Defer Methods</h3>
+    <p>
+      We compare two main families of Learning to Defer policies in our experiments, each containing specific decision-routing methods:
+    </p>
+    
+    <div style="margin-bottom: 12px; border-bottom: 1px dashed #d7e3ec; padding-bottom: 8px;">
+      <strong>1. Post-Hoc Routing (Frozen SVM)</strong>
+      <p style="margin-top: 4px; font-size: 9pt; color: #444;">
+        <strong>Setup:</strong> A baseline SVM classifier is pre-trained on a standard classification task and its parameters are frozen. A routing model is trained post-hoc to estimate whether the baseline classifier is likely to be correct compared to the expert's learned competence profile for a given sample.
+      </p>
+      <p style="margin-top: 2px; font-size: 9pt; color: #444;">
+        <strong>Pros:</strong> Extremely easy to deploy in production since the core classification model does not need to be retrained or modified.
+      </p>
+      <p style="margin-top: 2px; font-size: 9pt; color: #444;">
+        <strong>Cons:</strong> Suboptimal compared to joint training because the classifier cannot adjust its predictions to complement the expert (i.e., it does not co-adapt).
+      </p>
+      
+      <div style="margin-left: 15px; margin-top: 8px; font-size: 8.5pt;">
+        <strong>&bull; Confidence threshold Policy:</strong>
+        <p style="margin: 2px 0; color: #555;">
+          <em>Description:</em> Compares the classifier's predicted margin (difference between top class scores) against a pre-selected confidence threshold. If confidence falls below this threshold, the decision is routed to the expert.
+        </p>
+        <p style="margin: 2px 0; color: #555;">
+          <em>Pros/Cons:</em> Simple and requires no active learning queries, but routes blindly without considering the expert's competence.
+        </p>
+        
+        <strong>&bull; Competence-aware Policy:</strong>
+        <p style="margin: 2px 0; color: #555;">
+          <em>Description:</em> Complements the classifier confidence by comparing it directly to the expert's estimated competence profile (learned class-by-class during the active query phase).
+        </p>
+        <p style="margin: 2px 0; color: #555;">
+          <em>Pros/Cons:</em> Highly intelligent routing; prevents harmful deferrals to incompetent experts, but relies heavily on accurate competence estimates.
+        </p>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 12px;">
+      <strong>2. Learning to Defer (Joint Training) - L2D</strong>
+      <p style="margin-top: 4px; font-size: 9pt; color: #444;">
+        <strong>Setup:</strong> The classifier and the router are trained jointly from scratch. The loss function is modified to optimize the human-AI system as a whole, encouraging the classifier to specialize in cases where the expert is weak or unavailable, while delegating to the expert where they excel.
+      </p>
+      <p style="margin-top: 2px; font-size: 9pt; color: #444;">
+        <strong>Pros:</strong> Yields higher global accuracy because the classifier and router co-adapt.
+      </p>
+      <p style="margin-top: 2px; font-size: 9pt; color: #444;">
+        <strong>Cons:</strong> Requires full access to all expert labels for the training set during training, which is computationally expensive and logistically difficult. It also requires rebuilding/retraining the entire system from scratch.
+      </p>
+      
+      <div style="margin-left: 15px; margin-top: 8px; font-size: 8.5pt;">
+        <strong>&bull; L2D (with linear model) Policy:</strong>
+        <p style="margin: 2px 0; color: #555;">
+          <em>Description:</em> A linear classifier and a linear routing model are jointly trained to minimize a surrogate loss function designed to represent team error.
+        </p>
+        <p style="margin: 2px 0; color: #555;">
+          <em>Pros/Cons:</em> Fast training and highly interpretable decision boundaries, but limited capacity to represent complex non-linear classification spaces.
+        </p>
+        
+        <strong>&bull; L2D (with neural network) Policy:</strong>
+        <p style="margin: 2px 0; color: #555;">
+          <em>Description:</em> A multi-layer neural network classifier and a neural routing network are jointly optimized.
+        </p>
+        <p style="margin: 2px 0; color: #555;">
+          <em>Pros/Cons:</em> Capable of modeling highly complex, non-linear classification bounds and human decision regions, but computationally expensive and prone to overfitting.
+        </p>
+      </div>
+    </div>
+
+    <pdf:nextpage />
+    <h3>2.2. Active Learning Workflow</h3>
+    <p>
+      Active learning optimizes the collection of expert labels during the training phase. Rather than querying
+      uniformly at random, active strategies identify where the classifier is uncertain or where the expert
+      demonstrates high competence.
+    </p>
+    <p>
+      In this system, <strong>Active Learning is used to discover expert competence profiles rather than to
+      discover missing dataset labels</strong>.
+    </p>
+    
+    <div class="light-frame">
+      <strong>Training Phase:</strong> The baseline model evaluations guide the selection of a limited budget
+      (<em>N</em>) of text queries. By querying the expert on these strategic examples, the system learns their
+      topic-specific competence profile.<br/><br/>
+      <strong>Testing Phase:</strong> Active querying stops. The system passes the baseline model weights and the
+      learned competence profile to a competence-aware deferral policy. At test time, the system compares its own
+      confidence against the expert's learned competence to decide whether to predict internally or defer.
+    </div>
+
+    <div class="plot-container">
+      <img src="{{ training_diagram_path }}" alt="Baseline Training & AL Competence Discovery" style="width: 100%; max-width: 480px;" />
+      <p style="font-size: 8.5pt; font-style: italic; color: #555; margin-top: 4px;">Figure 1: Baseline Training & AL Competence Discovery Workflow</p>
+    </div>
+
+    <pdf:nextpage />
+    <div class="plot-container">
+      <img src="{{ testing_diagram_path }}" alt="Competence-Aware Inference / Test Time" style="width: 90%; max-width: 420px;" />
+      <p style="font-size: 8.5pt; font-style: italic; color: #555; margin-top: 4px;">Figure 2: Competence-Aware Inference / Test Time Workflow</p>
+    </div>
+
+    <h3>2.3. Design Justification & Alternative Approaches</h3>
+    <p>
+      While active learning can take several forms—Pool-Based Sampling, Stream-Based Sampling, and Membership
+      Query Synthesis—we explicitly chose <strong>Pool-Based Sampling</strong>.
+    </p>
+    <ul>
+      <li>
+        <strong>Membership Query Synthesis</strong> was rejected because generating synthetic TF-IDF text features
+        yields unnatural, nonsensical text instances that human experts cannot evaluate effectively.
+      </li>
+      <li>
+        <strong>Pool-Based Sampling</strong> leverages our natural AG News text corpus, ensuring queries remain
+        representative, realistic, and fully human-interpretable.
+      </li>
+    </ul>
+
+    {% for cfg in selected_configs %}
+    <!-- Section 3+: Config Loop -->
+    <pdf:nextpage />
+    <a name="sec-defer_{{ forloop.counter }}"></a>
+    <h1>{{ forloop.counter|add:2 }}. Config {{ forloop.counter }}: {{ cfg.label }}</h1>
+    
+    <h2>{{ forloop.counter|add:2 }}.1. Learning to Defer</h2>
+    
+    <a name="sec-expert-sim_{{ forloop.counter }}"></a>
+    <h3>{{ forloop.counter|add:2 }}.1.1. Simulated Expert(s)</h3>
+    <p>
+      Up to two simulated experts model different human-AI collaboration scenarios.
+      Profiles are defined as <strong>Trivial</strong> (perfectly accurate in selected domains, wrong in others)
+      or <strong>Realistic</strong> (baseline competence with natural randomness). domain expertise and operational cost
+      per query evaluate how different deferral policies balance human reliability against query budgets.
+    </p>
+
+    <div class="light-frame">
+      <h4>Expert Profiles</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Expert</th>
+            <th>Type</th>
+            <th>Average Accuracy</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for expert in cfg.experts %}
+          <tr>
+            <td>{{ expert.name }}</td>
+            <td>{% if expert.type == 'REALISTIC' %}Realistic{% else %}Trivial{% endif %}</td>
+            <td>{{ expert.accuracy_percent }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <h4>Expert Accuracy by Class</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Class Name</th>
+            <th>Expert 1 accuracy</th>
+            <th>Expert 1 Correct / Total</th>
+            {% if cfg.expert_count > 1 %}
+            <th>Expert 2 accuracy</th>
+            <th>Expert 2 Correct / Total</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in cfg.expert_class_rows %}
+          <tr>
+            <td>{{ row.class_name }}</td>
+            <td>{{ row.accuracy_percent }}%</td>
+            <td>{{ row.correct }} / {{ row.total }}</td>
+            {% if cfg.expert_count > 1 %}
+            <td>{{ row.expert_2_accuracy_percent }}%</td>
+            <td>{{ row.expert_2_correct }} / {{ row.expert_2_total }}</td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <pdf:nextpage />
+    <a name="sec-policy-comp_{{ forloop.counter }}"></a>
+    <h3>{{ forloop.counter|add:2 }}.1.2. Policy Comparison Table</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 16%;">Group</th>
+          <th style="width: 22%;">Policy</th>
+          <th style="width: 10%;">Accuracy</th>
+          <th style="width: 8%;">Deferred</th>
+          <th style="width: 10%;">Deferral rate</th>
+          <th style="width: 9%;">Useful deferrals</th>
+          <th style="width: 9%;">Harmful deferrals</th>
+          <th style="width: 8%;">Total cost</th>
+          <th style="width: 8%;">Net benefit</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in cfg.policy_rows %}
+        <tr>
+          <td><strong>{{ row.group }}</strong></td>
+          <td>{{ row.name }}</td>
+          <td>{{ row.accuracy_percent }}%</td>
+          <td>{{ row.deferred_total }}</td>
+          <td>{{ row.deferral_rate_percent }}%</td>
+          <td>{{ row.useful_defer }}</td>
+          <td>{{ row.harmful_defer }}</td>
+          <td>{{ row.total_cost }}</td>
+          <td>{{ row.net_defer }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <a name="sec-query-alloc_{{ forloop.counter }}"></a>
+    <h3>{{ forloop.counter|add:2 }}.1.3. Query Allocation by Class and Expert</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Class Name</th>
+          <th>Expert 1 Correct / Queried</th>
+          <th>Expert 1 Accuracy</th>
+          {% if cfg.expert_count > 1 %}
+          <th>Expert 2 Correct / Queried</th>
+          <th>Expert 2 Accuracy</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for class_name in class_names_list %}
+        <tr {% if class_name == 'Total' %}class="total-row"{% endif %}>
+          <td><strong>{{ class_name }}</strong></td>
+          {% for expert_name, expert_data in cfg.allocation_rows.items %}
+            {% for current_class, metrics in expert_data.items %}
+              {% if current_class == class_name %}
+                <td>{{ metrics.corrected_queried }}</td>
+                <td>{{ metrics.percentage }}</td>
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <pdf:nextpage />
+    <a name="sec-plots_{{ forloop.counter }}"></a>
+    <h3>{{ forloop.counter|add:2 }}.1.4. Policy Performance Visualizations</h3>
+    <table class="plot-grid">
+      <tr>
+        <td>
+          <img src="{{ cfg.model_plot_url }}" alt="Model and team accuracy comparison" />
+        </td>
+        <td>
+          <img src="{{ cfg.deferred_plot_url }}" alt="Total deferred comparison" />
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <img src="{{ cfg.benefit_plot_url }}" alt="Net benefit comparison" />
+        </td>
+        {% if cfg.cost_plot_url %}
+        <td>
+          <img src="{{ cfg.cost_plot_url }}" alt="Total cost comparison" />
+        </td>
+        {% endif %}
+      </tr>
+    </table>
+
+    <!-- Section 3: Active Learning -->
+    <pdf:nextpage />
+    <a name="sec-active_{{ forloop.counter }}"></a>
+    <h2>{{ forloop.counter|add:2 }}.2. Active Learning</h2>
+    
+    <p>
+      Active learning optimizes the collection of expert labels during the training phase. Rather than querying
+      uniformly at random, active strategies identify where the classifier is uncertain or where the expert
+      demonstrates high competence.
+    </p>
+    
+    <div class="light-frame">
+      <strong>Expert 1 Query Budget:</strong> {{ cfg.expert_one_query_budget|default:40 }} queries<br/>
+      {% if cfg.expert_count > 1 %}
+      <strong>Expert 2 Query Budget:</strong> {{ cfg.expert_two_query_budget|default:40 }} queries<br/>
+      {% endif %}
+    </div>
+
+    <div class="light-frame">
+      <h4>Expert Config Summaries</h4>
+      {% for summary in cfg.expert_summaries %}
+        <div style="margin-bottom: 6px; font-size: 8.5pt;">
+          <strong>{{ summary.name }} ({{ summary.type_label }}{% if summary.competence_label %} - {{ summary.competence_label }}{% endif %}):</strong><br/>
+          Prevailing domains: {{ summary.fields_text }} | Average accuracy: {{ summary.accuracy_percent }}%
+          {% if summary.cost is not None %} | Cost per query: {{ summary.cost }}{% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+    {% for strat in cfg.active_learning_strategies %}
+    <pdf:nextpage />
+    <a name="sec-active-queries_{{ forloop.parentloop.counter }}_{{ strat.key }}"></a>
+    <h3>{{ forloop.parentloop.counter|add:2 }}.2.{{ forloop.counter }}. Expert Queries ({{ strat.name }} Strategy)</h3>
+    <p>{{ strat.description }}</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Class Name</th>
+          {% if cfg.expert_count > 1 %}
+            <th>Estimated Expert 1 accuracy</th>
+            <th>Expert 1 Correct / Queried</th>
+            <th>Estimated Expert 2 accuracy</th>
+            <th>Expert 2 Correct / Queried</th>
+          {% else %}
+            <th>Estimated expert accuracy</th>
+            <th>Correct / Queried</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in strat.estimated_competence_rows %}
+        <tr {% if row.class_name == 'Total' %}class="total-row"{% endif %}>
+          <td><strong>{{ row.class_name }}</strong></td>
+          <td>{{ row.accuracy_percent }}%</td>
+          <td>{{ row.correct }} / {{ row.total }}</td>
+          {% if cfg.expert_count > 1 %}
+            <td>{{ row.expert_2_accuracy_percent }}%</td>
+            <td>{{ row.expert_2_correct }} / {{ row.expert_2_total }}</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="plot-container">
+      <img src="{{ strat.scatter_plot_url }}" alt="Active learning queries scatter plot - {{ strat.name }}" />
+    </div>
+    {% endfor %}
+
+    <pdf:nextpage />
+    <a name="sec-strategy-comp_{{ forloop.counter }}"></a>
+    <h3>{{ forloop.counter|add:2 }}.2.{{ cfg.active_learning_strategies|length|add:1 }}. Query Strategy Comparison</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Strategy</th>
+          <th>Expert agreement</th>
+          <th>Average competence</th>
+          <th>Weakest class estimate</th>
+          <th>Model Accuracy after Querying</th>
+          <th>Query Redundancy / Overlap</th>
+          <th>Query Diversity score</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in cfg.strategy_rows %}
+        <tr>
+          <td>{{ row.label }}</td>
+          <td>{{ row.agreement_percent }}%</td>
+          <td>{{ row.average_competence_percent }}%</td>
+          <td>{{ row.min_competence_percent }}%</td>
+          <td>{{ row.model_accuracy_percent }}%</td>
+          <td>{{ row.redundancy_percent }}%</td>
+          <td>{{ row.diversity_percent }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endfor %}
+
+    <!-- Section 4: Sample Test Examples -->
+    <pdf:nextpage />
+    <a name="sec-examples"></a>
+    <h1>{{ selected_configs|length|add:3 }}. Sample Test Examples</h1>
+    <p>Benchmark examples of textual inputs for each class category used in evaluations.</p>
+    <div style="margin-top: 10px;">
+      {% for example in sample_examples %}
+      <div style="margin-bottom: 12px; border-bottom: 1px solid #d7e3ec; padding-bottom: 8px;">
+        <strong>Category: {{ example.label }}</strong>
+        <p style="margin-top: 4px; color: #444444; font-size: 9pt;">{{ example.text }}</p>
+      </div>
+      {% endfor %}
+    </div>
+
+</body>
+</html>

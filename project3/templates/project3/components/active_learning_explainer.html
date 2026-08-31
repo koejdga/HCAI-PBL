@@ -1,0 +1,129 @@
+{% load static %} {% block extra_css %}
+<link
+  rel="stylesheet"
+  href="{% static 'project3/active_leaning_explainer_style.css' %}"
+/>
+{% endblock %}
+
+<div id="active-learning-explainer">
+  <figure>
+    <img
+      src="{% static 'project3/images/training_active_learning_diagram.png' %}"
+      alt="Baseline Training & AL Competence Discovery"
+      style="width: 100%"
+    />
+    <figcaption>Baseline Training & AL Competence Discovery</figcaption>
+  </figure>
+
+  <div class="active-learning-text-info">
+    <h5>How Active Learning Works Here</h5>
+
+    <p>
+      In this system,
+      <strong
+        >Active Learning is used to assess expert competence rather than to
+        discover missing dataset labels</strong
+      >.
+    </p>
+
+    <ul>
+      <li>
+        <strong>Training Phase:</strong> The baseline model (trained to
+        <strong>87.8% accuracy</strong>) evaluates unlabeled text examples and
+        selects a limited budget (<em>N</em>) of queries. By querying the expert
+        on these strategic examples, the system estimates their topic-specific
+        competence profile.
+      </li>
+      <li>
+        <strong>Testing Phase:</strong> Active querying stops. The system passes
+        the <strong>baseline model weights</strong> and the
+        <strong>learned competence profile</strong> to a competence-aware
+        deferral policy. At test time, the system compares its own confidence
+        against the expert's learned competence to decide whether to predict
+        internally or defer to the expert.
+      </li>
+    </ul>
+  </div>
+
+  <div style="width: 100%">
+    <figure>
+      <img
+        src="{% static 'project3/images/testing_active_learning_diagram.png' %}"
+        alt="Competence-Aware Inference / Test Time"
+        style="width: 85%"
+      />
+      <figcaption>Competence-Aware Inference / Test Time</figcaption>
+    </figure>
+  </div>
+
+  <div class="active-learning-design-justification">
+    <h5>Design Justification / Alternative Approaches</h5>
+
+    <p>
+      While Lecture 6 outlines three active learning scenarios—<strong
+        >Pool-Based Sampling</strong
+      >, <strong>Stream-Based Sampling</strong>, and
+      <strong>Membership Query Synthesis</strong>—we explicitly chose
+      <strong>Pool-Based Sampling</strong>.
+    </p>
+
+    <ul>
+      <li>
+        <strong>Membership Query Synthesis</strong> was rejected because
+        generating synthetic TF-IDF text features yields unnatural, nonsensical
+        text instances that human experts cannot evaluate effectively.
+      </li>
+      <li>
+        <strong>Pool-Based Sampling</strong> leverages our natural AG News text
+        corpus, ensuring queries remain representative, realistic, and fully
+        human-interpretable.
+      </li>
+    </ul>
+  </div>
+
+  <button type="button" id="hide-explainer-btn">Hide explanation</button>
+</div>
+
+<div id="show-explainer-container" style="display: none">
+  <button type="button" id="show-explainer-btn">
+    {% include "project3/components/idea_icon.svg" %}
+    Show architecture information
+  </button>
+</div>
+
+<script>
+  // Show/Hide explainer handlers
+  const hideExplainerBtn = document.getElementById("hide-explainer-btn");
+  const showExplainerBtn = document.getElementById("show-explainer-btn");
+  const explainerContainer = document.getElementById(
+    "active-learning-explainer",
+  );
+  const showExplainerContainer = document.getElementById(
+    "show-explainer-container",
+  );
+
+  if (
+    hideExplainerBtn &&
+    showExplainerBtn &&
+    explainerContainer &&
+    showExplainerContainer
+  ) {
+    hideExplainerBtn.addEventListener("click", function () {
+      explainerContainer.style.display = "none";
+      showExplainerContainer.style.display = "block";
+      localStorage.setItem("showALExplainer", "false");
+    });
+    showExplainerBtn.addEventListener("click", function () {
+      explainerContainer.style.display = "block";
+      showExplainerContainer.style.display = "none";
+      localStorage.setItem("showALExplainer", "true");
+    });
+
+    // Restore preference
+    const showPref = localStorage.getItem("showALExplainer");
+    if (showPref === "false") {
+      explainerContainer.style.display = "none";
+      showExplainerContainer.style.display = "block";
+    }
+  }
+</script>

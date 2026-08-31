@@ -1,0 +1,20 @@
+flowchart LR
+    %% Styling
+    classDef baseline fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#01579b;
+    classDef discovery fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#1b5e20;
+    classDef inference fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#e65100;
+    classDef data fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
+
+    D_test[("New Test Sample")]:::data
+    
+    Eval_Score["<b>5. Evaluate Model Confidence vs. Expert Advantage</b>"]:::inference
+    
+    Dec_Branch{"Adv > Threshold?"}:::inference
+    
+    Pred_Model["<b>Model Prediction</b><br/>Return Baseline Model Label"]:::baseline
+    Pred_Expert["<b>Defer to Expert</b><br/>Return Expert Label"]:::discovery
+
+    D_test --> Eval_Score
+    Eval_Score --> Dec_Branch
+    Dec_Branch -- "No" --> Pred_Model
+    Dec_Branch -- "Yes" --> Pred_Expert

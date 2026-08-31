@@ -15,6 +15,9 @@
                 <img src="{% static 'images/tuhh-logo.svg' %}" alt="TUHH logo" class="site-logo">
                 <span>Human-Centric AI PBL</span>
             </a>
+            <nav class="site-actions" aria-label="Page navigation">
+                {% block header_actions %}{% endblock %}
+            </nav>
             <span class="site-context">
                 {% block site_context %}Course project hub{% endblock %}
             </span>
@@ -24,7 +27,172 @@
             {%  endblock %}
         </main>
 
+        <div class="loading-overlay" id="loading-overlay" role="status" aria-live="polite" aria-hidden="true">
+            <div class="loading-card">
+                <div class="loading-spinner" aria-hidden="true"></div>
+                <p>Preparing results...</p>
+                <span>Please wait while the project updates the page.</span>
+            </div>
+        </div>
+
+        <div class="plot-modal" id="plot-modal" aria-hidden="true" role="dialog" aria-label="Expanded plot">
+            <div class="plot-modal-content">
+                <button type="button" class="plot-modal-close" onclick="closePlotModal()" aria-label="Close expanded plot">
+                    &times;
+                </button>
+                <img id="plot-modal-image" src="" alt="">
+                <p id="plot-modal-title"></p>
+            </div>
+        </div>
+
         {% block script %}
         {% endblock script %}
+        <script>
+            (function () {
+                const overlay = document.getElementById("loading-overlay");
+                let activeRequests = 0;
+                let showTimer = null;
+
+                function showLoading() {
+                    activeRequests += 1;
+                    clearTimeout(showTimer);
+                    showTimer = setTimeout(function () {
+                        overlay.classList.add("is-visible");
+                        overlay.setAttribute("aria-hidden", "false");
+                    }, 180);
+                }
+
+                function hideLoading() {
+                    activeRequests = Math.max(0, activeRequests - 1);
+                    if (activeRequests > 0) {
+                        return;
+                    }
+                    clearTimeout(showTimer);
+                    overlay.classList.remove("is-visible");
+                    overlay.setAttribute("aria-hidden", "true");
+                }
+
+                document.addEventListener("submit", function (event) {
+                    const form = event.target;
+                    if (!(form instanceof HTMLFormElement)) {
+                        return;
+                    }
+                    if (event.defaultPrevented) {
+                        return;
+                    }
+                    if (form.dataset.noLoading === "true" || form.target === "_blank") {
+                        return;
+                    }
+                    if (typeof form.checkValidity === "function" && !form.checkValidity()) {
+                        return;
+                    }
+                    // Keep users near the action they just requested after full-page reloads.
+                    const scrollTarget = form.dataset.scrollTarget || `#${form.closest("section")?.id || ""}`;
+                    if (scrollTarget && scrollTarget !== "#") {
+                        sessionStorage.setItem("hcai-scroll-target", scrollTarget);
+                        sessionStorage.setItem("hcai-scroll-path", window.location.pathname);
+                    }
+                    showLoading();
+                });
+
+                const originalFetch = window.fetch;
+                if (originalFetch) {
+                    window.fetch = function () {
+                        showLoading();
+                        return originalFetch.apply(this, arguments).finally(hideLoading);
+                    };
+                }
+
+                window.addEventListener("pageshow", function () {
+                    hideLoading();
+                    const scrollPath = sessionStorage.getItem("hcai-scroll-path");
+                    const scrollTarget = sessionStorage.getItem("hcai-scroll-target");
+                    if (scrollPath !== window.location.pathname || !scrollTarget) {
+                        return;
+                    }
+                    sessionStorage.removeItem("hcai-scroll-path");
+                    sessionStorage.removeItem("hcai-scroll-target");
+                    requestAnimationFrame(function () {
+                        document.querySelector(scrollTarget)?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                        });
+                    });
+                });
+            })();
+
+            function openPlotModal(imageUrl, title) {
+                const modal = document.getElementById("plot-modal");
+                const modalImage = document.getElementById("plot-modal-image");
+                const modalTitle = document.getElementById("plot-modal-title");
+                if (!modal || !modalImage || !modalTitle || !imageUrl) {
+                    return;
+                }
+                modalImage.src = imageUrl;
+                modalImage.alt = title || "Expanded plot";
+                modalTitle.textContent = title || "";
+                modal.classList.add("plot-modal-visible");
+                modal.setAttribute("aria-hidden", "false");
+            }
+
+            function closePlotModal() {
+                const modal = document.getElementById("plot-modal");
+                const modalImage = document.getElementById("plot-modal-image");
+                if (!modal || !modalImage) {
+                    return;
+                }
+                modal.classList.remove("plot-modal-visible");
+                modal.setAttribute("aria-hidden", "true");
+                modalImage.src = "";
+            }
+
+            document.addEventListener("click", function (event) {
+                const infoTrigger = event.target.closest(".info-explainer-trigger");
+                if (infoTrigger) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const popup = infoTrigger.closest(".info-explainer-popup");
+                    const isOpen = popup?.classList.contains("is-open");
+                    document.querySelectorAll(".info-explainer-popup.is-open").forEach(function (openPopup) {
+                        openPopup.classList.remove("is-open");
+                        openPopup.querySelector(".info-explainer-trigger")?.setAttribute("aria-expanded", "false");
+                    });
+                    if (popup && !isOpen) {
+                        popup.classList.add("is-open");
+                        infoTrigger.setAttribute("aria-expanded", "true");
+                    }
+                    return;
+                }
+
+                document.querySelectorAll(".info-explainer-popup.is-open").forEach(function (popup) {
+                    popup.classList.remove("is-open");
+                    popup.querySelector(".info-explainer-trigger")?.setAttribute("aria-expanded", "false");
+                });
+
+                const zoomTarget = event.target.closest("[data-zoom-src]");
+                if (zoomTarget) {
+                    openPlotModal(
+                        zoomTarget.dataset.zoomSrc,
+                        zoomTarget.dataset.zoomTitle || zoomTarget.getAttribute("aria-label"),
+                    );
+                    return;
+                }
+
+                const modal = document.getElementById("plot-modal");
+                if (modal && event.target === modal) {
+                    closePlotModal();
+                }
+            });
+
+            document.addEventListener("keydown", function (event) {
+                if (event.key === "Escape") {
+                    closePlotModal();
+                    document.querySelectorAll(".info-explainer-popup.is-open").forEach(function (popup) {
+                        popup.classList.remove("is-open");
+                        popup.querySelector(".info-explainer-trigger")?.setAttribute("aria-expanded", "false");
+                    });
+                }
+            });
+        </script>
     </body>
 </html>

@@ -1,0 +1,277 @@
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'project3/style.css' %}" />
+{% endblock %}
+
+<div id="expert-fields-{{ expert_id }}">
+  {% include "components/radio_buttons_set.html" with header_text="Select an expert type:" group_name="expert-type-"|add:expert_id options=expert_options %}
+
+  <div id="competence-level-field-{{ expert_id }}" style="display: none">
+    {% include "components/radio_buttons_set.html" with header_text="Select competence level:" group_name="competence-level-"|add:expert_id options=competence_levels %}
+  </div>
+
+  <div id="competence-level-panel">
+    <div
+      id="trivial-expert-label-{{ expert_id }}"
+      style="padding-bottom: 0.5em"
+    >
+      <strong>100% accuracy in:</strong>
+    </div>
+
+    <div
+      id="realistic-expert-label-{{ expert_id }}"
+      style="padding-bottom: 0.5em"
+    >
+      <strong>Prevailing accuracy in:</strong>
+    </div>
+
+    <div class="competence-controls-{{ expert_id }}">
+      <label
+        ><input
+          type="checkbox"
+          id="competence-all-{{ expert_id }}"
+          name="competence-fields-{{ expert_id }}"
+          class="competence-checkbox-{{ expert_id }}"
+          value="all"
+        />
+        All</label
+      >
+
+      {% for key, value in class_names.items %}
+      <label
+        ><input
+          type="checkbox"
+          name="competence-fields-{{ expert_id }}"
+          class="competence-checkbox-{{ expert_id }}"
+          value="{{ key }}"
+        />
+        {{ value }}</label
+      >
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="cost-add hightlight-frame">
+    <label for="expert-cost-{{ expert_id }}">Cost for a query:</label>
+    <div style="display: inline">
+      <input
+        type="radio"
+        id="cost-absent-{{ expert_id }}"
+        name="cost-presence-{{ expert_id }}"
+        value="absent"
+      />
+      <label style="font-weight: 400" for="cost-absent-{{ expert_id }}"> absent </label>
+    </div>
+
+    <div style="display: inline; margin-left: 1em">
+      <input
+        type="radio"
+        id="cost-present-{{ expert_id }}"
+        name="cost-presence-{{ expert_id }}"
+        value="present"
+      />
+      <label style="font-weight: 400" for="cost-present-{{ expert_id }}"> present </label>
+    </div>
+
+    <input
+      id="expert-cost-{{ expert_id }}"
+      type="number"
+      name="expert-cost-{{ expert_id }}"
+      value="{{ expert_cost }}"
+      style="margin-left: 1em"
+      placeholder="Enter query cost"
+    />
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const allCheckbox = document.getElementById("competence-all-{{ expert_id }}");
+    const competenceCheckboxes = Array.from(document.querySelectorAll(".competence-checkbox-{{ expert_id }}")).filter(cb => cb.value !== 'all');
+    const expertCostInput = document.getElementById("expert-cost-{{ expert_id }}");
+    const trivialExpertLabel = document.getElementById("trivial-expert-label-{{ expert_id }}");
+    const realisticExpertLabel = document.getElementById("realistic-expert-label-{{ expert_id }}");
+    const competenceLevelField = document.getElementById("competence-level-field-{{ expert_id }}");
+
+    function getStoredExpertType() {
+      return localStorage.getItem("expertType-{{ expert_id }}");
+    }
+
+    function saveExpertType(value) {
+      localStorage.setItem("expertType-{{ expert_id }}", value);
+    }
+
+    function getStoredCompetence() {
+      try {
+        const stored = localStorage.getItem("competenceValues-{{ expert_id }}");
+        return stored ? JSON.parse(stored) : null;
+      } catch (err) {
+        console.log("Error reading stored competence values", err);
+        return null;
+      }
+    }
+
+    function saveCompetence(values) {
+      localStorage.setItem("competenceValues-{{ expert_id }}", JSON.stringify(values));
+    }
+
+    function initializeExpertType() {
+      const storedType = getStoredExpertType();
+      if (storedType) {
+        const radio = document.querySelector(
+          `[name='expert-type-{{ expert_id }}'][value='${storedType}']`,
+        );
+        if (radio) {
+          radio.checked = true;
+        }
+      }
+    }
+
+    function initializeCompetenceSelection() {
+      const storedValues = getStoredCompetence();
+      const valuesToUse = Array.isArray(storedValues)
+        ? storedValues
+        : [competenceCheckboxes[0]?.value];
+      competenceCheckboxes.forEach((cb) => {
+        cb.checked = valuesToUse.includes(cb.value);
+      });
+      allCheckbox.checked =
+        competenceCheckboxes.length > 0 &&
+        competenceCheckboxes.every((cb) => cb.checked);
+      saveCompetence(
+        competenceCheckboxes.filter((cb) => cb.checked).map((cb) => cb.value),
+      );
+    }
+
+    function getStoredCostPresence() {
+      return localStorage.getItem("costPresence-{{ expert_id }}");
+    }
+
+    function saveCostPresence(value) {
+      localStorage.setItem("costPresence-{{ expert_id }}", value);
+    }
+
+    function initializeExpertCost() {
+      const storedCost = localStorage.getItem("expertCost-{{ expert_id }}");
+      const storedPresence = getStoredCostPresence() || "absent";
+      const absentRadio = document.getElementById("cost-absent-{{ expert_id }}");
+      const presentRadio = document.getElementById("cost-present-{{ expert_id }}");
+
+      if (storedCost && expertCostInput) {
+        expertCostInput.value = storedCost;
+      }
+
+      if (absentRadio && presentRadio) {
+        absentRadio.checked = storedPresence === "absent";
+        presentRadio.checked = storedPresence === "present";
+      }
+
+      updateCostInputState();
+    }
+
+    function updateCostInputState() {
+      const absentRadio = document.getElementById("cost-absent-{{ expert_id }}");
+      const presentRadio = document.getElementById("cost-present-{{ expert_id }}");
+
+      if (!expertCostInput || !absentRadio || !presentRadio) {
+        return;
+      }
+
+      const absentSelected = absentRadio.checked;
+      console.log("absentSelected", absentSelected)
+      expertCostInput.disabled = absentSelected;
+
+      if (absentSelected) {
+        expertCostInput.classList.add("disabled");
+      } else {
+        expertCostInput.classList.remove("disabled");
+      }
+    }
+
+    function updateCompetencePanelVisibility() {
+      console.log("updating com vis");
+      const selected = document.querySelector(
+        "[name='expert-type-{{ expert_id }}']:checked",
+      )?.value;
+      if (selected === "TRIVIAL") {
+        realisticExpertLabel.style.display = "none";
+        competenceLevelField.style.display = "none";
+
+        trivialExpertLabel.style.display = "block";
+
+        console.log("Competence panel appeared for", selected);
+      } else {
+        trivialExpertLabel.style.display = "none";
+
+        realisticExpertLabel.style.display = "block";
+        competenceLevelField.style.display = "block";
+
+        console.log("Competence panel hidden for", selected);
+      }
+    }
+
+    document.querySelectorAll("[name='expert-type-{{ expert_id }}']").forEach((r) => {
+      r.addEventListener("change", () => {
+        updateCompetencePanelVisibility();
+        saveExpertType(r.value);
+        console.log("Expert type changed to", r.value);
+      });
+    });
+
+    const costRadios = document.querySelectorAll("[name='cost-presence-{{ expert_id }}']");
+    costRadios.forEach((radio) => {
+      radio.addEventListener("change", () => {
+        console.log("here", radio.value);
+        saveCostPresence(radio.value);
+        updateCostInputState();
+        console.log("Cost presence changed to", radio.value);
+      });
+    });
+
+    if (allCheckbox) {
+      allCheckbox.addEventListener("change", () => {
+        const checked = allCheckbox.checked;
+        competenceCheckboxes.forEach((cb) => (cb.checked = checked));
+        saveCompetence(
+          competenceCheckboxes.filter((cb) => cb.checked).map((cb) => cb.value),
+        );
+        console.log(
+          "All checkbox changed:",
+          checked ? "selected all" : "deselected all",
+        );
+      });
+    }
+
+    competenceCheckboxes.forEach((cb) => {
+      cb.addEventListener("change", () => {
+        const allCheckedNow =
+          competenceCheckboxes.length > 0 &&
+          competenceCheckboxes.every((x) => x.checked);
+        allCheckbox.checked = allCheckedNow;
+        saveCompetence(
+          competenceCheckboxes.filter((el) => el.checked).map((el) => el.value),
+        );
+        if (!allCheckedNow) {
+          console.log(
+            "One or more competence categories were unchecked, clearing All.",
+          );
+        } else {
+          console.log("All competence categories selected, toggling All on.");
+        }
+        console.log("Competence checkbox changed:", cb.value, cb.checked);
+      });
+    });
+
+    expertCostInput?.addEventListener("change", () => {
+      localStorage.setItem("expertCost-{{ expert_id }}", expertCostInput.value);
+      updateCostInputState();
+      console.log("Saved expert cost to localStorage:", expertCostInput.value);
+    });
+
+    initializeExpertType();
+    initializeCompetenceSelection();
+    initializeExpertCost();
+    updateCompetencePanelVisibility();
+  });
+</script>
