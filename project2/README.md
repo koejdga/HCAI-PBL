@@ -17,98 +17,78 @@ Project page: <http://127.0.0.1:8000/project2/>
 4. **Counterfactuals:** generate local counterfactual explanations.
 5. **Feature effects:** implement PDP and ALE plots for numeric features.
 
-Tasks 1-5 are implemented.
+Tasks 1-5 are fully implemented, along with advanced lecture-grounded explainability extensions and bonus features from Lectures 2, 3, and 4.
 
 ## Implemented Functionality
 
-### Task 1: Interpretable Decision Tree
+### Task 1: Interpretable Decision Tree & Interactive Vector Visualization
 
-- Loads the Palmer Penguins dataset.
-- Predicts `species`: Adelie, Chinstrap, or Gentoo.
-- Uses seven numeric and categorical input features.
-- Removes rows missing a required feature or target: 333 of 344 rows remain.
-- One-hot encodes `island` and `sex`.
-- Uses a reproducible stratified 80/20 train/test split.
-- Displays test accuracy and the actual number of leaves.
-- Renders the selected decision tree with readable feature names.
-- Shows a data-transparency panel explaining features, classes,
-  preprocessing, and missing-value handling.
+- Loads the Palmer Penguins dataset with stratified 80/20 train/test split (333 cleaned rows).
+- Renders an **interactive, resolution-independent SVG tree** directly in the DOM.
+- **Node Hover Tooltips:** Hovering over any internal node or leaf dynamically reveals:
+  - Gini impurity index.
+  - Number of training samples reaching the node.
+  - Interactive mini stacked bar chart of species class proportions (Adelie, Chinstrap, Gentoo).
+- **Dedicated Compact Datapoint Path Explorer:**
+  - A compact table (6 rows per page) separate from the counterfactuals section.
+  - Selecting any penguin interactively illuminates its path from root to leaf with glowing green branches.
+  - Renders a step-by-step decision sequence card displaying exact threshold comparisons and final prediction confidence.
+- **CORELS-Style Rule List (Lecture 4):**
+  - Extracts and formats all root-to-leaf decision paths into human-readable logical rules: `IF condition_1 AND condition_2 ... THEN PREDICT Species (confidence, sample support)`.
+- Fallback high-resolution raster export (`decision_tree.png`) available for offline presentation.
 
-### Task 2: Accuracy-Complexity Trade-off
+### Task 2 & Rashomon Set Analysis (Lecture 4)
 
-- Trains trees with `max_leaf_nodes` values:
-  `2, 3, 4, 5, 6, 8, 10, 12, 15`.
-- Uses the same train/test split for every candidate.
-- Provides a lambda slider from `0.00` to `1.00`.
-- Displays every candidate's accuracy, actual leaves, and selection score.
-- Highlights and renders the selected tree.
-- Explains that lambda is a user preference, while `max_leaf_nodes` is the
-  tree-training parameter.
+- Trains trees across complexity limits `max_leaf_nodes ∈ {2, 3, 4, 5, 6, 8, 10, 12, 15}`.
+- User-controlled simplicity preference slider ($\lambda \in [0.00, 1.00]$):
+  $$\text{Selection Score} = \text{test accuracy} - \lambda \times \frac{\text{leaves}}{\max(\text{leaves})}$$
+- **The Rashomon Effect & Rashomon Ratio ($\mathcal{R}_{ratio}(\theta)$):**
+  - Quantifies the fraction of candidate models whose test accuracy is within $\theta$ of the optimal model:
+    $$\mathcal{R}_{ratio}(\theta) = \frac{|\mathcal{R}(\theta)|}{|\mathcal{F}|}$$
+  - Renders a dedicated Rashomon banner and visual badges identifying all candidates in the Rashomon set.
+  - Proves the foundational insight from Breiman (2001) and Rudin & Semenova (2019): when the Rashomon ratio is large, there almost always exists a simpler, highly interpretable model that performs on par with complex models.
 
-The selected model follows the PDF objective and maximizes:
+### Task 3: Logistic Regression Interpretability (Lecture 2)
 
-```text
-test accuracy - lambda * normalized complexity
-```
+- L1-regularized Logistic Regression candidates across inverse regularization parameter $C \in [0.01, 10.0]$ using SAGA solver (`l1_ratio=1.0`).
+- Complexity measured by the number of non-zero coefficients.
+- **Weight Plot (Lecture 2, Slide 50):**
+  - Generates horizontal bar charts of standardized feature coefficients $\beta_j$ across all three classes, providing a clear visual representation of feature importance and directional sign.
+- **Odds Ratios & Log-Odds Table (Lecture 2, Slides 58–62):**
+  - Formulates coefficients as log-odds and computes exact Odds Ratios $\text{OR} = e^{\beta_j}$.
+  - Includes plain-language interpretation sentences (e.g., "A 1 mm increase in flipper length multiplies odds of Gentoo by 2.45x").
 
-For decision trees, complexity is the number of leaves. In the interface, this
-leaf count is normalized by the largest candidate-tree size so the accuracy and
-complexity terms have comparable scales. A low lambda focuses on accuracy; a
-high lambda gives more importance to a smaller tree.
+### Task 4: Actionable Counterfactuals & Actionability Constraints
 
-Task 2 extends Task 1 in the same interface. The accuracy, leaf count, and tree
-shown for Task 1 therefore correspond to the model selected by Task 2.
+- Lets the user pick an example penguin and a desired counterfactual target species.
+- **Actionability Toggles (Actionability Constraints):**
+  - Users can lock immutable features (Sex, Island, Year) so counterfactual explanations only suggest realistic, mutable changes.
+- **Distance Metric with Categorical Penalty:**
+  - Evaluates counterfactuals using Median Absolute Deviation (MAD)-weighted L1 distance for continuous features plus categorical mismatch penalty (1.0 per mismatched category):
+    $$d(\mathbf{x}, \mathbf{x}') = \sum_{j \in \text{num}} \frac{|x_j - x_j'|}{\text{MAD}_j} + \sum_{k \in \text{cat}} \mathbb{I}[x_k \neq x_k']$$
+- **Visual Diff Badges:**
+  - Distinct green badges highlight precisely which features must change to achieve the alternative outcome.
 
-### Task 3: Logistic Regression Complexity
+### Task 5: The Feature Effect Trilogy (PDP, M-Plot, ALE)
 
-- Trains L1-regularized logistic regression models with different `C` values.
-- Uses the number of non-zero coefficients as the model complexity measure.
-- Lets the same lambda slider select the best accuracy-complexity trade-off.
-- Uses `l1_ratio=1.0` with the SAGA solver to avoid deprecated scikit-learn
-  `penalty="l1"` warnings.
-
-### Task 4: Counterfactual Explanations
-
-- Lets the user select a penguin example and a desired species.
-- Generates local random variations around the selected example.
-- Handles numeric features with Gaussian noise and categorical features by
-  sampling valid categories.
-- Ranks matching counterfactuals by MAD-weighted L1 distance.
-- Retries with larger samples and wider variance if no counterfactuals are
-  found on the first attempt.
-
-### Task 5: Feature Effect Plots
-
-- Lets the user choose a numeric feature.
-- Computes PDP and ALE values in project code rather than with a dedicated
-  explainability library.
-- Displays one probability curve per species.
-- Links the PDP and ALE plots to the currently selected model type and lambda.
-- Explains in the UI that PDP and ALE summarize model behavior and should not
-  be interpreted as causal proof.
+- Computes three complementary global feature effect curves side-by-side for any chosen numeric feature:
+  1. **Partial Dependence Plot (PDP):** Marginal effect assuming feature independence; susceptible to unlikely feature combinations.
+  2. **Marginal Plot (M-Plot):** Averages predictions over the conditional distribution $P(X_C | X_S)$; addresses unlikely points but confounds correlated feature effects.
+  3. **Accumulated Local Effects (ALE):** Accumulates local differences within neighborhood windows and centers around zero, isolating pure main effects.
+- **Exact Partial Derivatives vs. Discretization (Task 5 Theoretical Question):**
+  - For differentiable models (Logistic Regression), the local effect can theoretically be computed analytically via exact partial derivatives:
+    $$\frac{\partial f(\mathbf{x})}{\partial x_S} = \beta_S \cdot f(\mathbf{x})(1 - f(\mathbf{x}))$$
+  - For non-differentiable step functions (Decision Trees), partial derivatives are undefined ($\frac{\partial f}{\partial x} = 0$ almost everywhere with jump discontinuities at splits). Hence, finite differences / discretization into quantile bins are strictly necessary.
 
 ## HCAI Concepts Applied
 
-These design choices follow concepts from the explainability and
-interpretability lectures:
+These design choices follow concepts from the explainability and interpretability lectures:
 
-- **Interpretable models:** decision trees are understandable by design rather
-  than explained only after training.
-- **Accuracy-interpretability trade-off:** predictive performance is shown
-  together with model complexity.
-- **Complexity regularization:** the number of leaves is used as the
-  decision-tree complexity measure; the number of non-zero logistic-regression
-  coefficients is used as the linear-model complexity measure.
-- **Human control:** the lambda slider lets the user express a preference
-  between accuracy and simplicity.
-- **Recipient-aware explanation:** technical values are accompanied by
-  plain-language guidance.
-- **Transparency:** the interface exposes data preparation, model candidates,
-  accuracy, complexity, and the selection score.
-- **Appropriate trust:** explanations support inspection but do not prove that
-  the model is correct, fair, or causally valid.
-- **Reproducibility:** all candidate models use the same fixed, stratified
-  train/test split.
+- **Interpretable Models (Lecture 4):** Decision trees and sparse logistic models offer intrinsic glass-box interpretability without reliance on post-hoc surrogate approximations.
+- **Rashomon Multiplicity (Lecture 4):** Acknowledging that multiple distinct models achieve near-optimal accuracy enables choosing simpler, safer models.
+- **Log-Odds & Odds Ratios (Lecture 2):** Providing mathematically grounded, human-comprehensible descriptions of linear model weights.
+- **Actionability & Plausibility (Lecture 3):** Ensuring counterfactual interventions respect real-world immutability constraints.
+- **Feature Effect Distinctions (Lecture 3):** Explaining the mathematical trade-offs between PDP, M-Plot, and ALE.
 
 ## Directory Structure
 
@@ -120,33 +100,19 @@ HCAI-PBL/
 |-- home/                             # Project navigation
 `-- project2/
     |-- README.md
-    |-- views.py                      # Data, training and model selection
-    |-- tests.py                      # Automated Project 2 tests
+    |-- views.py                      # Training, SVG tree builder, Rashomon, ALE/PDP/M-Plot, counterfactuals
+    |-- tests.py                      # 16 automated unit tests covering all components
     |-- urls.py
-    |-- templates/project2/index.html # Project 2 interface
-    `-- static/project2/style.css     # Project-specific styling
+    |-- templates/project2/index.html # Interactive explainability dashboard
+    `-- static/project2/style.css     # Tooltip, SVG glow, and interactive layout styling
 ```
-
-Generated tree images are written to `media/project2/` at runtime.
-
-## Run the Project
-
-From the repository root:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-python manage.py runserver
-```
-
-Open <http://127.0.0.1:8000/project2/>.
 
 ## Check and Test
 
-```powershell
-python manage.py check
-python manage.py test project2 --verbosity 2
+Run all unit tests:
+
+```bash
+MPLCONFIGDIR=.matplotlib_cache python manage.py test project2 --verbosity 2
 ```
 
-The tests cover dataset cleaning, readable feature labels, decision-tree
-metrics, lambda validation, candidate selection, counterfactual retry behavior,
-page rendering, and tree-image generation.
+The test suite contains 16 automated unit tests covering dataset cleaning, readable feature labels, decision tree metrics, candidate selection, M-Plots, ALE/PDP, tree path tracing, rule list extraction, MAD categorical penalties, Rashomon ratio calculations, logistic regression odds ratios, and page template rendering.

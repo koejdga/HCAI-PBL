@@ -90,29 +90,6 @@ p {
   margin: 28px 5%;
 }
 
-.metric-card {
-  padding: 18px;
-  border: 1px solid var(--border);
-  border-top: 5px solid var(--tuhh-cyan);
-  border-radius: 6px;
-  background: white;
-  text-align: center;
-}
-
-.metric-card span {
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.metric-card strong {
-  display: block;
-  margin: 10px 0;
-  color: var(--tuhh-navy);
-  font-size: 32px;
-}
-
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border);

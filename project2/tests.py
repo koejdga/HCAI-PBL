@@ -16,6 +16,11 @@ from .views import (
     CLASS_NAMES,
     compute_ale,
     compute_pdp,
+    compute_m_plot,
+    compute_odds_ratios,
+    trace_penguin_path,
+    extract_tree_rules,
+    calculate_mad_l1_distance,
     parse_lambda,
     split_penguin_data,
     train_logistic_regression,
@@ -129,6 +134,76 @@ class PenguinDatasetTests(SimpleTestCase):
         self.assertEqual(rows, [])
         self.assertGreater(attempted_rows, 2000)
 
+    def test_m_plot_outputs_have_species_curves(self):
+        penguins = load_clean_penguins()
+        pipeline = train_logistic_regression(split_penguin_data(penguins))["pipeline"]
+        feature_name = FEATURE_EFFECT_NUMERIC_FEATURES[0]
+
+        m_data = compute_m_plot(pipeline, penguins, feature_name, bins=6)
+
+        self.assertEqual(set(m_data["curves"].keys()), set(CLASS_NAMES))
+        self.assertGreaterEqual(len(m_data["x_values"]), 1)
+        for class_name in CLASS_NAMES:
+            self.assertEqual(len(m_data["curves"][class_name]), len(m_data["x_values"]))
+
+    def test_trace_penguin_path_and_extract_rules(self):
+        penguins = load_clean_penguins()
+        tree_res = train_decision_tree(penguins)
+        pipeline = tree_res["pipeline"]
+
+        # Trace path for first penguin
+        row = penguins.iloc[0]
+        trace = trace_penguin_path(pipeline, row)
+        self.assertIn("steps", trace)
+        self.assertIn("terminal_node_id", trace)
+        self.assertIn("predicted_species", trace)
+        self.assertIn(trace["predicted_species"], CLASS_NAMES)
+        self.assertGreater(len(trace["steps"]), 0)
+
+        # Extract rules
+        rules = extract_tree_rules(pipeline)
+        self.assertGreater(len(rules), 0)
+        self.assertTrue(all("conditions" in r and "predicted_species" in r for r in rules))
+
+    def test_mad_l1_distance_penalizes_categorical_differences(self):
+        penguins = load_clean_penguins()
+        row_a = penguins.iloc[0].to_dict()
+        row_b = row_a.copy()
+
+        # Exact same row -> distance is 0
+        dist_same = calculate_mad_l1_distance(row_a, row_b, penguins)
+        self.assertAlmostEqual(dist_same, 0.0)
+
+        # Change a categorical feature -> distance should increase by 1.0
+        row_b["island"] = "Dream" if row_a["island"] != "Dream" else "Torgersen"
+        dist_cat_diff = calculate_mad_l1_distance(row_a, row_b, penguins)
+        self.assertAlmostEqual(dist_cat_diff, 1.0)
+
+    def test_rashomon_ratio_and_candidates(self):
+        penguins = load_clean_penguins()
+        selected, candidates, rashomon_info = train_tree_candidates(
+            penguins,
+            lambda_value=0.5,
+            theta_value=0.05,
+            return_rashomon=True,
+        )
+
+        self.assertIn("ratio_percent", rashomon_info)
+        self.assertGreaterEqual(rashomon_info["count"], 1)
+        self.assertEqual(rashomon_info["total"], len(candidates))
+
+    def test_logistic_odds_ratios(self):
+        penguins = load_clean_penguins()
+        reg_res = train_logistic_regression(split_penguin_data(penguins))
+        odds_list = compute_odds_ratios(reg_res["pipeline"])
+
+        self.assertGreater(len(odds_list), 0)
+        self.assertIn("feature", odds_list[0])
+        for row in odds_list:
+            for class_name in CLASS_NAMES:
+                self.assertIn(class_name, row["odds_ratios"])
+                self.assertGreater(row["odds_ratios"][class_name], 0)
+
 
 class Project2ViewTests(SimpleTestCase):
     def test_project2_page_loads_with_tree_results(self):
@@ -151,6 +226,14 @@ class Project2ViewTests(SimpleTestCase):
         self.assertContains(response, "test accuracy -")
         self.assertContains(response, "Apply preference")
 
+    def test_project2_page_includes_interactive_tree_and_rashomon(self):
+        response = self.client.get(reverse("project2:index"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "svg-tree-container")
+        self.assertContains(response, "tree-hover-tooltip")
+        self.assertContains(response, "rashomon-banner")
+        self.assertContains(response, "Interactive Datapoint Explorer")
+
     def test_tree_image_is_generated(self):
         self.client.get(reverse("project2:index"))
         image_path = os.path.join(
@@ -160,3 +243,29 @@ class Project2ViewTests(SimpleTestCase):
         )
 
         self.assertTrue(os.path.exists(image_path))
+
+    def test_tree_datapoint_explorer_stays_open_on_page_jump(self):
+        response = self.client.get(reverse("project2:index") + "?tree-page=2")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context.get("tree_explorer_open"))
+        self.assertContains(response, 'id="tree-datapoint-explorer" class="datapoint-explorer-box" style="display: block"')
+        self.assertContains(response, "Hide Datapoints")
+
+    def test_logistic_regression_view_loads_plots_and_odds_ratios(self):
+        response = self.client.get(reverse("project2:index") + "?model-type=logistic-regression")
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(response.context.get("weight_plot_url"))
+        self.assertGreater(len(response.context.get("odds_ratios_data", [])), 0)
+        self.assertContains(response, "Logistic Regression Weight Plot")
+        self.assertContains(response, "Odds Ratios")
+
+    def test_feature_effects_json_updates_plot_urls_for_selected_feature(self):
+        response = self.client.get(
+            reverse("project2:index") + "?feature-effect-feature=bill_depth_mm&update-scope=effects&format=json"
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("bill_depth_mm", data["pdp_image_url"])
+        self.assertIn("bill_depth_mm", data["mplot_image_url"])
+        self.assertIn("bill_depth_mm", data["ale_image_url"])
+
