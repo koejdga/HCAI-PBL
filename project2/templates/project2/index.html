@@ -18,6 +18,63 @@
     </p>
   </div>
 
+  <section
+      id="data-transparency"
+      class="transparency-panel"
+      style="margin: 30px 5%"
+      aria-labelledby="data-transparency-title"
+  >
+      <h3 id="data-transparency-title">Data Transparency</h3>
+      <p class="transparency-intro">
+        These are the data and preprocessing choices behind the displayed
+        result.
+      </p>
+      <dl class="transparency-grid">
+        <div>
+          <dt>Prediction target</dt>
+          <dd>{{ target_column }}</dd>
+        </div>
+        <div>
+          <dt>Possible classes</dt>
+          <dd>{{ target_classes|join:", " }}</dd>
+        </div>
+        <div>
+          <dt>Numeric features</dt>
+          <dd>{{ numeric_features|join:", " }}</dd>
+        </div>
+        <div>
+          <dt>Categorical features</dt>
+          <dd>{{ categorical_features|join:", " }}</dd>
+        </div>
+        <div>
+          <dt>Missing-value handling</dt>
+          <dd>
+            {{ removed_row_count }} of {{ original_row_count }} rows are removed
+            because at least one required feature or the target is missing. The
+            model is trained on the remaining {{ row_count }} complete rows.
+          </dd>
+        </div>
+        <div>
+          <dt>Why categories are encoded</dt>
+          <dd>
+            The model needs numeric input. One-hot encoding creates a separate
+            yes/no indicator for each island and sex category without implying
+            that one category is greater than another.
+          </dd>
+        </div>
+      </dl>
+
+      <div class="info-explainer-popup transparency-warning">
+        <button type="button" class="info-explainer-trigger" aria-expanded="false">
+          {% include "project3/components/info_icon.svg" %}
+          <span>Important note about missing rows</span>
+        </button>
+        <div class="info-explainer-content">
+          Removing incomplete rows is simple and reproducible, but it may reduce representativeness if missing data is concentrated in a particular group.
+        </div>
+      </div>
+  </section>
+
   <section class="tree-section">
     <h2>Decision Tree</h2>
 
@@ -123,7 +180,7 @@
           Apply preference
         </button>
       </form>
-      <div class="info-explainer-popup">
+      <div class="info-explainer-popup" style="margin-top: 0">
         <button type="button" class="info-explainer-trigger" aria-expanded="false">
           {% include "components/info_icon.svg" %}
           <span>What does lambda control?</span>
@@ -164,7 +221,7 @@
         >
       </div>
 
-      <div class="info-explainer-popup lambda-explanation" id="lambda-help">
+      <div class="info-explainer-popup lambda-explanation" id="lambda-help" style="margin-top: 0">
         <button type="button" class="info-explainer-trigger" aria-expanded="false">
           {% include "components/info_icon.svg" %}
           <span>What does &lambda; mean?</span>
@@ -183,11 +240,11 @@
     </section>
 
     <div id="model-results" class="tree-metrics">
-      <article class="metric-card">
+      {% comment %} <article class="metric-card">
         <span>Clean dataset</span>
         <strong>{{ row_count }}</strong>
         <p>rows without missing values</p>
-      </article>
+      </article> {% endcomment %}
 
       <article class="metric-card">
         <span>Test accuracy</span>

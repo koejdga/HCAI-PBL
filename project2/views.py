@@ -64,9 +64,9 @@ COUNTERFACTUAL_ATTEMPTS = [
 DATASET_PAGE_SIZE = 12
 CLASS_NAMES = ["Adelie", "Chinstrap", "Gentoo"]
 CONTENT_MENU_ITEMS = [
+    {"label": "Data transparency", "href": "#data-transparency"},
     {"label": "Model selection", "href": "#model-selection"},
     {"label": "Results", "href": "#model-results"},
-    {"label": "Data transparency", "href": "#data-transparency"},
     {"label": "Tree explanation", "href": "#tree-explanation"},
     {"label": "Counterfactuals", "href": "#counterfactuals"},
     {"label": "Feature effects", "href": "#feature-effects"},
