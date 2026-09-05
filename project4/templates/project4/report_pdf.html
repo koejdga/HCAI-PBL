@@ -1,0 +1,197 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Project 4: Preference Elicitation Report</title>
+    <link rel="stylesheet" href="{% static 'pdf_report.css' %}" />
+</head>
+<body>
+
+    <div id="footerContent">
+        <div style="text-align: right; font-size: 8pt; color: #526270; border-top: 1px solid #d7e3ec; padding-top: 4px;">
+            Human-Centric Artificial Intelligence | Project 4 | Page <pdf:pagenumber /> of <pdf:pagecount />
+        </div>
+    </div>
+
+    <div class="report-title" style="text-align: center; margin-top: 50px; font-size: 28pt;">Project 4: Preference Elicitation</div>
+    <div style="text-align: center; font-size: 16pt; color: #526270; margin-bottom: 30px; font-family: Helvetica, Arial, sans-serif;">Movie Recommendation User Study Design</div>
+    <div class="title-divider" style="margin-bottom: 30px;"></div>
+
+    <div class="metadata-box">
+        Dataset: <span>IMDB 5000 Movie Dataset</span> |
+        Feature Vector: <span>movie identifier + 88 model features</span> |
+        Compared Interfaces: <span>Pairwise choice and full ranking</span> |
+        Study Status: <span>Protocol and session-based interactive prototype</span>
+    </div>
+
+    <div class="toc-title">Assignment Coverage</div>
+    <div class="toc-divider"></div>
+    <ul class="toc-list">
+        <li><a href="#task-1">Task 1: Feature representation and extraction method</a></li>
+        <li><a href="#task-2">Task 2: Ranking extension of Bradley-Terry</a></li>
+        <li><a href="#task-3">Task 3: User study design</a></li>
+        <li><a href="#task-4">Task 4: Participant interface</a></li>
+        <li><a href="#hcai">Human-Centric AI considerations</a></li>
+    </ul>
+
+    <div style="page-break-before: always;"></div>
+
+    <a name="task-1"></a>
+    <div class="section-heading-1" id="task-1">Task 1: Feature Representation</div>
+    <p>
+        The recommendation task starts from the IMDB 5000 Movie Dataset. Since there are no explicit user ratings in this dataset, the system uses a content-based movie representation and learns user preference from elicited choices. Each movie is represented as a feature vector <i>x</i>, while <code>movie_title</code> is retained only as an identifier for displaying and matching movies.
+    </p>
+    <p>
+        The selected features balance predictive usefulness with interpretability. Genres, directors, language, country, content rating, release year, duration, IMDB score, and popularity counts are all meaningful to participants and can be explained in natural language when recommendations are shown.
+    </p>
+
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Feature Group</th>
+                <th>Encoding</th>
+                <th>Human-Centric Justification</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="row-even">
+                <td>Genres</td>
+                <td>Top genres one-hot encoded with an other category</td>
+                <td>Genres are familiar to users and support direct recommendation explanations.</td>
+            </tr>
+            <tr class="row-odd">
+                <td>Directors</td>
+                <td>Top directors one-hot encoded with an other category</td>
+                <td>Director preference can strongly influence movie taste while rare directors are grouped to avoid sparse features.</td>
+            </tr>
+            <tr class="row-even">
+                <td>Year and duration</td>
+                <td>Median imputation and min-max scaling</td>
+                <td>Controls for era and length preferences without letting raw scale dominate the utility model.</td>
+            </tr>
+            <tr class="row-odd">
+                <td>IMDB score and popularity counts</td>
+                <td>Score scaling plus log-scaled votes and likes</td>
+                <td>Captures perceived quality and popularity while reducing the effect of extreme count values.</td>
+            </tr>
+            <tr class="row-even">
+                <td>Language, country, and rating</td>
+                <td>Binary indicators</td>
+                <td>These are visible constraints that can affect accessibility, familiarity, and content comfort.</td>
+            </tr>
+            <tr class="row-odd">
+                <td>Interaction features</td>
+                <td>Indie gem and blockbuster indicators</td>
+                <td>Allows a linear utility model to express more nuanced preferences such as high quality with low popularity.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p>
+        The extraction method is implemented in <code>project4/feature_representation.py</code>. It computes top genres and directors, calculates normalization parameters, imputes missing year and duration values using medians, applies log transforms to skewed counts, and transforms every movie row into a consistent numeric representation.
+    </p>
+
+    <a name="task-2"></a>
+    <div class="section-heading-1" id="task-2">Task 2: Extending Bradley-Terry to Rankings</div>
+    <p>
+        For pairwise choices, the system models the probability that a participant prefers movie <i>a</i> over movie <i>b</i> with the Bradley-Terry formulation:
+    </p>
+    <div class="info-callout">
+        <strong>Pairwise model:</strong>
+        P(a &gt; b) =
+        exp(U(a)) / (exp(U(a)) + exp(U(b))),
+        where U(i) = w<sup>T</sup>x<sub>i</sub>.
+    </div>
+    <p>
+        A full ranking <i>i<sub>1</sub> &gt; i<sub>2</sub> &gt; ... &gt; i<sub>n</sub></i> can be modeled as a sequence of choices from the remaining alternatives. This is the Plackett-Luce model, a natural listwise extension of Bradley-Terry:
+    </p>
+    <div class="info-callout">
+        <strong>Ranking model:</strong>
+        P(i<sub>1</sub> &gt; ... &gt; i<sub>n</sub>) =
+        product over k = 1 to n of
+        exp(U(i<sub>k</sub>)) /
+        sum over j = k to n exp(U(i<sub>j</sub>)).
+    </div>
+    <p>
+        This formulation is appropriate because the participant's top-ranked movie is treated as the preferred choice from all available movies, the second-ranked movie as the preferred choice among the remaining movies, and so on. It uses more information than independent pairwise choices while still relying on the same interpretable utility function <i>U(i) = w<sup>T</sup>x<sub>i</sub></i>.
+    </p>
+    <p>
+        The prototype implements a lean approximation by decomposing each submitted ranking into all ordered winner-loser comparisons and fitting a Bradley-Terry style logistic model on movie-feature differences. This estimates <i>w</i> from the current session and enables the interface to show recommendations after a participant completes both elicitation designs, without requiring the class to conduct a full user study.
+    </p>
+
+    <div style="page-break-before: always;"></div>
+
+    <a name="task-3"></a>
+    <div class="section-heading-1" id="task-3">Task 3: User Study Design</div>
+    <p>
+        The study compares two preference elicitation methods: pairwise selection and drag-to-rank ordering. The goal is not to run the study during the assignment, but to define a rigorous protocol and provide a participant-ready interface.
+    </p>
+
+    <div class="info-callout">
+        <strong>Hypothesis:</strong>
+        Full ranking produces a more informative estimate of the preference vector per movie shown, but it creates higher cognitive workload than pairwise selection.
+    </div>
+
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Study Element</th>
+                <th>Planned Design</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="row-even">
+                <td>Design type</td>
+                <td>Within-subject comparison: every participant completes both pairwise and ranking tasks.</td>
+            </tr>
+            <tr class="row-odd">
+                <td>Counterbalancing</td>
+                <td>Half of participants start with pairwise selection; half start with ranking to reduce order effects.</td>
+            </tr>
+            <tr class="row-even">
+                <td>Recruitment</td>
+                <td>Convenience sample of classmates or volunteers, ideally 10-20 participants for a small course study.</td>
+            </tr>
+            <tr class="row-odd">
+                <td>Practical steps</td>
+                <td>Explain consent, complete first elicitation task, complete second task, inspect recommendations, answer short feedback questions.</td>
+            </tr>
+            <tr class="row-even">
+                <td>Measured outcomes</td>
+                <td>Completion time, number of interactions, recommendation relevance rating, confidence in recommendations, and perceived workload.</td>
+            </tr>
+            <tr class="row-odd">
+                <td>Ethics and privacy</td>
+                <td>Collect no personal information, store responses only for the browser session, and allow participants to restart at any time.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p>
+        The primary quantitative comparison should report elicitation efficiency and subjective effort. The recommendation quality can be approximated through participant relevance ratings, while cognitive load can be measured using a short NASA-TLX inspired questionnaire covering effort, mental demand, frustration, and confidence.
+    </p>
+
+    <a name="task-4"></a>
+    <div class="section-heading-1" id="task-4">Task 4: Participant Interface</div>
+    <p>
+        The Project 4 page is structured as a landing page with two explicit actions: download the PDF report or start the study. The participant flow then presents a consent/context panel, the pairwise selection task, the ranking interface, a recommendation result area, and a small feedback section.
+    </p>
+    <ul>
+        <li><strong>Pairwise interface:</strong> five movie pairs, one selected winner per pair, and progress feedback.</li>
+        <li><strong>Ranking interface:</strong> ten movies reordered from most to least preferred using drag-and-drop.</li>
+        <li><strong>Recommendation area:</strong> receives backend recommendations with scores and short explanation tags.</li>
+        <li><strong>Reset affordance:</strong> allows the participant to start over with a fresh session.</li>
+    </ul>
+
+    <a name="hcai"></a>
+    <div class="section-heading-1" id="hcai">Human-Centric AI Considerations</div>
+    <p>
+        The design follows Human-Centric AI principles by making the study purpose visible, reducing surprise about data handling, and acknowledging uncertainty. The interface states that choices are session-local, that movies are randomly sampled, and that recommendations are provisional because they are learned from limited interactions.
+    </p>
+    <p>
+        The model choice is also human-centered: the same linear utility model supports both elicitation methods and allows concise recommendation explanations such as genre match, director match, high IMDB score, era preference, or popularity preference.
+    </p>
+
+</body>
+</html>

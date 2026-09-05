@@ -2,7 +2,7 @@
 
 This repository contains the TUHH Human-Centric Artificial Intelligence
 project-based learning work. The implementation is one Django website with a
-central homepage and separate apps for Projects 1, 2, and 3.
+central homepage and separate apps for Projects 1, 2, 3, and 4.
 
 ## Group Members
 
@@ -19,6 +19,7 @@ central homepage and separate apps for Projects 1, 2, and 3.
 | Project 1 | Automated Machine Learning | `/project1/` | `project1/README.md` |
 | Project 2 | Explainability | `/project2/` | `project2/README.md` |
 | Project 3 | Active Learning for Learning-to-Defer | `/project3/` | `project3/README.md` |
+| Project 4 | Preference Elicitation | `/project4/` | `project4/README.md` |
 
 ## Repository Structure
 
@@ -28,6 +29,7 @@ HCAI-PBL/
 |-- project1/          # Automated ML interface
 |-- project2/          # Explainability interface
 |-- project3/          # Active learning and learning-to-defer interface
+|-- project4/          # Preference elicitation study interface
 |-- pbl/               # Django settings and root URL configuration
 |-- static/            # Shared CSS
 |-- templates/         # Shared base templates
@@ -77,6 +79,7 @@ Open:
 - Project 1: <http://127.0.0.1:8000/project1/>
 - Project 2: <http://127.0.0.1:8000/project2/>
 - Project 3: <http://127.0.0.1:8000/project3/>
+- Project 4: <http://127.0.0.1:8000/project4/>
 
 Stop the server with `Ctrl+C`.
 
@@ -164,6 +167,50 @@ Expert query budget: 20-40
 
 See `project3/README.md` for details.
 
+## Project 4: Preference Elicitation
+
+Project 4 designs a user study comparing two methods for eliciting movie
+preferences from a participant: pairwise selection and full ranking. The page
+acts as the project landing page, links to the PDF report, and starts the
+participant study flow.
+
+Implemented assignment tasks:
+
+1. Feature representation for the IMDB 5000 Movie Dataset.
+2. Report explanation of Bradley-Terry for pairwise choices and Plackett-Luce
+   as a ranking extension.
+3. User study protocol covering hypothesis, within-subject design,
+   counterbalancing, recruitment, metrics, and privacy.
+4. Participant interface for pairwise selection and drag-to-rank ordering.
+
+Backend study endpoints:
+
+```text
+POST /project4/api/pairwise/
+Payload: {"design": "pairwise", "choices": [{"pair_index": 1, "winner_id": "...", "loser_id": "..."}]}
+Response: {"message": "...", "recommendations": []}
+
+POST /project4/api/ranking/
+Payload: {"design": "ranking", "ranking": [{"rank": 1, "movie_id": "..."}, ...], "feedback": {...}}
+Response: {"message": "...", "recommendations": [{"title": "...", "director": "...", "year": 2008, "score": 0.72, "explanations": ["genre: Action"]}]}
+
+POST /project4/api/recommendations/
+Payload: {}
+Response: {"recommendations": [{"title": "...", "director": "...", "year": 2008, "score": 0.72, "explanations": ["genre: Action"]}]}
+
+POST /project4/api/reset/
+Payload: {"reset": true}
+Response: {"message": "Study session reset."}
+```
+
+Special implementation aspects:
+
+- Makes the PDF report a first-class landing-page action.
+- Explains session-only data handling and random sampling before the study.
+- Separates the two elicitation designs for fair comparison.
+- Saves submitted choices in the Django session and returns recommendation
+  results with short explanation labels.
+
 ## HCAI Concepts Applied
 
 - **Transparency:** assumptions, preprocessing, model choices, and selected
@@ -179,6 +226,8 @@ See `project3/README.md` for details.
   when it should defer to an expert.
 - **Active learning:** Project 3 selects informative expert queries to estimate
   competence efficiently.
+- **Preference elicitation:** Project 4 compares pairwise and ranking-based
+  interaction designs for learning user preferences from limited input.
 - **User-centered interaction:** the interface includes guided workflows,
   optional info popups, loading feedback, readable tables, and PDF reporting.
 

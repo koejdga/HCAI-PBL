@@ -1,0 +1,647 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block site_context %}Project 4: Preference Elicitation{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'project4/style.css' %}" />
+{% endblock %}
+
+{% block content %}
+<div class="box project4-box">
+  {% include "components/content_menu.html" with menu_items=content_menu_items %}
+
+  {% if not is_study %}
+  <section class="project4-landing" id="project4-overview">
+    <div class="landing-copy">
+      <p class="eyebrow">Project 4</p>
+      <h1 class="project4-title">Preference Elicitation Study</h1>
+      <p class="landing-summary">
+        Compare two human-centered ways of learning movie preferences: short pairwise choices and a drag-to-rank task.
+        The page provides the required report download and a participant-ready study interface.
+      </p>
+    </div>
+
+    <div class="landing-actions" aria-label="Project 4 actions">
+      <a class="action-button action-button-primary" href="{% url 'project4:report' %}">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Download PDF Report
+      </a>
+      <a class="action-button" href="{% url 'project4:study' %}">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        Start Study
+      </a>
+    </div>
+  </section>
+
+  <section class="study-overview" id="study-protocol">
+    <div class="protocol-card">
+      <span class="protocol-step">1</span>
+      <h2>Consent & Context</h2>
+      <p>Participants receive a short explanation of what is collected and why.</p>
+    </div>
+    <div class="protocol-card">
+      <span class="protocol-step">2</span>
+      <h2>Pairwise Choices</h2>
+      <p>Five low-effort comparisons provide sparse preference evidence.</p>
+    </div>
+    <div class="protocol-card">
+      <span class="protocol-step">3</span>
+      <h2>Ranking Task</h2>
+      <p>A full ordered list gives denser information with higher cognitive demand.</p>
+    </div>
+    <div class="protocol-card">
+      <span class="protocol-step">4</span>
+      <h2>Recommendations</h2>
+      <p>The backend returns scored movies and concise reasons for each suggestion.</p>
+    </div>
+  </section>
+
+  <section class="feature-summary" id="feature-summary">
+    <div>
+      <p class="eyebrow">Feature Representation</p>
+      <h2>IMDB 5000 Movie Dataset</h2>
+      <p>
+        The prototype uses content features that can be explained to a participant:
+        genres, directors, year, duration, rating, language, country, IMDB score, and popularity.
+      </p>
+    </div>
+    <dl>
+      <div>
+        <dt>Movies</dt>
+        <dd>{{ feature_summary.movie_count }}</dd>
+      </div>
+      <div>
+        <dt>Model features</dt>
+        <dd>{{ feature_summary.feature_count }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="hcai-notes" id="hcai-notes" aria-label="Study transparency notes">
+    <h2>Human-Centric Study Notes</h2>
+    <ul>
+      <li>Study responses should be stored only for this browser session unless explicit consent is added later.</li>
+      <li>Movies are sampled randomly from the IMDB 5000 Movie Dataset, so each study session may show a different set.</li>
+      <li>Recommendations are early preference estimates from limited interactions, not final truth.</li>
+      <li>Pairwise and ranking designs are separated to compare effort, clarity, and recommendation quality.</li>
+    </ul>
+  </section>
+  {% else %}
+  <section class="study-header" id="participant-consent">
+    <div>
+      <p class="eyebrow">Participant Interface</p>
+      <h1 class="project4-title">Movie Preference Study</h1>
+      <p class="landing-summary">
+        This prototype records your choices for the current browser session so the system can estimate a movie preference vector.
+        Do not enter personal information. You can reset the session at any time.
+      </p>
+    </div>
+    <div class="landing-actions">
+      <a class="action-button" href="{% url 'project4:index' %}">Back to Overview</a>
+      <a class="action-button" href="{% url 'project4:report' %}">Download Report</a>
+      <button type="button" class="secondary-button" id="reset-study-button">
+        <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+          <path d="M3 3v6h6"></path>
+        </svg>
+        Start Over
+      </button>
+    </div>
+  </section>
+
+  <section class="feature-summary" id="feature-summary">
+    <div>
+      <p class="eyebrow">Session Setup</p>
+      <h2>Random Movie Sample</h2>
+      <p>
+        This page uses 20 session-local movies: 10 for pairwise comparisons and 10 for ranking.
+        Already shown movies should be excluded from the final recommendations.
+      </p>
+    </div>
+    <dl>
+      <div>
+        <dt>Movies</dt>
+        <dd>{{ feature_summary.movie_count }}</dd>
+      </div>
+      <div>
+        <dt>Model features</dt>
+        <dd>{{ feature_summary.feature_count }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <div id="status-message" class="status-message" role="status" aria-live="polite" hidden></div>
+
+  <div id="study-area" class="study-area"
+       data-pairwise-endpoint="{% url 'project4:submit_pairwise' %}"
+       data-ranking-endpoint="{% url 'project4:submit_ranking' %}"
+       data-recommendations-endpoint="{% url 'project4:recommendations' %}"
+       data-reset-endpoint="{% url 'project4:reset_study' %}">
+    <section class="design-section" id="design-1-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">Design 1</p>
+          <h2>Pairwise Selection</h2>
+        </div>
+        <span class="section-badge">5 comparisons</span>
+      </div>
+      <p class="subtitle">
+        Select the movie you would rather watch. Each answer becomes a winner-loser comparison for estimating the preference vector.
+      </p>
+
+      <div class="progress-container" id="d1-progress-container">
+        <span class="progress-text" id="d1-progress-text">Step 1 of 5</span>
+        <div class="progress-bar-bg" aria-hidden="true">
+          <div class="progress-bar-fill" id="d1-progress-bar" style="width: 20%;"></div>
+        </div>
+      </div>
+
+      <div class="question-text" id="d1-question-text">Which movie would you choose?</div>
+
+      <div id="pairs-wrapper">
+        {% for pair in design1_pairs %}
+        <div class="pair-container" id="pair-{{ pair.pair_index }}" {% if not forloop.first %}hidden{% endif %} data-pair-idx="{{ pair.pair_index }}">
+          <div class="pair-movies">
+            <button type="button" class="movie-card" data-choice-side="movie1" data-movie-id="{{ pair.movie1.movie_id|escape }}" data-movie-title="{{ pair.movie1.title|escape }}" onclick="selectMovie(this)">
+              <span class="movie-badge-selection" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </span>
+              <span>
+                <span class="movie-meta-row">
+                  <span class="meta-badge rating-badge">
+                    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"></path>
+                    </svg>
+                    {{ pair.movie1.imdb_score }}
+                  </span>
+                  <span class="meta-badge">{{ pair.movie1.year }}</span>
+                  <span class="meta-badge">{{ pair.movie1.duration }} min</span>
+                </span>
+                <span class="movie-title-large">{{ pair.movie1.title }}</span>
+                <span class="movie-details-list"><strong>Director:</strong> {{ pair.movie1.director }}</span>
+              </span>
+              <span class="movie-genres-row">
+                {% for genre in pair.movie1.genres|slice:":3" %}
+                <span class="genre-tag">{{ genre }}</span>
+                {% endfor %}
+              </span>
+            </button>
+
+            <button type="button" class="movie-card" data-choice-side="movie2" data-movie-id="{{ pair.movie2.movie_id|escape }}" data-movie-title="{{ pair.movie2.title|escape }}" onclick="selectMovie(this)">
+              <span class="movie-badge-selection" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </span>
+              <span>
+                <span class="movie-meta-row">
+                  <span class="meta-badge rating-badge">
+                    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"></path>
+                    </svg>
+                    {{ pair.movie2.imdb_score }}
+                  </span>
+                  <span class="meta-badge">{{ pair.movie2.year }}</span>
+                  <span class="meta-badge">{{ pair.movie2.duration }} min</span>
+                </span>
+                <span class="movie-title-large">{{ pair.movie2.title }}</span>
+                <span class="movie-details-list"><strong>Director:</strong> {{ pair.movie2.director }}</span>
+              </span>
+              <span class="movie-genres-row">
+                {% for genre in pair.movie2.genres|slice:":3" %}
+                <span class="genre-tag">{{ genre }}</span>
+                {% endfor %}
+              </span>
+            </button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div id="d1-completion" class="completion-view" hidden>
+        <h3>Pairwise Selection Completed</h3>
+        <p>Your pairwise preferences have been saved for this browser session. Continue to the ranking task for the second study condition.</p>
+        <button type="button" class="secondary-button" onclick="restartDesign1()">Restart Pairwise Task</button>
+      </div>
+
+      <div class="navigation-bar" id="d1-navigation">
+        <button type="button" class="action-button action-button-primary" id="d1-next-btn" disabled onclick="nextPair()">
+          Next Pair
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <section class="design-section" id="design-2-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">Design 2</p>
+          <h2>Ranking Interface</h2>
+        </div>
+        <span class="section-badge">10 movies</span>
+      </div>
+      <p class="subtitle">
+        Drag movies from most preferred to least preferred. A ranking gives the backend a richer ordered preference signal.
+      </p>
+
+      <div class="drag-instruction">Drag and drop movies inside the list to reorder them before submitting.</div>
+
+      <div class="ranking-list" id="sortable-list">
+        {% for movie in design2_movies %}
+        <div class="ranking-item" draggable="true" data-movie-id="{{ movie.movie_id|escape }}" data-movie-title="{{ movie.title|escape }}">
+          <div class="drag-handle" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9" cy="12" r="1"></circle>
+              <circle cx="9" cy="5" r="1"></circle>
+              <circle cx="9" cy="19" r="1"></circle>
+              <circle cx="15" cy="12" r="1"></circle>
+              <circle cx="15" cy="5" r="1"></circle>
+              <circle cx="15" cy="19" r="1"></circle>
+            </svg>
+          </div>
+          <div class="rank-number">{{ forloop.counter }}</div>
+          <div class="ranking-movie-info">
+            <div>
+              <div class="ranking-movie-title">{{ movie.title }}</div>
+              <div class="ranking-movie-director">{{ movie.director }} · {{ movie.year }}</div>
+            </div>
+            <div class="ranking-meta-group">
+              <div class="ranking-movie-genres">
+                {% for genre in movie.genres|slice:":2" %}
+                <span class="genre-tag">{{ genre }}</span>
+                {% endfor %}
+              </div>
+              <div class="ranking-movie-score">
+                <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"></path>
+                </svg>
+                {{ movie.imdb_score }}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="submit-ranking-container">
+        <button type="button" class="action-button action-button-primary" id="submit-ranking-button" onclick="submitRankings()">
+          Submit Rankings
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <section class="recommendation-section" id="recommendation-results">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">Result</p>
+          <h2>Recommended Movies</h2>
+        </div>
+        <span class="section-badge" id="recommendation-status">Awaiting input</span>
+      </div>
+      <p class="subtitle">
+        After the elicitation tasks are submitted, recommendations show scored movies and short feature-based reasons.
+      </p>
+      <div id="recommendation-list" class="recommendation-list empty-state">
+        Submit the pairwise and ranking tasks to generate recommendation results.
+      </div>
+      <div id="model-summary" class="model-summary" hidden></div>
+    </section>
+
+    <section class="feedback-panel" id="study-feedback">
+      <h2>Participant Feedback</h2>
+      <p class="subtitle">A real study should collect perceived effort and recommendation relevance after the interaction.</p>
+      <form id="feedback-form" class="feedback-form">
+        <label for="relevance-rating">Recommendation relevance</label>
+        <select id="relevance-rating" name="relevance_rating">
+          <option value="">Select rating</option>
+          <option value="1">1 - Not relevant</option>
+          <option value="2">2 - Slightly relevant</option>
+          <option value="3">3 - Moderately relevant</option>
+          <option value="4">4 - Relevant</option>
+          <option value="5">5 - Very relevant</option>
+        </select>
+
+        <label for="effort-rating">Task effort</label>
+        <select id="effort-rating" name="effort_rating">
+          <option value="">Select rating</option>
+          <option value="1">1 - Very low</option>
+          <option value="2">2 - Low</option>
+          <option value="3">3 - Medium</option>
+          <option value="4">4 - High</option>
+          <option value="5">5 - Very high</option>
+        </select>
+
+        <label for="feedback-note">Optional note</label>
+        <textarea id="feedback-note" name="feedback_note" rows="3" placeholder="What felt clear or difficult?"></textarea>
+      </form>
+    </section>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block script %}
+{% if is_study %}
+<script>
+  const studyArea = document.getElementById('study-area');
+  const statusMessage = document.getElementById('status-message');
+  const totalPairs = document.querySelectorAll('.pair-container').length;
+  const selections = {};
+  let currentPairIdx = 1;
+  let dragEl = null;
+  let pairwiseSubmitted = false;
+  let rankingSubmitted = false;
+
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return '';
+  }
+
+  async function postJSON(url, payload) {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken'),
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload),
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    const data = contentType.includes('application/json') ? await response.json() : {};
+    if (!response.ok) {
+      throw new Error(data.error || `Request failed with status ${response.status}`);
+    }
+    return data;
+  }
+
+  function showStatus(message, tone = 'info') {
+    statusMessage.textContent = message;
+    statusMessage.className = `status-message status-${tone}`;
+    statusMessage.hidden = false;
+  }
+
+  function escapeHTML(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    })[char]);
+  }
+
+  function getPairPayload(pairContainer, selectedCard) {
+    const cards = Array.from(pairContainer.querySelectorAll('.movie-card'));
+    const loserCard = cards.find((card) => card !== selectedCard);
+    return {
+      pair_index: Number(pairContainer.dataset.pairIdx),
+      winner_id: selectedCard.dataset.movieId,
+      loser_id: loserCard ? loserCard.dataset.movieId : null,
+    };
+  }
+
+  function selectMovie(cardElement) {
+    const parentContainer = cardElement.closest('.pair-container');
+    const pairIdx = parentContainer.dataset.pairIdx;
+
+    parentContainer.querySelectorAll('.movie-card').forEach((card) => {
+      card.classList.remove('selected');
+      card.setAttribute('aria-pressed', 'false');
+    });
+
+    cardElement.classList.add('selected');
+    cardElement.setAttribute('aria-pressed', 'true');
+    selections[pairIdx] = getPairPayload(parentContainer, cardElement);
+    document.getElementById('d1-next-btn').disabled = false;
+  }
+
+  function updatePairProgress() {
+    if (!totalPairs) return;
+    document.getElementById('d1-progress-text').innerText = `Step ${currentPairIdx} of ${totalPairs}`;
+    document.getElementById('d1-progress-bar').style.width = `${(currentPairIdx / totalPairs) * 100}%`;
+    document.getElementById('d1-next-btn').disabled = !selections[currentPairIdx];
+    document.getElementById('d1-next-btn').innerHTML = currentPairIdx === totalPairs ? `
+      Finish Selection
+      <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+    ` : `
+      Next Pair
+      <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+        <polyline points="12 5 19 12 12 19"></polyline>
+      </svg>
+    `;
+  }
+
+  async function submitPairwiseChoices() {
+    const payload = {
+      design: 'pairwise',
+      choices: Object.values(selections).sort((a, b) => a.pair_index - b.pair_index),
+    };
+    const data = await postJSON(studyArea.dataset.pairwiseEndpoint, payload);
+    pairwiseSubmitted = true;
+    showStatus(data.message || 'Pairwise choices submitted.', 'success');
+    renderResponse(data);
+    await maybeLoadRecommendations();
+  }
+
+  async function nextPair() {
+    if (currentPairIdx < totalPairs) {
+      document.getElementById(`pair-${currentPairIdx}`).hidden = true;
+      currentPairIdx++;
+      document.getElementById(`pair-${currentPairIdx}`).hidden = false;
+      updatePairProgress();
+      return;
+    }
+
+    try {
+      document.getElementById('d1-next-btn').disabled = true;
+      await submitPairwiseChoices();
+      document.getElementById(`pair-${currentPairIdx}`).hidden = true;
+      document.getElementById('d1-progress-container').hidden = true;
+      document.getElementById('d1-question-text').hidden = true;
+      document.getElementById('d1-navigation').hidden = true;
+      document.getElementById('d1-completion').hidden = false;
+    } catch (error) {
+      document.getElementById('d1-next-btn').disabled = false;
+      showStatus(`Pairwise choices could not be submitted: ${error.message}`, 'warning');
+    }
+  }
+
+  function restartDesign1() {
+    Object.keys(selections).forEach((key) => delete selections[key]);
+    pairwiseSubmitted = false;
+    currentPairIdx = 1;
+
+    document.querySelectorAll('.movie-card').forEach((card) => {
+      card.classList.remove('selected');
+      card.setAttribute('aria-pressed', 'false');
+    });
+    document.querySelectorAll('.pair-container').forEach((pair, index) => {
+      pair.hidden = index !== 0;
+    });
+
+    document.getElementById('d1-completion').hidden = true;
+    document.getElementById('d1-progress-container').hidden = false;
+    document.getElementById('d1-question-text').hidden = false;
+    document.getElementById('d1-navigation').hidden = false;
+    updatePairProgress();
+    showStatus('Pairwise task restarted for this session.', 'info');
+  }
+
+  function updateRankings() {
+    document.querySelectorAll('.ranking-item').forEach((item, idx) => {
+      item.querySelector('.rank-number').innerText = idx + 1;
+    });
+  }
+
+  function getFeedbackPayload() {
+    const form = document.getElementById('feedback-form');
+    return Object.fromEntries(new FormData(form).entries());
+  }
+
+  async function submitRankings() {
+    const rankedMovies = Array.from(document.querySelectorAll('.ranking-item')).map((item, idx) => ({
+      rank: idx + 1,
+      movie_id: item.dataset.movieId,
+    }));
+
+    try {
+      document.getElementById('submit-ranking-button').disabled = true;
+      const data = await postJSON(studyArea.dataset.rankingEndpoint, {
+        design: 'ranking',
+        ranking: rankedMovies,
+        feedback: getFeedbackPayload(),
+      });
+      rankingSubmitted = true;
+      showStatus(data.message || 'Ranking submitted.', 'success');
+      renderResponse(data);
+      await maybeLoadRecommendations(true);
+    } catch (error) {
+      showStatus(`Ranking could not be submitted: ${error.message}`, 'warning');
+    } finally {
+      document.getElementById('submit-ranking-button').disabled = false;
+    }
+  }
+
+  async function maybeLoadRecommendations(force = false) {
+    if (!force && (!pairwiseSubmitted || !rankingSubmitted)) return;
+    try {
+      const data = await postJSON(studyArea.dataset.recommendationsEndpoint, {
+        include_explanations: true,
+        source: 'project4-study',
+      });
+      renderResponse(data);
+    } catch (error) {
+      if (force || (pairwiseSubmitted && rankingSubmitted)) {
+        showStatus(`Recommendation endpoint could not respond: ${error.message}`, 'warning');
+      }
+    }
+  }
+
+  function renderResponse(data) {
+    if (data.summary) {
+      const summary = document.getElementById('model-summary');
+      summary.hidden = false;
+      summary.textContent = data.summary.model_note || data.summary.fit_note || `Preference evidence used: ${data.summary.comparisons_used || 'available'}.`;
+    }
+    if (Array.isArray(data.recommendations) && data.recommendations.length) {
+      renderRecommendations(data.recommendations);
+    }
+  }
+
+  function recommendationReasons(movie) {
+    if (Array.isArray(movie.reasons)) return movie.reasons;
+    if (Array.isArray(movie.explanations)) {
+      return movie.explanations.map((item) => item.label || item.feature).filter(Boolean);
+    }
+    return [];
+  }
+
+  function renderRecommendations(recommendations) {
+    const list = document.getElementById('recommendation-list');
+    list.classList.remove('empty-state');
+    document.getElementById('recommendation-status').textContent = `${recommendations.length} returned`;
+    list.innerHTML = recommendations.map((movie, index) => {
+      const reasonTags = recommendationReasons(movie)
+        .slice(0, 3)
+        .map((reason) => `<span class="reason-tag">${escapeHTML(reason)}</span>`)
+        .join('');
+      const scoreValue = movie.score ?? movie.utility_score;
+      const score = scoreValue !== undefined ? `<span class="recommendation-score">Score ${escapeHTML(scoreValue)}</span>` : '';
+      return `
+        <article class="recommendation-card">
+          <div class="recommendation-rank">${index + 1}</div>
+          <div>
+            <h3>${escapeHTML(movie.title || movie.movie_id || 'Untitled movie')}</h3>
+            <p>${escapeHTML(movie.director || 'Feature-based match')}${movie.year ? ` · ${escapeHTML(movie.year)}` : ''}</p>
+            <div class="reason-list">${reasonTags || '<span class="reason-tag">Preference match</span>'}</div>
+          </div>
+          ${score}
+        </article>
+      `;
+    }).join('');
+  }
+
+  document.getElementById('reset-study-button').addEventListener('click', async () => {
+    try {
+      await postJSON(studyArea.dataset.resetEndpoint, { reset: true });
+      window.location.href = "{% url 'project4:study' %}";
+    } catch (error) {
+      showStatus(`Study reset failed: ${error.message}`, 'warning');
+    }
+  });
+
+  const sortableList = document.getElementById('sortable-list');
+  sortableList.addEventListener('dragstart', (event) => {
+    dragEl = event.target.closest('.ranking-item');
+    if (!dragEl) return;
+    dragEl.classList.add('dragging');
+    event.dataTransfer.effectAllowed = 'move';
+  });
+
+  sortableList.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    const overItem = event.target.closest('.ranking-item');
+    if (!overItem || overItem === dragEl) return;
+
+    const rect = overItem.getBoundingClientRect();
+    const insertAfter = (event.clientY - rect.top) / rect.height > 0.5;
+    sortableList.insertBefore(dragEl, insertAfter ? overItem.nextSibling : overItem);
+    updateRankings();
+  });
+
+  sortableList.addEventListener('dragend', () => {
+    if (dragEl) {
+      dragEl.classList.remove('dragging');
+      dragEl = null;
+    }
+    updateRankings();
+  });
+
+  updatePairProgress();
+</script>
+{% endif %}
+{% endblock %}
