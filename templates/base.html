@@ -3,6 +3,8 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link rel= "stylesheet" href="{% static 'style.css' %}">
         {% block extra_css %}{% endblock %}
         <link rel="shortcut icon" href="{% static 'favicon/favicon.ico' %}">
@@ -183,8 +185,9 @@
 
                 const zoomTarget = event.target.closest("[data-zoom-src]");
                 if (zoomTarget) {
+                    const activeSrc = zoomTarget.dataset.zoomSrc || zoomTarget.querySelector("img")?.src;
                     openPlotModal(
-                        zoomTarget.dataset.zoomSrc,
+                        activeSrc,
                         zoomTarget.dataset.zoomTitle || zoomTarget.getAttribute("aria-label"),
                     );
                     return;

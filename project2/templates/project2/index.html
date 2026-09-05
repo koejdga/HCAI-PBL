@@ -1,5 +1,4 @@
 {% extends "base.html" %} {% load static %} {% block site_context %}Project 2: Explainability{% endblock %} {% block header_actions %}
-<!-- Explicit home navigation avoids browser-history traps after form steps. -->
 <a class="home-link" href="{% url 'home:index' %}">Back to Home</a>
 {% endblock %} {% block extra_css %}
 <link rel="stylesheet" href="{% static 'project2/style.css' %}" />
@@ -9,235 +8,29 @@
 
   <div class="title-container">
     <div class="title">Explainability</div>
-  </div>
-
-  <div class="centered-text">
-    <p>
-      Exploring model complexity and explanations using the Palmer Penguins
-      dataset
+    <p class="centered-text explanation">
+      Exploring model complexity, interpretability, and post-hoc explanations using the Palmer Penguins dataset
     </p>
   </div>
 
-  <section class="tree-section">
-    <h2>Decision Tree</h2>
-
-    <p class="section-intro">
-      This first model predicts penguin species from seven input features. 20%
-      of the cleaned dataset is kept aside for testing.
-    </p>
-
-    <div class="page-flow-note">
-      <strong>How to use this page:</strong>
-      choose a model and lambda, compare the selected model, inspect local
-      counterfactuals, then review the PDP and ALE feature-effect plots.
-    </div>
-    <div class="info-explainer-popup">
-      <button type="button" class="info-explainer-trigger" aria-expanded="false">
-        {% include "components/info_icon.svg" %}
-        <span>Show explainability workflow information</span>
-      </button>
-      <div class="info-explainer-content">
-        This page follows an HCAI explainability workflow: choose a model, balance accuracy with simplicity, inspect local counterfactual examples, and then compare global feature-effect plots.
-      </div>
-    </div>
-
-    <section id="model-selection" class="task-two-panel" aria-labelledby="task-two-title">
-      <h3 id="task-two-title">Accuracy and Simplicity</h3>
-
-      <form method="get" id="model-settings-form" class="lambda-control">
-        <input type="hidden" name="selected-row" value="{{ selected_row_id }}" />
-        <input
-          type="hidden"
-          name="dataset-page"
-          value="{{ dataset_page.number }}"
-        />
-        <input
-          type="hidden"
-          name="feature-effect-feature"
-          value="{{ feature_effect_feature }}"
-        />
-
-        <div class="lambda-heading">
-          <label for="lambda">
-            Simplicity preference &lambda;:
-          </label>
-          <output id="lambda-value" for="lambda">{{ lambda_value }}</output>
-        </div>
-
-        <div class="lambda-slider">
-          <input
-            id="lambda"
-            name="lambda"
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value="{{ lambda_value }}"
-            aria-describedby="lambda-help"
-            oninput="
-              document.getElementById('lambda-value').value = Number(
-                this.value,
-              ).toFixed(2)
-            "
-          />
-
-          <div class="lambda-labels">
-            <span>Focus on accuracy</span>
-            <span>Focus on simplicity</span>
-          </div>
-        </div>
-
-        <div class="model-type-options">
-          <div class="model-type-heading">
-            <strong>Select a model type:</strong>
-          </div>
-
-          <div>
-            <input
-              type="radio"
-              id="decision-tree"
-              name="model-type"
-              value="decision-tree"
-              {% if model_type == "decision-tree" or not model_type %}checked{% endif %}
-            />
-            <label for="decision-tree"
-              >Decision Tree</label
-            >
-          </div>
-
-          <div>
-            <input
-              type="radio"
-              id="logistic-regression"
-              name="model-type"
-              value="logistic-regression"
-              {% if model_type == "logistic-regression" %}checked{% endif %}
-            />
-            <label for="logistic-regression"
-              >Logistic Regression</label
-            >
-          </div>
-        </div>
-
-        <button class="compact-action-button preference-button" type="submit">
-          Apply preference
-        </button>
-      </form>
-      <div class="info-explainer-popup">
-        <button type="button" class="info-explainer-trigger" aria-expanded="false">
-          {% include "components/info_icon.svg" %}
-          <span>What does lambda control?</span>
-        </button>
-        <div class="info-explainer-content">
-          Lambda controls how much the interface prefers a simpler model. Lower values focus more on test accuracy; higher values prefer fewer leaves or fewer active features.
-        </div>
-      </div>
-
-      <div class="candidate-table-container">
-        <table class="candidate-table">
-          <thead>
-            <tr>
-              <th>Parameter</th>
-              <th>{{ complexity_label }}</th>
-              <th>Test accuracy</th>
-              <th>Selection score</th>
-            </tr>
-          </thead>
-          <tbody id="candidates-table-body">
-            {% for candidate in candidate_models %}
-            <tr
-              {% if candidate.selected %}class="selected-candidate"{% endif %}
-            >
-              <td>{{ candidate.param_label }}</td>
-              <td>{{ candidate.complexity_count }}</td>
-              <td>{{ candidate.accuracy_percent }}%</td>
-              <td>{{ candidate.selection_score }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <div class="selected-model-note" id="selected-model-note">
-        <span id="selected-model-note-text"
-          >{{ selected_model_description }}</span
-        >
-      </div>
-
-      <div class="info-explainer-popup lambda-explanation" id="lambda-help">
-        <button type="button" class="info-explainer-trigger" aria-expanded="false">
-          {% include "components/info_icon.svg" %}
-          <span>What does &lambda; mean?</span>
-        </button>
-        <div class="info-explainer-content">
-          A low value prioritizes test accuracy. A high value gives more
-          importance to a smaller model that may be easier to understand. Lambda
-          selects between trained candidates; it is not the model's training
-          parameter.
-          <br /><br />
-          Selection score =
-          <strong>test accuracy - &lambda; &times; normalized complexity</strong>.
-          Higher scores are preferred.
-        </div>
-      </div>
-    </section>
-
-    <div id="model-results" class="tree-metrics">
-      <article class="metric-card">
-        <span>Clean dataset</span>
-        <strong>{{ row_count }}</strong>
-        <p>rows without missing values</p>
-      </article>
-
-      <article class="metric-card">
-        <span>Test accuracy</span>
-        <strong id="accuracy-display">{{ accuracy_percent }}%</strong>
-        <p>test penguins predicted correctly</p>
-      </article>
-
-      <article class="metric-card">
-        <span id="complexity-label">{{ complexity_label }}</span>
-        <strong id="complexity-display">{{ complexity_count }}</strong>
-        <p id="complexity-description">{{ complexity_description }}</p>
-      </article>
-
-      <article class="metric-card">
-        <span>Selection score</span>
-        <strong id="selection-score-display">{{ selection_score }}</strong>
-        <p>higher is better</p>
-      </article>
-    </div>
-
-    <div class="split-note">
-      <span>Data split</span>
-      <span
-        >Training rows:
-        <strong id="train-rows-display">{{ train_rows }}</strong></span
-      >
-      <span
-        >Test rows:
-        <strong id="test-rows-display">{{ test_rows }}</strong></span
-      >
-    </div>
-
-    <section
+  
+  <!-- SECTION 1: DATA TRANSPARENCY -->
+  <section
       id="data-transparency"
-      class="transparency-panel"
+      class="project-section-box transparency-panel"
       aria-labelledby="data-transparency-title"
-    >
-      <h3 id="data-transparency-title">Data Transparency</h3>
-      <p class="transparency-intro">
-        These are the data and preprocessing choices behind the displayed
-        result.
-      </p>
+  >
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <h3 id="data-transparency-title">Data Transparency</h3>
+        <p class="transparency-intro">
+          These are the data and preprocessing choices behind the displayed models.
+        </p>
+      </div>
+
       <dl class="transparency-grid">
         <div>
           <dt>Prediction target</dt>
-          <dd>{{ target_column }}</dd>
-        </div>
-        <div>
-          <dt>Possible classes</dt>
-          <dd>{{ target_classes|join:", " }}</dd>
+          <dd>{{ target_column }} (3 classes: {{ target_classes|join:", " }})</dd>
         </div>
         <div>
           <dt>Numeric features</dt>
@@ -246,6 +39,12 @@
         <div>
           <dt>Categorical features</dt>
           <dd>{{ categorical_features|join:", " }}</dd>
+        </div>
+        <div>
+          <dt>Reproducibility</dt>
+          <dd>
+            Fixed stratified 80/20 train/test split (266 train / 67 test) shared across all candidate models for direct comparability.
+          </dd>
         </div>
         <div>
           <dt>Missing-value handling</dt>
@@ -258,9 +57,8 @@
         <div>
           <dt>Why categories are encoded</dt>
           <dd>
-            The model needs numeric input. One-hot encoding creates a separate
-            yes/no indicator for each island and sex category without implying
-            that one category is greater than another.
+            The model requires numeric input. One-hot encoding creates separate
+            indicators for each island and sex category without imposing an arbitrary ordering.
           </dd>
         </div>
       </dl>
@@ -271,437 +69,1412 @@
           <span>Important note about missing rows</span>
         </button>
         <div class="info-explainer-content">
-          Removing incomplete rows is simple and reproducible, but it may reduce representativeness if missing data is concentrated in a particular group.
+          Removing incomplete rows is simple and reproducible, but it may reduce representativeness if missing data is concentrated in a particular demographic or ecological group.
         </div>
       </div>
-    </section>
+  </section>
 
-    <div id="tree-explanation">
-    <div id="tree-visualization-container"
-      {% if tree_image_url %}style="display: block"{% else %}style="display: none"{% endif %}>
-      <div class="tree-explanation">
-        <strong>How to read the tree</strong>
-        <p>
-          Start at the top and follow the branch that matches a penguin's
-          feature value. Each final leaf gives a species prediction. Fewer
-          leaves usually make a tree easier to inspect, while more leaves allow
-          more detailed decision rules.
-        </p>
-      </div>
-
-      <div
-        class="tree-image-container zoomable-plot"
-        data-zoom-src="{{ tree_image_url }}"
-        data-zoom-title="Decision tree trained on the Palmer Penguins dataset"
-        aria-label="Open decision tree larger"
-      >
-        <img
-          id="tree-image-element"
-          src="{{ tree_image_url }}"
-          alt="Decision tree trained on the Palmer Penguins dataset"
-          class="tree-image"
-        />
-      </div>
-    </div>
+  <!-- SECTION 2: MODEL SELECTION & RASHOMON SET -->
+  <section id="model-selection" class="project-section-box model-selection-section" aria-labelledby="task-two-title">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h2 id="task-two-title">1. Model Selection &amp; Complexity Trade-off</h2>
+      <p class="section-intro">
+        Select between an interpretable Decision Tree and L1-regularized Logistic Regression, and balance test accuracy with model simplicity using &lambda;.
+      </p>
     </div>
 
-    <div id="counterfactuals">
-      <h2>Counterfactuals</h2>
-      <div class="info-explainer-popup">
-        <button type="button" class="info-explainer-trigger" aria-expanded="false">
-          {% include "components/info_icon.svg" %}
-          <span>What are counterfactuals?</span>
+    <form method="get" id="model-settings-form" class="lambda-control">
+      <input type="hidden" name="selected-row" value="{{ selected_row_id }}" />
+      <input type="hidden" name="dataset-page" value="{{ dataset_page.number }}" />
+      <input type="hidden" name="tree-page" value="{{ tree_page.number }}" />
+      <input type="hidden" name="trace-row" id="form-trace-row" value="{{ traced_row_id|default:'' }}" />
+      <input type="hidden" name="feature-effect-feature" value="{{ feature_effect_feature }}" />
+
+      <div class="model-selection-grid">
+        <div class="lambda-group">
+          <div class="lambda-heading">
+            <label for="lambda">
+              Simplicity preference &lambda;:
+            </label>
+            <output id="lambda-value" for="lambda">{{ lambda_value }}</output>
+          </div>
+
+          <div class="lambda-slider">
+            <input
+              id="lambda"
+              name="lambda"
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value="{{ lambda_value }}"
+              aria-describedby="lambda-help"
+              oninput="document.getElementById('lambda-value').value = Number(this.value).toFixed(2)"
+            />
+            <div class="lambda-labels">
+              <span>Focus on accuracy (&lambda; = 0)</span>
+              <span>Focus on simplicity (&lambda; = 1)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="theta-group">
+          <div class="lambda-heading">
+            <label for="theta">
+              Rashomon Tolerance &theta;:
+            </label>
+            <output id="theta-value" for="theta">{{ theta_value }}</output>
+          </div>
+          <div class="lambda-slider">
+            <input
+              id="theta"
+              name="theta"
+              type="range"
+              min="0.00"
+              max="0.10"
+              step="0.01"
+              value="{{ theta_value }}"
+              oninput="document.getElementById('theta-value').value = Number(this.value).toFixed(2)"
+            />
+            <div class="lambda-labels">
+              <span>Strict (&theta; = 0)</span>
+              <span>Within 10% accuracy (&theta; = 0.10)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="model-type-options">
+        <div class="model-type-heading">
+          <strong>Model architecture:</strong>
+        </div>
+
+        <div class="radio-option-item">
+          <input
+            type="radio"
+            id="decision-tree"
+            name="model-type"
+            value="decision-tree"
+            {% if model_type == "decision-tree" or not model_type %}checked{% endif %}
+          />
+          <label for="decision-tree">Decision Tree (leaves as complexity)</label>
+        </div>
+
+        <div class="radio-option-item">
+          <input
+            type="radio"
+            id="logistic-regression"
+            name="model-type"
+            value="logistic-regression"
+            {% if model_type == "logistic-regression" %}checked{% endif %}
+          />
+          <label for="logistic-regression">Logistic Regression (non-zero weights as complexity)</label>
+        </div>
+      </div>
+
+      <div class="preference-button-wrapper">
+        <button class="compact-action-button preference-button" type="submit">
+          Apply preference
         </button>
-        <div class="info-explainer-content">
-          Counterfactuals show small input changes that would change the model prediction. They are local explanations for one selected row.
+      </div>
+    </form>
+
+    <!-- RASHOMON SUMMARY CARD -->
+    <div class="rashomon-banner" id="rashomon-banner">
+      <div class="rashomon-header">
+        <span class="rashomon-tag">The Rashomon Effect</span>
+        <strong>Rashomon Set Ratio: <span id="rashomon-ratio">{{ rashomon_info.ratio_percent }}%</span></strong>
+        <span class="rashomon-sub">({{ rashomon_info.count }} of {{ rashomon_info.total }} candidates within &theta; = {{ theta_value }} error of optimal model)</span>
+      </div>
+      <p class="rashomon-text">
+        <strong>Existence of a Simpler Model:</strong> Breiman (2001) and Rudin &amp; Semenova (2019) show that when multiple distinct models achieve approximately equal predictive accuracy, a large Rashomon set certifies that a simpler model exists.
+        {% if rashomon_info.simplest_param %}
+        The simplest model within tolerance is <strong>{{ rashomon_info.simplest_param }}</strong>.
+        {% endif %}
+      </p>
+    </div>
+
+    <div class="candidate-table-container">
+      <table class="candidate-table">
+        <thead>
+          <tr>
+            <th>
+              <div class="th-content">
+                <span>Parameter</span>
+                <div class="info-explainer-popup display-inline-block">
+                  <button type="button" class="info-explainer-trigger info-explainer-trigger-reset" aria-expanded="false" aria-label="Explanation of Parameter">
+                    {% include "components/info_icon.svg" %}
+                  </button>
+                  <div class="info-explainer-content info-explainer-content-reset">
+                    Configuration setting controlling model size (such as max depth for tree, or regularization strength C for logistic regression).
+                  </div>
+                </div>
+              </div>
+            </th>
+            <th>
+              <div class="th-content">
+                <span id="complexity-label-th">{{ complexity_label }}</span>
+                <div class="info-explainer-popup display-inline-block">
+                  <button type="button" class="info-explainer-trigger info-explainer-trigger-reset" aria-expanded="false" aria-label="Explanation of Complexity">
+                    {% include "components/info_icon.svg" %}
+                  </button>
+                  <div class="info-explainer-content info-explainer-content-reset">
+                    How complex the model is. For trees, this is the total number of leaf nodes (decision endpoints). For logistic regression, it is the count of non-zero active feature weights. Fewer leaves or weights make the model easier to interpret.
+                  </div>
+                </div>
+              </div>
+            </th>
+            <th>
+              <div class="th-content">
+                <span>Test accuracy</span>
+                <div class="info-explainer-popup display-inline-block">
+                  <button type="button" class="info-explainer-trigger info-explainer-trigger-reset" aria-expanded="false" aria-label="Explanation of Test accuracy">
+                    {% include "components/info_icon.svg" %}
+                  </button>
+                  <div class="info-explainer-content info-explainer-content-reset">
+                    Percentage of new, unseen test penguins that the model correctly classifies. Higher percentage means fewer mistakes on fresh data.
+                  </div>
+                </div>
+              </div>
+            </th>
+            <th>
+              <div class="th-content">
+                <span>Selection score</span>
+                <div class="info-explainer-popup display-inline-block">
+                  <button type="button" class="info-explainer-trigger info-explainer-trigger-reset" aria-expanded="false" aria-label="Explanation of Selection score">
+                    {% include "components/info_icon.svg" %}
+                  </button>
+                  <div class="info-explainer-content info-explainer-content-reset">
+                    Overall score balancing accuracy against simplicity: test accuracy - &lambda; &times; normalized complexity (higher is better). A higher score reflects the best trade-off based on your simplicity preference.
+                  </div>
+                </div>
+              </div>
+            </th>
+            <th>
+              <div class="th-content">
+                <span>Rashomon Set (&theta;=<span id="rashomon-th-theta">{{ theta_value }}</span>)</span>
+                <div class="info-explainer-popup display-inline-block">
+                  <button type="button" class="info-explainer-trigger info-explainer-trigger-reset" aria-expanded="false" aria-label="Explanation of Rashomon Set">
+                    {% include "components/info_icon.svg" %}
+                  </button>
+                  <div class="info-explainer-content info-explainer-content-reset">
+                    Shows whether this candidate achieves accuracy within &theta; of the best model. Candidates marked 'In' belong to the Rashomon set of equally accurate models, proving a simpler explanation exists without sacrificing performance.
+                  </div>
+                </div>
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="candidates-table-body">
+          {% for candidate in candidate_models %}
+          <tr {% if candidate.selected %}class="selected-candidate"{% endif %}>
+            <td>{{ candidate.param_label }}</td>
+            <td>{{ candidate.complexity_count }}</td>
+            <td>{{ candidate.accuracy_percent }}%</td>
+            <td>{{ candidate.selection_score }}</td>
+            <td>
+              {% if candidate.in_rashomon %}
+                <span class="rashomon-badge in-set">✓ In &fnof; &isin; &Rscr;</span>
+              {% else %}
+                <span class="rashomon-badge outside-set">Outside</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="selected-model-note" id="selected-model-note">
+      <span id="selected-model-note-text">{{ selected_model_description }}</span>
+    </div>
+
+    <div class="info-explainer-popup lambda-explanation" id="lambda-help">
+      <button type="button" class="info-explainer-trigger" aria-expanded="false">
+        {% include "components/info_icon.svg" %}
+        <span>How selection score and lambda work</span>
+      </button>
+      <div class="info-explainer-content">
+        Selection score = <strong>test accuracy - &lambda; &times; normalized complexity</strong> (higher is better).
+        A low &lambda; focuses strictly on predictive accuracy, while a higher &lambda; rewards simpler, more interpretable models.
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 3: MODEL INTERPRETATION (DECISION TREE OR LOGISTIC REGRESSION) -->
+  <section id="tree-explanation" class="project-section-box tree-section">
+    <!-- 3A: DECISION TREE VIEW -->
+    <div id="tree-visualization-container" class="model-view-container" {% if model_type == "decision-tree" or not model_type %}style="display: flex"{% else %}style="display: none"{% endif %}>
+      <div class="section-title-bar">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <h2>2. Decision Tree Architecture &amp; Decision Paths</h2>
+          <p class="section-subtitle">
+            Explore how individual penguins navigate decision splits from root to leaf, or hover over nodes to inspect impurity.
+          </p>
+        </div>
+        <div class="tree-toolbar-actions">
+          <button type="button" class="compact-action-button" id="toggle-datapoint-explorer-btn" onclick="toggleDatapointExplorer()" title="Toggle compact sample table to trace individual penguin paths">
+            {% if traced_row_id or tree_explorer_open %}
+            <span>Hide Datapoints</span>
+            {% else %}
+            <span>Select Datapoint</span>
+            {% endif %}
+          </button>
+          {% if traced_row_id %}
+          <button type="button" class="compact-action-button secondary-btn" id="reset-path-btn" onclick="clearTreeTrace()">
+            <span>✕ Reset to General Tree</span>
+          </button>
+          {% endif %}
         </div>
       </div>
 
-      <form method="get" id="counterfactuals-form" class="counterfactuals-form task-two-panel">
-        <input type="hidden" name="lambda" value="{{ lambda_value }}" />
-        <input type="hidden" name="model-type" value="{{ model_type }}" />
-        <input
-          type="hidden"
-          name="feature-effect-feature"
-          value="{{ feature_effect_feature }}"
-        />
-        {% include "components/radio_buttons_set.html" with header_text="Select a desired class:" group_name="desired-class" current_value=desired_class options=output_classes %}
-
-        {% if selected_dataset_row %}
-          {% for column, value in selected_dataset_row.values.items %}
-            <input type="hidden" name="selected_{{ column }}" value="{{ value }}" />
-          {% endfor %}
-        {% endif %}
-
-        <div class="selected-row-note">
-          Selected dataset row:
-          <strong>#{{ selected_row_id }}</strong>
+      <!-- DEDICATED COMPACT DATAPOINT EXPLORER (USER REQUESTED) -->
+      <div id="tree-datapoint-explorer" class="datapoint-explorer-box" {% if traced_row_id or tree_explorer_open %}style="display: block"{% else %}style="display: none"{% endif %}>
+        <div class="explorer-heading">
+          <div>
+            <strong>Interactive Datapoint Explorer</strong>
+            <p>Select any penguin from this compact sample table to highlight its exact path through the decision tree from root to leaf.</p>
+          </div>
+          {% if traced_row_id %}
+          <span class="active-trace-tag">Currently tracing: Penguin #{{ traced_row_id }}</span>
+          {% endif %}
         </div>
 
         <div class="penguin-table-container">
-          <table class="penguin-table">
+          <table class="penguin-table compact-table">
             <thead>
               <tr>
-                <th scope="col">Use</th>
-                {% for label in dataset_column_labels %}
-                  <th scope="col">{{ label }}</th>
-                {% endfor %}
+                <th scope="col">Action</th>
+                <th scope="col">ID</th>
+                <th scope="col">Species</th>
+                <th scope="col">Bill Length</th>
+                <th scope="col">Bill Depth</th>
+                <th scope="col">Flipper Length</th>
+                <th scope="col">Body Mass</th>
+                <th scope="col">Island</th>
+                <th scope="col">Sex</th>
               </tr>
             </thead>
-            <tbody id="dataset-table-body">
-              {% for row in dataset_page.object_list %}
-                <tr class="{% if row.selected %}selected-row{% endif %}">
-                  <td>
-                    <input
-                      type="radio"
-                      name="selected-row"
-                      value="{{ row.id }}"
-                      aria-label="Select dataset row {{ row.id }}"
-                      {% if row.selected %}checked{% endif %}
-                    />
-                  </td>
-                  {% for column, value in row.display_values.items %}
-                    <td>{{ value }}</td>
-                  {% endfor %}
-                </tr>
+            <tbody id="tree-datapoint-table-body">
+              {% for row in tree_page_rows %}
+              <tr id="tree-row-{{ row.id }}" class="{% if row.is_traced %}selected-row{% endif %}">
+                <td>
+                  <button type="button" id="trace-btn-{{ row.id }}" class="trace-row-btn {% if row.is_traced %}is-active{% endif %}" onclick="tracePenguinRow('{{ row.id }}')">
+                    {% if row.is_traced %}Tracing ✓{% else %}Trace Path{% endif %}
+                  </button>
+                </td>
+                <td>#{{ row.id }}</td>
+                <td><strong>{{ row.display_values.species }}</strong></td>
+                <td>{{ row.display_values.bill_length_mm }}</td>
+                <td>{{ row.display_values.bill_depth_mm }}</td>
+                <td>{{ row.display_values.flipper_length_mm }}</td>
+                <td>{{ row.display_values.body_mass_g }}</td>
+                <td>{{ row.display_values.island }}</td>
+                <td>{{ row.display_values.sex }}</td>
+              </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
 
-        <nav class="dataset-pagination" aria-label="Penguin dataset pages">
-          {% if dataset_previous_url %}
-            <a href="{{ dataset_previous_url }}" aria-label="Previous page">Back</a>
+        <!-- COMPACT TREE PAGINATION -->
+        <nav class="dataset-pagination" id="tree-pagination-nav" aria-label="Tree datapoint pages" style="margin-top: 10px">
+          {% if tree_previous_url %}
+            <a href="{{ tree_previous_url }}" onclick="goToTreePage({{ tree_page.previous_page_number }}); return false;" aria-label="Previous page">Back</a>
           {% else %}
             <span class="disabled-page-control">Back</span>
           {% endif %}
 
           <div class="page-number-list">
-            {% for page_link in dataset_page_links %}
+            {% for page_link in tree_page_links %}
               {% if page_link.is_ellipsis %}
                 <span class="page-ellipsis">{{ page_link.number }}</span>
               {% elif page_link.is_current %}
                 <span class="current-page" aria-current="page">{{ page_link.number }}</span>
               {% else %}
-                <a href="{{ page_link.url }}">{{ page_link.number }}</a>
+                <a href="{{ page_link.url }}" onclick="goToTreePage({{ page_link.number }}); return false;">{{ page_link.number }}</a>
               {% endif %}
             {% endfor %}
           </div>
 
-          {% if dataset_next_url %}
-            <a href="{{ dataset_next_url }}" aria-label="Next page">Forward</a>
+          {% if tree_next_url %}
+            <a href="{{ tree_next_url }}" onclick="goToTreePage({{ tree_page.next_page_number }}); return false;" aria-label="Next page">Forward</a>
           {% else %}
             <span class="disabled-page-control">Forward</span>
           {% endif %}
+
+          <!-- Tree Pagination Jump -->
+          <div class="pagination-jump">
+            <label for="tree-jump-page-input">Page</label>
+            <input
+              type="number"
+              id="tree-jump-page-input"
+              class="pagination-jump-input"
+              min="1"
+              max="{{ tree_page.paginator.num_pages }}"
+              value="{{ tree_page.number }}"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();goToTreePage(this.value);}"
+            />
+            <span class="jump-total">of {{ tree_page.paginator.num_pages }}</span>
+            <button
+              type="button"
+              class="pagination-jump-btn"
+              onclick="goToTreePage(document.getElementById('tree-jump-page-input').value)"
+            >
+              Go
+            </button>
+          </div>
         </nav>
+      </div>
 
-        <div id="pagination-form" class="dataset-page-jump">
-          <label for="dataset-page">Go to page</label>
-          <input
-            id="dataset-page"
-            name="dataset-page"
-            type="number"
-            min="1"
-            max="{{ dataset_page.paginator.num_pages }}"
-            value="{{ dataset_page.number }}"
-          />
-          <span>of {{ dataset_page.paginator.num_pages }}</span>
+      <!-- DECISION TRAIL EXPLANATION CARD (WHEN A DATAPOINT IS TRACED) -->
+      <div id="decision-trail-container" class="decision-trail-card" {% if decision_trail %}style="display: block"{% else %}style="display: none"{% endif %}>
+        <div class="trail-header">
+          <strong>Decision Trail for Penguin #<span id="trail-row-id">{{ traced_row_id }}</span></strong>
+          <span class="match-badge" id="trail-match-badge">
+            Predicted: <strong id="trail-pred-species">{{ decision_trail.predicted_species }}</strong>
+            (Actual: <span id="trail-actual-species">{{ decision_trail.actual_species }}</span>)
+          </span>
         </div>
-
-        <button type="submit" class="counterfactuals-submit">
-          Find counterfactuals
-        </button>
-      </form>
-
-      <div class="selected-row-panel">
-        <h3>Selected row</h3>
-        <div id="selected-row-summary" class="selected-row-summary">
-          {% if selected_dataset_row_display_values %}
-            {% for item in selected_dataset_row_display_values %}
-              <div><strong>{{ item.label }}</strong>: {{ item.value }}</div>
+        <div class="trail-steps" id="trail-steps-list">
+          {% if decision_trail %}
+            {% for step in decision_trail.steps %}
+            <div class="trail-step">
+              <span class="step-num">Step {{ step.step_num }}</span>
+              <span class="step-desc">{{ step.description }}</span>
+            </div>
             {% endfor %}
-          {% else %}
-            <div>No row selected.</div>
+            <div class="trail-step terminal-step">
+              <span class="step-num">Leaf</span>
+              <span class="step-desc">
+                Reached terminal leaf node #{{ decision_trail.terminal_node_id }}:
+                Predicted species <strong>{{ decision_trail.predicted_species }}</strong> with
+                <strong>{{ decision_trail.confidence_percent }}%</strong> confidence ({{ decision_trail.samples }} training samples).
+              </span>
+            </div>
           {% endif %}
         </div>
       </div>
 
-      <h3>Closest Counterfactual Explanations</h3>
-      <div class="penguin-table-container">
-        <table class="penguin-table">
-          <thead>
-            <tr>
-              {% for label in dataset_column_labels %}
-              <th scope="col">{{ label }}</th>
-              {% endfor %}
-              <th scope="col">Distance</th>
-            </tr>
-          </thead>
-          <tbody id="cf-table-body">
-            {% if counterfactual_rows %}
-              {% for row in counterfactual_rows %}
+      <!-- INTERACTIVE SVG TREE CONTAINER -->
+      <div class="tree-canvas-wrapper" id="svg-tree-wrapper">
+        <div class="tree-canvas-header">
+          <span class="tree-canvas-title">Interactive Decision Tree</span>
+          {% if traced_row_id %}
+          <button type="button" class="mini-reset-btn" id="mini-reset-tree-btn" onclick="clearTreeTrace()" title="Reset to General Tree">
+            ✕ Reset Tree
+          </button>
+          {% else %}
+          <button type="button" class="mini-reset-btn" id="mini-reset-tree-btn" onclick="clearTreeTrace()" style="display: none;" title="Reset to General Tree">
+            ✕ Reset Tree
+          </button>
+          {% endif %}
+        </div>
+        <div class="svg-tree-container" id="svg-tree-container">
+          {{ tree_svg|safe }}
+        </div>
+      </div>
+
+      <!-- HIGH-RES STATIC EXPORT FALLBACK -->
+      {% if tree_image_url %}
+      <div class="tree-static-export-bar zoomable-plot" data-zoom-src="{{ tree_image_url }}" data-zoom-title="Decision Tree (High-Resolution Static View)">
+        <small>Prefer a high-resolution raster export? <a href="{{ tree_image_url }}" target="_blank">Open static decision_tree.png</a></small>
+      </div>
+      {% endif %}
+
+      <!-- FLOATING HOVER TOOLTIP ELEMENT -->
+      <div id="tree-hover-tooltip" class="tree-hover-tooltip" style="display: none;"></div>
+
+      <!-- HUMAN-READABLE RULE LIST -->
+      <details class="rules-accordion">
+        <summary class="rules-summary">
+          <span>📜 View Decision Tree as Human-Readable Rule List</span>
+        </summary>
+        <div class="rules-body">
+          <p>Each leaf of the decision tree represents an interpretable conjunctive rule:</p>
+          <ol class="rule-list">
+            {% for rule in tree_rules %}
+            <li class="rule-item" id="rule-item-{{ rule.node_id }}">
+              <strong>IF</strong> {{ rule.conditions|join:" <strong>AND</strong> " }}
+              &rarr; <strong>THEN Species = {{ rule.predicted_species }}</strong>
+              <span class="rule-meta">(Purity: {{ rule.purity_percent }}%, Samples: {{ rule.samples }})</span>
+            </li>
+            {% endfor %}
+          </ol>
+        </div>
+      </details>
+    </div>
+
+    <!-- 3B: LOGISTIC REGRESSION VIEW -->
+    <div id="logistic-regression-container" class="model-view-container" {% if model_type == "logistic-regression" %}style="display: flex"{% else %}style="display: none"{% endif %}>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <h2>2. Logistic Regression Interpretability</h2>
+        <p class="section-intro">
+          L1 regularization (LASSO) forces uninformative weights to exactly zero, leaving only the most decisive features.
+        </p>
+      </div>
+
+      <div class="regression-layout-grid">
+        <!-- WEIGHT PLOT -->
+        <article class="effect-plot-card zoomable-plot" data-zoom-src="{{ weight_plot_url }}" data-zoom-title="Logistic Regression Weight Plot">
+          <h3>Weight Plot (Model Coefficients)</h3>
+          <img id="weight-plot-img" src="{{ weight_plot_url }}" alt="Logistic Regression Weight Plot" class="weight-plot-image" />
+        </article>
+
+        <!-- ODDS RATIO TABLE -->
+        <div class="odds-ratio-panel">
+          <h3>Odds Ratios &amp; Log-Odds Interpretation</h3>
+          <p class="odds-intro">
+            In logistic regression, an increase in feature <em>x<sub>i</sub></em> increases the log-odds by &beta;<sub>i</sub> and multiplies odds by <em>e</em><sup>&beta;<sub>i</sub></sup>.
+          </p>
+          <div class="odds-table-wrapper">
+            <table class="candidate-table">
+              <thead>
                 <tr>
-                  {% for column, value in row.display_values.items %}
-                    <td>{{ value }}</td>
-                  {% endfor %}
-                  <td><strong>{{ row.distance }}</strong></td>
+                  <th>Feature</th>
+                  <th>Status</th>
+                  <th>Adelie Odds</th>
+                  <th>Chinstrap Odds</th>
+                  <th>Gentoo Odds</th>
+                  <th>Interpretation</th>
                 </tr>
-              {% endfor %}
-            {% else %}
-              <tr>
-                <td colspan="{{ dataset_column_labels|length|add:'1' }}">
-                  No counterfactuals found after sampling {{ counterfactual_attempted_rows }}
-                  local variations.
-                </td>
-              </tr>
-            {% endif %}
-          </tbody>
-        </table>
+              </thead>
+              <tbody id="odds-table-body">
+                {% for row in odds_ratios_data %}
+                <tr>
+                  <td><strong>{{ row.feature }}</strong></td>
+                  <td>
+                    {% if row.active %}
+                      <span class="rashomon-badge in-set">Active</span>
+                    {% else %}
+                      <span class="rashomon-badge outside-set">Sparse (0)</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ row.odds_ratios.Adelie }}x</td>
+                  <td>{{ row.odds_ratios.Chinstrap }}x</td>
+                  <td>{{ row.odds_ratios.Gentoo }}x</td>
+                  <td><small>{{ row.interpretation }}</small></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 4: COUNTERFACTUAL EXPLANATIONS -->
+  <section id="counterfactuals" class="project-section-box counterfactuals-section" aria-labelledby="counterfactuals-title">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h2 id="counterfactuals-title">3. Counterfactual Explanations</h2>
+      <p class="section-intro">
+        Find minimal feature perturbations required to flip a model's predicted species using MAD-weighted <em>L</em><sub>1</sub> distance.
+      </p>
+    </div>
+    <div class="info-explainer-popup" style="margin: 0">
+      <button type="button" class="info-explainer-trigger" aria-expanded="false">
+        {% include "components/info_icon.svg" %}
+        <span>What are counterfactuals?</span>
+      </button>
+      <div class="info-explainer-content">
+        Counterfactuals show minimal input changes required to flip the prediction to a desired species. Distance is measured via MAD-weighted <em>L</em><sub>1</sub> distance.
       </div>
     </div>
 
-    <section class="feature-effects-panel" id="feature-effects">
-      <h2>Feature Effect Plots</h2>
-      <p class="section-intro">
-        These global explanations use the currently selected model type and
-        lambda value. Each plot shows one curve per species.
-      </p>
-      <div class="info-explainer-popup">
-        <button type="button" class="info-explainer-trigger" aria-expanded="false">
-          {% include "components/info_icon.svg" %}
-          <span>What do PDP and ALE show?</span>
-        </button>
-        <div class="info-explainer-content">
-          PDP and ALE plots are global explanations. They summarize how one feature is associated with model predictions across the dataset. They are explanatory tools, not proof that the feature causes the prediction.
+    <form method="get" id="counterfactuals-form" class="counterfactuals-form task-two-panel">
+      <input type="hidden" name="lambda" value="{{ lambda_value }}" />
+      <input type="hidden" name="theta" value="{{ theta_value }}" />
+      <input type="hidden" name="model-type" value="{{ model_type }}" />
+      <input type="hidden" name="feature-effect-feature" value="{{ feature_effect_feature }}" />
+      <input type="hidden" name="tree-page" value="{{ tree_page.number }}" />
+      <input type="hidden" name="trace-row" value="{{ traced_row_id|default:'' }}" />
+
+      <!-- DESIRED TARGET CLASS -->
+      <div>
+        <div style="padding-bottom: 0.5em">
+          <strong>Select a desired target class:</strong>
+        </div>
+        {% for option in output_classes %}
+        <div class="radio-option-item">
+          <input
+            type="radio"
+            id="{{ option.value }}"
+            name="desired-class"
+            value="{{ option.value }}"
+            {% if desired_class == option.value %}checked{% endif %}
+          />
+          <label for="{{ option.value }}">{{ option.label }}</label>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- FEATURE IMMUTABILITY LOCKS (HCAI ACTIONABILITY) -->
+      <div class="feature-locks-panel">
+        <strong>Actionability Constraints (Lock Immutable Features):</strong>
+        <p class="locks-desc">In real life, a penguin cannot alter biological sex or observation year. Check to freeze immutable traits:</p>
+        <div class="lock-checkboxes">
+          <label class="lock-label">
+            <input type="checkbox" name="locked-features" value="sex" {% if "sex" in locked_features %}checked{% endif %}>
+            Lock Sex
+          </label>
+          <label class="lock-label">
+            <input type="checkbox" name="locked-features" value="island" {% if "island" in locked_features %}checked{% endif %}>
+            Lock Island
+          </label>
+          <label class="lock-label">
+            <input type="checkbox" name="locked-features" value="year" {% if "year" in locked_features %}checked{% endif %}>
+            Lock Year
+          </label>
         </div>
       </div>
 
-      <form method="get" id="feature-effects-form" class="task-two-panel feature-effects-form">
-        <input type="hidden" name="lambda" value="{{ lambda_value }}" />
-        <input type="hidden" name="model-type" value="{{ model_type }}" />
-        <input type="hidden" name="desired-class" value="{{ desired_class }}" />
-        <input type="hidden" name="selected-row" value="{{ selected_row_id }}" />
-        <input
-          type="hidden"
-          name="dataset-page"
-          value="{{ dataset_page.number }}"
-        />
+      <div class="selected-row-note">
+        Selected penguin for counterfactual analysis: <strong>#{{ selected_row_id }}</strong>
+      </div>
 
-        <div class="feature-effect-control">
-          <label for="feature-effect-feature">Numeric feature</label>
-          <select id="feature-effect-feature" name="feature-effect-feature">
-            {% for option in feature_effect_options %}
-              <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>
-                {{ option.label }}
-              </option>
+      <div class="penguin-table-container" id="dataset-table-container">
+        <table class="penguin-table">
+          <thead>
+            <tr>
+              <th scope="col">Use</th>
+              {% for label in dataset_column_labels %}
+                <th scope="col">{{ label }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody id="dataset-table-body">
+            {% for row in dataset_page.object_list %}
+              <tr class="{% if row.selected %}selected-row{% endif %}">
+                <td>
+                  <input
+                    type="radio"
+                    name="selected-row"
+                    value="{{ row.id }}"
+                    aria-label="Select dataset row {{ row.id }}"
+                    {% if row.selected %}checked{% endif %}
+                  />
+                </td>
+                {% for column, value in row.display_values.items %}
+                  <td>{{ value }}</td>
+                {% endfor %}
+              </tr>
             {% endfor %}
-          </select>
+          </tbody>
+        </table>
+      </div>
+
+      <nav class="dataset-pagination" aria-label="Penguin dataset pages">
+        {% if dataset_previous_url %}
+          <a href="{{ dataset_previous_url }}" aria-label="Previous page">Back</a>
+        {% else %}
+          <span class="disabled-page-control">Back</span>
+        {% endif %}
+
+        <div class="page-number-list">
+          {% for page_link in dataset_page_links %}
+            {% if page_link.is_ellipsis %}
+              <span class="page-ellipsis">{{ page_link.number }}</span>
+            {% elif page_link.is_current %}
+              <span class="current-page" aria-current="page">{{ page_link.number }}</span>
+            {% else %}
+              <a href="{{ page_link.url }}">{{ page_link.number }}</a>
+            {% endif %}
+          {% endfor %}
         </div>
 
-        <button type="submit">Update plots</button>
-      </form>
+        {% if dataset_next_url %}
+          <a href="{{ dataset_next_url }}" aria-label="Next page">Forward</a>
+        {% else %}
+          <span class="disabled-page-control">Forward</span>
+        {% endif %}
 
-      <div class="feature-effects-grid">
-        <article
-          class="effect-plot-card zoomable-plot"
-          data-zoom-src="{{ pdp_image_url }}"
-          data-zoom-title="Partial dependence plot for {{ feature_effect_feature_label }}"
-          aria-label="Open partial dependence plot larger"
-        >
-          <h3>Partial Dependence Plot</h3>
-          <img
-            id="pdp-image-element"
-            src="{{ pdp_image_url }}"
-            alt="Partial dependence plot for {{ feature_effect_feature_label }}"
+        <!-- Dataset Pagination Jump -->
+        <div class="pagination-jump">
+          <label for="dataset-jump-page-input">Page</label>
+          <input
+            type="number"
+            id="dataset-jump-page-input"
+            class="pagination-jump-input"
+            min="1"
+            max="{{ dataset_page.paginator.num_pages }}"
+            value="{{ dataset_page.number }}"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();jumpToPage(this.value, 'dataset-page', '#dataset-table-container');}"
           />
-        </article>
+          <span class="jump-total">of {{ dataset_page.paginator.num_pages }}</span>
+          <button
+            type="button"
+            class="pagination-jump-btn"
+            onclick="jumpToPage(document.getElementById('dataset-jump-page-input').value, 'dataset-page', '#dataset-table-container')"
+          >
+            Go
+          </button>
+        </div>
+      </nav>
 
-        <article
-          class="effect-plot-card zoomable-plot"
-          data-zoom-src="{{ ale_image_url }}"
-          data-zoom-title="Accumulated local effects plot for {{ feature_effect_feature_label }}"
-          aria-label="Open accumulated local effects plot larger"
-        >
-          <h3>Accumulated Local Effects Plot</h3>
-          <img
-            id="ale-image-element"
-            src="{{ ale_image_url }}"
-            alt="Accumulated local effects plot for {{ feature_effect_feature_label }}"
-          />
-        </article>
+      <div class="preference-button-wrapper" style="margin-top: 4px">
+        <button type="submit" class="compact-action-button counterfactuals-submit">
+          Find counterfactuals
+        </button>
       </div>
-    </section>
+    </form>
+
+    <!-- BASE PENGUIN ATTRIBUTES AS MATCHING TABLE ROW -->
+    <div class="base-row-section">
+      <h3 class="base-row-title">Base Penguin Attributes (Selected #<span id="selected-base-id">{{ selected_row_id }}</span>)</h3>
+      <div class="penguin-table-container">
+        <table class="penguin-table base-table">
+          <thead>
+            <tr>
+              {% for label in dataset_column_labels %}
+                <th scope="col">{{ label }}</th>
+              {% endfor %}
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody id="base-penguin-row-body">
+            <tr class="base-row">
+              {% if selected_dataset_row_display_values %}
+                {% for item in selected_dataset_row_display_values %}
+                  <td><strong>{{ item.value }}</strong></td>
+                {% endfor %}
+                <td><span class="base-tag">Baseline</span></td>
+              {% else %}
+                <td colspan="{{ dataset_column_labels|length|add:'1' }}">No row selected.</td>
+              {% endif %}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="selected-row-summary" class="visually-hidden" aria-hidden="true">
+        {% for item in selected_dataset_row_display_values %}
+          <div><strong>{{ item.label }}</strong>: {{ item.value }}</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h3>Closest Counterfactual Explanations</h3>
+      <p class="locks-desc" style="margin: 0">Highlighted badges reveal the exact feature changes required to reach the desired species:</p>
+    </div>
+    <div class="penguin-table-container">
+      <table class="penguin-table">
+        <thead>
+          <tr>
+            {% for label in dataset_column_labels %}
+            <th scope="col">{{ label }}</th>
+            {% endfor %}
+            <th scope="col">MAD Distance</th>
+          </tr>
+        </thead>
+        <tbody id="cf-table-body">
+          {% if counterfactual_rows %}
+            {% for row in counterfactual_rows %}
+              <tr>
+                {% for column, value in row.display_values.items %}
+                  <td>
+                    {% if column in row.diffs and row.diffs.column.changed %}
+                      <span class="diff-badge changed">{{ value }} ({{ row.diffs.column.delta_text }})</span>
+                    {% else %}
+                      {{ value }}
+                    {% endif %}
+                  </td>
+                {% endfor %}
+                <td><strong>{{ row.distance }}</strong></td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="{{ dataset_column_labels|length|add:'1' }}">
+                No counterfactuals found after sampling {{ counterfactual_attempted_rows }} local variations. Try unchecking some locks or picking another target class.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
   </section>
 
+  <!-- SECTION 5: GLOBAL FEATURE EFFECT PLOTS -->
+  <section class="project-section-box feature-effects-panel" id="feature-effects">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h2>4. Global Feature Effect Trilogy (PDP, M-Plot, ALE)</h2>
+      <p class="section-intro">
+        Compare Partial Dependence (Marginal), M-Plots (Conditional), and Accumulated Local Effects (Accumulated) across species.
+      </p>
+    </div>
+
+    <!-- THEORETICAL QUESTION ANSWER CALLOUT (TASK 5) -->
+    <div class="theoretical-qa-card">
+      <div class="qa-badge">Theoretical Analysis</div>
+      <h4>For which model can you compute ALE partial derivatives exactly? For which do you have to use a discretization?</h4>
+      <div class="qa-content">
+        <p>
+          <strong>Decision Tree (Discretization Required):</strong> A decision tree is a piecewise constant step function. Within any leaf partition, the prediction is constant and the local partial derivative is zero everywhere:
+        </p>
+        <div class="math-display">
+          <div class="formula-row">
+            <span class="fraction">
+              <span class="numerator">&part; <em>f</em>(<strong>x</strong>)</span>
+              <span class="denominator">&part; <em>x<sub>m</sub></em></span>
+            </span>
+            <span class="math-op">&nbsp;=&nbsp;0</span>
+            <span class="math-condition">&emsp;(inside any leaf partition)</span>
+          </div>
+        </div>
+        <p>
+          At split thresholds, the prediction undergoes discontinuous step jumps where the derivative is undefined. Consequently, ALE cannot be computed via smooth integration of analytical derivatives; instead, it requires <strong>finite-difference interval discretization (quantile binning)</strong>.
+        </p>
+        <p>
+          <strong>Logistic Regression (Exact Analytical Derivatives):</strong> Logistic regression predicts species probabilities through the smooth, continuously differentiable softmax function:
+        </p>
+        <div class="math-display">
+          <div class="formula-row">
+            <span><em>P</em>(<em>Y</em> = <em>k</em> | <strong>x</strong>)&nbsp;=&nbsp;&sigma;(<em>z<sub>k</sub></em>)&nbsp;=</span>
+            <span class="fraction">
+              <span class="numerator"><em>e</em><sup><em>z<sub>k</sub></em></sup></span>
+              <span class="denominator">&sum;<sub><em>j</em></sub> <em>e</em><sup><em>z<sub>j</sub></em></sup></span>
+            </span>
+          </div>
+        </div>
+        <p>
+          Because the softmax probability surface is everywhere smooth, its gradient with respect to continuous feature <em>x<sub>m</sub></em> can be evaluated <strong>analytically and exactly</strong>:
+        </p>
+        <div class="math-display">
+          <div class="formula-row">
+            <span class="fraction">
+              <span class="numerator">&part; <em>P</em>(<em>Y</em> = <em>k</em> | <strong>x</strong>)</span>
+              <span class="denominator">&part; <em>x<sub>m</sub></em></span>
+            </span>
+            <span class="math-op">&nbsp;=&nbsp;</span>
+            <span><em>P</em>(<em>Y</em> = <em>k</em> | <strong>x</strong>)</span>
+            <span class="math-bracket">&nbsp;&middot;&nbsp;[</span>
+            <span><em>w<sub>km</sub></em> &minus; &sum;<sub><em>j</em></sub> <em>P</em>(<em>Y</em> = <em>j</em> | <strong>x</strong>) &middot; <em>w<sub>jm</sub></em></span>
+            <span class="math-bracket">]</span>
+          </div>
+        </div>
+        <p class="qa-note">
+          Our implementation automatically computes and accumulates this exact analytical derivative directly when Logistic Regression is selected.
+        </p>
+      </div>
+    </div>
+
+    <form method="get" id="feature-effects-form" class="feature-effects-form">
+      <input type="hidden" name="lambda" value="{{ lambda_value }}" />
+      <input type="hidden" name="theta" value="{{ theta_value }}" />
+      <input type="hidden" name="model-type" value="{{ model_type }}" />
+      <input type="hidden" name="desired-class" value="{{ desired_class }}" />
+      <input type="hidden" name="selected-row" value="{{ selected_row_id }}" />
+      <input type="hidden" name="dataset-page" value="{{ dataset_page.number }}" />
+      <input type="hidden" name="tree-page" value="{{ tree_page.number }}" />
+      <input type="hidden" name="trace-row" value="{{ traced_row_id|default:'' }}" />
+
+      <div class="feature-effect-control">
+        <label for="feature-effect-feature">Select Numeric Feature:</label>
+        <select id="feature-effect-feature" name="feature-effect-feature" class="feature-select">
+          {% for option in feature_effect_options %}
+            <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>
+              {{ option.label }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="feature-effect-submit-wrapper">
+        <button type="submit" class="compact-action-button">Update effect plots</button>
+      </div>
+    </form>
+
+    <div class="feature-effects-grid trilogy-grid">
+      <article
+        class="effect-plot-card zoomable-plot"
+        data-zoom-src="{{ pdp_image_url }}"
+        data-zoom-title="Partial Dependence Plot (PDP)"
+      >
+        <h3>Partial Dependence Plot (PDP)</h3>
+        <p class="plot-sub">Marginal distribution: averages across all penguins (may probe unrealistic feature pairs).</p>
+        <img id="pdp-image-element" src="{{ pdp_image_url }}" alt="Partial dependence plot" />
+      </article>
+
+      <article
+        class="effect-plot-card zoomable-plot"
+        data-zoom-src="{{ mplot_image_url }}"
+        data-zoom-title="M-Plot (Conditional Distribution)"
+      >
+        <h3>Marginal Plot (M-Plot)</h3>
+        <p class="plot-sub">Conditional distribution: averages over observed neighbors, but confounds correlated feature effects.</p>
+        <img id="mplot-image-element" src="{{ mplot_image_url }}" alt="M-Plot" />
+      </article>
+
+      <article
+        class="effect-plot-card zoomable-plot"
+        data-zoom-src="{{ ale_image_url }}"
+        data-zoom-title="Accumulated Local Effects (ALE)"
+      >
+        <h3>Accumulated Local Effects (ALE)</h3>
+        <p class="plot-sub">Accumulates local differences/gradients, isolating true feature effect without confounding.</p>
+        <img id="ale-image-element" src="{{ ale_image_url }}" alt="Accumulated local effects plot" />
+      </article>
+    </div>
+  </section>
+
+  <!-- JAVASCRIPT LOGIC -->
   <script>
     document.addEventListener("DOMContentLoaded", function () {
+      setupTreeHoverTooltips();
+
       const modelSettingForm = document.getElementById("model-settings-form");
-
-      modelSettingForm.addEventListener("submit", function (event) {
-        event.preventDefault();
-        updateDashboard("model");
-      });
-
-      const counterfactualsForm = document.getElementById("counterfactuals-form");
-      const datasetPageInput = document.getElementById("dataset-page");
-      const featureEffectsForm = document.getElementById("feature-effects-form");
-      const featureEffectSelect = document.getElementById("feature-effect-feature");
-
-      if (datasetPageInput) {
-        datasetPageInput.addEventListener("keydown", function (event) {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            updateDashboard("counterfactuals");
-          }
+      if (modelSettingForm) {
+        modelSettingForm.addEventListener("submit", function (event) {
+          event.preventDefault();
+          updateDashboard("model");
         });
       }
 
-      function updateDashboard(updateScope = "all") {
-        const lambda = document.getElementById("lambda").value;
-        const modelType = document.querySelector("[name='model-type']:checked")?.value || "decision-tree";
-        const desiredClass = document.querySelector("[name='desired-class']:checked")?.value || "adelie";
-        const selectedRow = document.querySelector("[name='selected-row']:checked")?.value || "{{ selected_row_id }}";
-        const datasetPage = datasetPageInput?.value || "{{ dataset_page.number }}";
-        const featureEffectFeature = featureEffectSelect?.value || "{{ feature_effect_feature }}";
-
-        fetch(`?lambda=${lambda}&model-type=${modelType}&desired-class=${desiredClass}&selected-row=${selectedRow}&dataset-page=${datasetPage}&feature-effect-feature=${featureEffectFeature}&update-scope=${updateScope}&format=json`)
-          .then((response) => response.json())
-          .then((data) => {
-            document.getElementById("accuracy-display").innerText = data.accuracy_percent + "%";
-            document.getElementById("complexity-label").innerText = data.complexity_label;
-            document.getElementById("complexity-display").innerText = data.complexity_count;
-            document.getElementById("complexity-description").innerText = data.complexity_description;
-            document.getElementById("selection-score-display").innerText = data.selection_score;
-            document.getElementById("selected-model-note-text").innerText = data.selected_model_description;
-            document.getElementById("train-rows-display").innerText = data.train_rows;
-            document.getElementById("test-rows-display").innerText = data.test_rows;
-
-            const candidatesTableBody = document.getElementById("candidates-table-body");
-            if (candidatesTableBody && data.candidate_models) {
-              candidatesTableBody.innerHTML = "";
-              data.candidate_models.forEach((candidate) => {
-                const tr = document.createElement("tr");
-                if (candidate.selected) {
-                  tr.className = "selected-candidate";
-                }
-                tr.innerHTML = `
-                  <td>${candidate.param_label}</td>
-                  <td>${candidate.complexity_count}</td>
-                  <td>${candidate.accuracy_percent}%</td>
-                  <td>${candidate.selection_score}</td>
-                `;
-                candidatesTableBody.appendChild(tr);
-              });
-            }
-
-            const treeContainer = document.getElementById("tree-visualization-container");
-            const treeImage = document.getElementById("tree-image-element");
-            if (treeContainer && treeImage && Object.prototype.hasOwnProperty.call(data, "tree_image_url")) {
-              if (data.tree_image_url) {
-                treeContainer.style.display = "block";
-                treeImage.src = data.tree_image_url;
-                treeImage.closest("[data-zoom-src]")?.setAttribute("data-zoom-src", data.tree_image_url);
-              } else if (updateScope !== "model") {
-                treeContainer.style.display = "none";
-              }
-            }
-
-            const pdpImage = document.getElementById("pdp-image-element");
-            const aleImage = document.getElementById("ale-image-element");
-            if (pdpImage && data.pdp_image_url) {
-              pdpImage.src = data.pdp_image_url;
-              pdpImage.alt = `Partial dependence plot for ${data.feature_effect_feature_label}`;
-              pdpImage.closest("[data-zoom-src]")?.setAttribute("data-zoom-src", data.pdp_image_url);
-              pdpImage.closest("[data-zoom-title]")?.setAttribute("data-zoom-title", `Partial dependence plot for ${data.feature_effect_feature_label}`);
-            }
-            if (aleImage && data.ale_image_url) {
-              aleImage.src = data.ale_image_url;
-              aleImage.alt = `Accumulated local effects plot for ${data.feature_effect_feature_label}`;
-              aleImage.closest("[data-zoom-src]")?.setAttribute("data-zoom-src", data.ale_image_url);
-              aleImage.closest("[data-zoom-title]")?.setAttribute("data-zoom-title", `Accumulated local effects plot for ${data.feature_effect_feature_label}`);
-            }
-
-            const datasetTableBody = document.getElementById("dataset-table-body");
-            if (datasetTableBody && data.dataset_page_rows) {
-              datasetTableBody.innerHTML = "";
-              data.dataset_page_rows.forEach((row) => {
-                const tr = document.createElement("tr");
-                tr.className = row.selected ? "selected-row" : "";
-
-                let rowHtml = `
-                  <td>
-                    <input
-                      type="radio"
-                      name="selected-row"
-                      value="${row.id}"
-                      aria-label="Select dataset row ${row.id}"
-                      ${row.selected ? "checked" : ""}
-                    />
-                  </td>`;
-
-                Object.values(row.display_values).forEach((value) => {
-                  rowHtml += `<td>${value}</td>`;
-                });
-                tr.innerHTML = rowHtml;
-                datasetTableBody.appendChild(tr);
-              });
-
-              const selectedRowData = data.dataset_page_rows.find((row) => row.selected);
-              if (selectedRowData) {
-                updateSelectedRowSummary(selectedRowData, data);
-              }
-            }
-
-            const cfTableBody = document.getElementById("cf-table-body");
-            if (cfTableBody && Object.prototype.hasOwnProperty.call(data, "counterfactual_rows")) {
-              cfTableBody.innerHTML = "";
-              if (!data.counterfactual_rows || data.counterfactual_rows.length === 0) {
-                cfTableBody.innerHTML = `<tr><td colspan="${data.dataset_column_labels.length + 1}">No counterfactuals found after sampling ${data.counterfactual_attempted_rows} local variations.</td></tr>`;
-              } else {
-                data.counterfactual_rows.forEach((row) => {
-                  const tr = document.createElement("tr");
-                  let rowHtml = "";
-                  Object.values(row.display_values).forEach((value) => {
-                    rowHtml += `<td>${value}</td>`;
-                  });
-                  rowHtml += `<td><strong>${row.distance}</strong></td>`;
-                  tr.innerHTML = rowHtml;
-                  cfTableBody.appendChild(tr);
-                });
-              }
-            }
-
-            window.history.replaceState({}, "", `?lambda=${lambda}&model-type=${modelType}&desired-class=${desiredClass}&selected-row=${selectedRow}&dataset-page=${datasetPage}&feature-effect-feature=${featureEffectFeature}`);
-          });
+      const counterfactualsForm = document.getElementById("counterfactuals-form");
+      if (counterfactualsForm) {
+        counterfactualsForm.addEventListener("submit", function (event) {
+          event.preventDefault();
+          updateDashboard("counterfactuals");
+        });
       }
 
-      counterfactualsForm.addEventListener("submit", function (event) {
-        event.preventDefault();
-        updateDashboard("counterfactuals");
-      });
-
+      const featureEffectsForm = document.getElementById("feature-effects-form");
       if (featureEffectsForm) {
         featureEffectsForm.addEventListener("submit", function (event) {
           event.preventDefault();
           updateDashboard("effects");
         });
       }
+    });
 
-      function updateSelectedRowSummary(selectedRowData, data) {
-        const summary = document.getElementById("selected-row-summary");
-        if (!summary) return;
+    function setupTreeHoverTooltips() {
+      const tooltip = document.getElementById("tree-hover-tooltip");
+      const nodes = document.querySelectorAll(".interactive-tree-svg .tree-node");
 
-        summary.innerHTML = "";
-        data.dataset_columns.forEach((column) => {
-          const label = data.dataset_column_labels[data.dataset_columns.indexOf(column)];
-          const value = selectedRowData.display_values[column];
-          const rowDiv = document.createElement("div");
-          rowDiv.innerHTML = `<strong>${label}</strong>: ${value}`;
-          summary.appendChild(rowDiv);
+      nodes.forEach((node) => {
+        node.addEventListener("mouseenter", function (e) {
+          const isLeaf = node.getAttribute("data-is-leaf") === "true";
+          const nodeId = node.getAttribute("data-node-id");
+          const gini = node.getAttribute("data-gini");
+          const samples = node.getAttribute("data-samples");
+          const dominant = node.getAttribute("data-dominant");
+
+          const c0Name = node.getAttribute("data-c0-name");
+          const c0Count = node.getAttribute("data-c0-count");
+          const c0Pct = node.getAttribute("data-c0-pct");
+
+          const c1Name = node.getAttribute("data-c1-name");
+          const c1Count = node.getAttribute("data-c1-count");
+          const c1Pct = node.getAttribute("data-c1-pct");
+
+          const c2Name = node.getAttribute("data-c2-name");
+          const c2Count = node.getAttribute("data-c2-count");
+          const c2Pct = node.getAttribute("data-c2-pct");
+
+          tooltip.innerHTML = `
+            <div class="tooltip-header">
+              <strong>Node #${nodeId}</strong>
+              <span class="tooltip-badge ${isLeaf ? 'leaf-badge' : 'split-badge'}">${isLeaf ? 'Leaf Prediction: ' + dominant : 'Split Node'}</span>
+            </div>
+            <div class="tooltip-metrics">
+              <div><span>Gini Impurity:</span> <strong>${gini}</strong></div>
+              <div><span>Total Samples:</span> <strong>${samples}</strong></div>
+            </div>
+            <div class="tooltip-bar-label">Species Distribution:</div>
+            <div class="tooltip-stacked-bar">
+              <div class="bar-segment adelie" style="width: ${c0Pct}" title="${c0Name}: ${c0Count} (${c0Pct})"></div>
+              <div class="bar-segment chinstrap" style="width: ${c1Pct}" title="${c1Name}: ${c1Count} (${c1Pct})"></div>
+              <div class="bar-segment gentoo" style="width: ${c2Pct}" title="${c2Name}: ${c2Count} (${c2Pct})"></div>
+            </div>
+            <div class="tooltip-legend">
+              <span class="legend-item"><i class="dot adelie"></i> ${c0Name}: ${c0Count} (${c0Pct})</span>
+              <span class="legend-item"><i class="dot chinstrap"></i> ${c1Name}: ${c1Count} (${c1Pct})</span>
+              <span class="legend-item"><i class="dot gentoo"></i> ${c2Name}: ${c2Count} (${c2Pct})</span>
+            </div>
+          `;
+          tooltip.style.display = "block";
         });
+
+        node.addEventListener("mousemove", function (e) {
+          tooltip.style.left = (e.clientX + 16) + "px";
+          tooltip.style.top = (e.clientY + 16) + "px";
+        });
+
+        node.addEventListener("mouseleave", function () {
+          tooltip.style.display = "none";
+        });
+      });
+    }
+
+    function jumpToPage(pageNum, paramName, anchor) {
+      const page = parseInt(pageNum, 10);
+      if (isNaN(page) || page < 1) return;
+      const url = new URL(window.location.href);
+      const activeModelType = document.querySelector("[name='model-type']:checked")?.value;
+      if (activeModelType) url.searchParams.set("model-type", activeModelType);
+      url.searchParams.set(paramName, page);
+      if (anchor) url.hash = anchor;
+      window.location.href = url.toString();
+    }
+
+    function goToTreePage(targetPage) {
+      const page = parseInt(targetPage, 10);
+      if (isNaN(page) || page < 1) return;
+      const maxPages = parseInt(document.getElementById("tree-jump-page-input")?.max || "100", 10);
+      if (page > maxPages) return;
+
+      const lambda = document.getElementById("lambda")?.value || "{{ lambda_value }}";
+      const theta = document.getElementById("theta")?.value || "{{ theta_value }}";
+      const modelType = document.querySelector("[name='model-type']:checked")?.value || "decision-tree";
+      const desiredClass = document.querySelector("[name='desired-class']:checked")?.value || "adelie";
+      const selectedRow = document.querySelector("[name='selected-row']:checked")?.value || "{{ selected_row_id }}";
+      const traceRow = document.getElementById("form-trace-row")?.value || "";
+      const datasetPage = "{{ dataset_page.number }}";
+      const featureEffectFeature = document.getElementById("feature-effect-feature")?.value || "{{ feature_effect_feature }}";
+
+      const lockedBoxes = document.querySelectorAll("[name='locked-features']:checked");
+      let lockedQuery = "";
+      lockedBoxes.forEach((box) => {
+        lockedQuery += `&locked-features=${encodeURIComponent(box.value)}`;
+      });
+
+      fetch(`?lambda=${lambda}&theta=${theta}&model-type=${modelType}&desired-class=${desiredClass}&selected-row=${selectedRow}&trace-row=${traceRow}&dataset-page=${datasetPage}&tree-page=${page}&feature-effect-feature=${featureEffectFeature}&update-scope=tree-page${lockedQuery}&format=json`)
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.tree_page_rows) {
+            renderTreeDatapoints(data.tree_page_rows, traceRow);
+          }
+          if (data.tree_page_info) {
+            renderTreePagination(data.tree_page_info);
+          }
+          document.querySelectorAll("input[name='tree-page']").forEach((input) => {
+            input.value = page;
+          });
+
+          const url = new URL(window.location.href);
+          url.searchParams.set("tree-page", page);
+          url.searchParams.set("model-type", modelType);
+          window.history.replaceState({}, "", url.toString());
+        })
+        .catch((err) => console.error("Error updating tree page:", err));
+    }
+
+    function renderTreeDatapoints(rows, traceRow) {
+      const tbody = document.getElementById("tree-datapoint-table-body");
+      if (!tbody || !rows) return;
+      tbody.innerHTML = "";
+      rows.forEach((row) => {
+        const isTraced = String(row.id) === String(traceRow);
+        const tr = document.createElement("tr");
+        tr.id = "tree-row-" + row.id;
+        if (isTraced) tr.className = "selected-row";
+        tr.innerHTML = `
+          <td>
+            <button type="button" id="trace-btn-${row.id}" class="trace-row-btn ${isTraced ? 'is-active' : ''}" onclick="tracePenguinRow('${row.id}')">
+              ${isTraced ? 'Tracing ✓' : 'Trace Path'}
+            </button>
+          </td>
+          <td>#${row.id}</td>
+          <td><strong>${row.display_values.species}</strong></td>
+          <td>${row.display_values.bill_length_mm}</td>
+          <td>${row.display_values.bill_depth_mm}</td>
+          <td>${row.display_values.flipper_length_mm}</td>
+          <td>${row.display_values.body_mass_g}</td>
+          <td>${row.display_values.island}</td>
+          <td>${row.display_values.sex}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderTreePagination(info) {
+      const nav = document.getElementById("tree-pagination-nav");
+      if (!nav) return;
+
+      let html = "";
+      if (info.has_previous) {
+        html += `<a href="#" onclick="goToTreePage(${info.previous_page_number}); return false;" aria-label="Previous page">Back</a>`;
+      } else {
+        html += `<span class="disabled-page-control">Back</span>`;
       }
 
-    });
+      html += `<div class="page-number-list">`;
+      info.page_links.forEach((link) => {
+        if (link.is_ellipsis) {
+          html += `<span class="page-ellipsis">${link.number}</span>`;
+        } else if (link.is_current) {
+          html += `<span class="current-page" aria-current="page">${link.number}</span>`;
+        } else {
+          html += `<a href="#" onclick="goToTreePage(${link.number}); return false;">${link.number}</a>`;
+        }
+      });
+      html += `</div>`;
+
+      if (info.has_next) {
+        html += `<a href="#" onclick="goToTreePage(${info.next_page_number}); return false;" aria-label="Next page">Forward</a>`;
+      } else {
+        html += `<span class="disabled-page-control">Forward</span>`;
+      }
+
+      html += `
+        <div class="pagination-jump">
+          <label for="tree-jump-page-input">Page</label>
+          <input
+            type="number"
+            id="tree-jump-page-input"
+            class="pagination-jump-input"
+            min="1"
+            max="${info.num_pages}"
+            value="${info.number}"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();goToTreePage(this.value);}"
+          />
+          <span class="jump-total">of ${info.num_pages}</span>
+          <button
+            type="button"
+            class="pagination-jump-btn"
+            onclick="goToTreePage(document.getElementById('tree-jump-page-input').value)"
+          >
+            Go
+          </button>
+        </div>
+      `;
+
+      nav.innerHTML = html;
+    }
+
+    function toggleDatapointExplorer() {
+      const explorer = document.getElementById("tree-datapoint-explorer");
+      const btn = document.getElementById("toggle-datapoint-explorer-btn");
+      if (!explorer) return;
+      const isHidden = explorer.style.display === "none" || getComputedStyle(explorer).display === "none";
+      if (isHidden) {
+        explorer.style.display = "block";
+        if (btn) btn.innerHTML = "<span>Hide Datapoints</span>";
+      } else {
+        explorer.style.display = "none";
+        if (btn) btn.innerHTML = "<span>Select Datapoint</span>";
+      }
+    }
+
+    function tracePenguinRow(rowId) {
+      // Immediate visual feedback on clicked row and button
+      const allRows = document.querySelectorAll("#tree-datapoint-table-body tr");
+      allRows.forEach((r) => r.classList.remove("selected-row"));
+      const allBtns = document.querySelectorAll(".trace-row-btn");
+      allBtns.forEach((b) => {
+        b.classList.remove("is-active");
+        b.innerText = "Trace Path";
+      });
+
+      const clickedRow = document.getElementById("tree-row-" + rowId);
+      if (clickedRow) clickedRow.classList.add("selected-row");
+      const clickedBtn = document.getElementById("trace-btn-" + rowId);
+      if (clickedBtn) {
+        clickedBtn.classList.add("is-active");
+        clickedBtn.innerText = "Tracing ✓";
+      }
+
+      const traceInput = document.getElementById("form-trace-row");
+      if (traceInput) traceInput.value = rowId;
+
+      const resetBtn = document.getElementById("reset-path-btn");
+      if (resetBtn) resetBtn.style.display = "inline-flex";
+      const miniReset = document.getElementById("mini-reset-tree-btn");
+      if (miniReset) miniReset.style.display = "inline-flex";
+
+      updateDashboard("tree-trace", rowId);
+    }
+
+    function clearTreeTrace() {
+      const explorer = document.getElementById("tree-datapoint-explorer");
+      if (explorer) {
+        explorer.style.display = "none";
+      }
+      const btn = document.getElementById("toggle-datapoint-explorer-btn");
+      if (btn) {
+        btn.innerHTML = "<span>Select Datapoint</span>";
+      }
+      const allRows = document.querySelectorAll("#tree-datapoint-table-body tr");
+      allRows.forEach((r) => r.classList.remove("selected-row"));
+      const allBtns = document.querySelectorAll(".trace-row-btn");
+      allBtns.forEach((b) => {
+        b.classList.remove("is-active");
+        b.innerText = "Trace Path";
+      });
+      const resetBtn = document.getElementById("reset-path-btn");
+      if (resetBtn) {
+        resetBtn.style.display = "none";
+      }
+      const miniReset = document.getElementById("mini-reset-tree-btn");
+      if (miniReset) {
+        miniReset.style.display = "none";
+      }
+      const traceInput = document.getElementById("form-trace-row");
+      if (traceInput) traceInput.value = "";
+      updateDashboard("tree-trace", "");
+    }
+
+    function updateDashboard(updateScope = "all", traceRowOverride = null) {
+      const lambda = document.getElementById("lambda")?.value || "{{ lambda_value }}";
+      const theta = document.getElementById("theta")?.value || "{{ theta_value }}";
+      const modelType = document.querySelector("[name='model-type']:checked")?.value || "decision-tree";
+      const desiredClass = document.querySelector("[name='desired-class']:checked")?.value || "adelie";
+      const selectedRow = document.querySelector("[name='selected-row']:checked")?.value || "{{ selected_row_id }}";
+      const traceRow = traceRowOverride !== null ? traceRowOverride : (document.getElementById("form-trace-row")?.value || "");
+      const datasetPage = "{{ dataset_page.number }}";
+      const treePage = "{{ tree_page.number }}";
+      const featureEffectFeature = document.getElementById("feature-effect-feature")?.value || "{{ feature_effect_feature }}";
+
+      const lockedBoxes = document.querySelectorAll("[name='locked-features']:checked");
+      let lockedQuery = "";
+      lockedBoxes.forEach((box) => {
+        lockedQuery += `&locked-features=${encodeURIComponent(box.value)}`;
+      });
+
+      fetch(`?lambda=${lambda}&theta=${theta}&model-type=${modelType}&desired-class=${desiredClass}&selected-row=${selectedRow}&trace-row=${traceRow}&dataset-page=${datasetPage}&tree-page=${treePage}&feature-effect-feature=${featureEffectFeature}&update-scope=${updateScope}${lockedQuery}&format=json`)
+        .then((response) => response.json())
+        .then((data) => {
+          // 1. Update Metrics & Table Headers
+          const compLabelTh = document.getElementById("complexity-label-th");
+          if (compLabelTh && data.complexity_label) compLabelTh.innerText = data.complexity_label;
+          const thetaSpan = document.getElementById("rashomon-th-theta");
+          if (thetaSpan) thetaSpan.innerText = theta;
+          const noteText = document.getElementById("selected-model-note-text");
+          if (noteText) noteText.innerText = data.selected_model_description;
+
+          // 2. Rashomon info
+          if (data.rashomon_info) {
+            const ratioEl = document.getElementById("rashomon-ratio");
+            if (ratioEl) ratioEl.innerText = data.rashomon_info.ratio_percent + "%";
+          }
+
+          // 3. Candidates Table
+          const candidatesTableBody = document.getElementById("candidates-table-body");
+          if (candidatesTableBody && data.candidate_models) {
+            candidatesTableBody.innerHTML = "";
+            data.candidate_models.forEach((candidate) => {
+              const tr = document.createElement("tr");
+              if (candidate.selected) tr.className = "selected-candidate";
+              tr.innerHTML = `
+                <td>${candidate.param_label}</td>
+                <td>${candidate.complexity_count}</td>
+                <td>${candidate.accuracy_percent}%</td>
+                <td>${candidate.selection_score}</td>
+                <td>
+                  ${candidate.in_rashomon
+                    ? '<span class="rashomon-badge in-set">✓ In &fnof; &isin; &Rscr;</span>'
+                    : '<span class="rashomon-badge outside-set">Outside</span>'}
+                </td>
+              `;
+              candidatesTableBody.appendChild(tr);
+            });
+          }
+
+          // 4. Toggle Architecture sections
+          const treeContainer = document.getElementById("tree-visualization-container");
+          const logregContainer = document.getElementById("logistic-regression-container");
+          if (modelType === "logistic-regression") {
+            if (treeContainer) treeContainer.style.display = "none";
+            if (logregContainer) {
+              logregContainer.style.display = "flex";
+              if (data.weight_plot_url) {
+                const img = document.getElementById("weight-plot-img");
+                if (img) img.src = data.weight_plot_url;
+                const card = img ? img.closest(".zoomable-plot") : null;
+                if (card) card.setAttribute("data-zoom-src", data.weight_plot_url);
+              }
+              const oddsTbody = document.getElementById("odds-table-body");
+              if (oddsTbody && data.odds_ratios) {
+                oddsTbody.innerHTML = "";
+                data.odds_ratios.forEach((row) => {
+                  const tr = document.createElement("tr");
+                  const badge = row.active
+                    ? '<span class="rashomon-badge in-set">Active</span>'
+                    : '<span class="rashomon-badge outside-set">Sparse (0)</span>';
+                  tr.innerHTML = `
+                    <td><strong>${row.feature}</strong></td>
+                    <td>${badge}</td>
+                    <td>${row.odds_ratios.Adelie}x</td>
+                    <td>${row.odds_ratios.Chinstrap}x</td>
+                    <td>${row.odds_ratios.Gentoo}x</td>
+                    <td><small>${row.interpretation}</small></td>
+                  `;
+                  oddsTbody.appendChild(tr);
+                });
+              }
+            }
+          } else {
+            if (logregContainer) logregContainer.style.display = "none";
+            if (treeContainer) {
+              treeContainer.style.display = "flex";
+              if (data.tree_svg) {
+                document.getElementById("svg-tree-container").innerHTML = data.tree_svg;
+                setupTreeHoverTooltips();
+              }
+            }
+          }
+
+          // 5. Decision Trail & Trace Feedback
+          const trailCard = document.getElementById("decision-trail-container");
+          if (trailCard) {
+            if (data.decision_trail && traceRow) {
+              trailCard.style.display = "block";
+              document.getElementById("trail-row-id").innerText = traceRow;
+              document.getElementById("trail-pred-species").innerText = data.decision_trail.predicted_species;
+              document.getElementById("trail-actual-species").innerText = data.decision_trail.actual_species;
+
+              let stepsHtml = "";
+              data.decision_trail.steps.forEach((step) => {
+                stepsHtml += `
+                  <div class="trail-step">
+                    <span class="step-num">Step ${step.step_num}</span>
+                    <span class="step-desc">${step.description}</span>
+                  </div>`;
+              });
+              stepsHtml += `
+                <div class="trail-step terminal-step">
+                  <span class="step-num">Leaf</span>
+                  <span class="step-desc">
+                    Reached terminal leaf node #${data.decision_trail.terminal_node_id}: Predicted species <strong>${data.decision_trail.predicted_species}</strong> with <strong>${data.decision_trail.confidence_percent}%</strong> confidence (${data.decision_trail.samples} samples).
+                  </span>
+                </div>`;
+              document.getElementById("trail-steps-list").innerHTML = stepsHtml;
+            } else {
+              trailCard.style.display = "none";
+            }
+          }
+
+          // Update tree table row highlight and button states
+          if (data.tree_page_rows) {
+            data.tree_page_rows.forEach((r) => {
+              const rowEl = document.getElementById("tree-row-" + r.id);
+              const btnEl = document.getElementById("trace-btn-" + r.id);
+              const isTraced = String(r.id) === String(traceRow);
+              if (rowEl) {
+                if (isTraced) rowEl.classList.add("selected-row");
+                else rowEl.classList.remove("selected-row");
+              }
+              if (btnEl) {
+                if (isTraced) {
+                  btnEl.classList.add("is-active");
+                  btnEl.innerText = "Tracing ✓";
+                } else {
+                  btnEl.classList.remove("is-active");
+                  btnEl.innerText = "Trace Path";
+                }
+              }
+            });
+          }
+
+          const resetBtn = document.getElementById("reset-path-btn");
+          const miniReset = document.getElementById("mini-reset-tree-btn");
+          if (traceRow) {
+            if (resetBtn) resetBtn.style.display = "inline-flex";
+            if (miniReset) miniReset.style.display = "inline-flex";
+          } else {
+            if (resetBtn) resetBtn.style.display = "none";
+            if (miniReset) miniReset.style.display = "none";
+          }
+
+          // Smooth scroll to tree visualization on trace
+          if (updateScope === "tree-trace" && traceRow) {
+            const treeCanvasWrapper = document.getElementById("svg-tree-wrapper");
+            if (treeCanvasWrapper) {
+              treeCanvasWrapper.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }
+          }
+
+          // 6. Feature Effects Plots (Synchronize both img src and zoomable modal data-zoom-src)
+          if (data.pdp_image_url) {
+            const pdpImg = document.getElementById("pdp-image-element");
+            if (pdpImg) {
+              pdpImg.src = data.pdp_image_url;
+              const card = pdpImg.closest(".zoomable-plot");
+              if (card) {
+                card.setAttribute("data-zoom-src", data.pdp_image_url);
+                card.dataset.zoomSrc = data.pdp_image_url;
+                if (data.feature_effect_feature_label) {
+                  const title = `Partial Dependence Plot (PDP) - ${data.feature_effect_feature_label}`;
+                  card.setAttribute("data-zoom-title", title);
+                  card.dataset.zoomTitle = title;
+                }
+              }
+            }
+          }
+          if (data.mplot_image_url) {
+            const mplotImg = document.getElementById("mplot-image-element");
+            if (mplotImg) {
+              mplotImg.src = data.mplot_image_url;
+              const card = mplotImg.closest(".zoomable-plot");
+              if (card) {
+                card.setAttribute("data-zoom-src", data.mplot_image_url);
+                card.dataset.zoomSrc = data.mplot_image_url;
+                if (data.feature_effect_feature_label) {
+                  const title = `Marginal Plot (M-Plot) - ${data.feature_effect_feature_label}`;
+                  card.setAttribute("data-zoom-title", title);
+                  card.dataset.zoomTitle = title;
+                }
+              }
+            }
+          }
+          if (data.ale_image_url) {
+            const aleImg = document.getElementById("ale-image-element");
+            if (aleImg) {
+              aleImg.src = data.ale_image_url;
+              const card = aleImg.closest(".zoomable-plot");
+              if (card) {
+                card.setAttribute("data-zoom-src", data.ale_image_url);
+                card.dataset.zoomSrc = data.ale_image_url;
+                if (data.feature_effect_feature_label) {
+                  const title = `Accumulated Local Effects (ALE) - ${data.feature_effect_feature_label}`;
+                  card.setAttribute("data-zoom-title", title);
+                  card.dataset.zoomTitle = title;
+                }
+              }
+            }
+          }
+
+          // 7. Base Penguin Attributes Row
+          if (data.selected_dataset_row_display_values && document.getElementById("base-penguin-row-body")) {
+            let baseHtml = '<tr class="base-row">';
+            data.selected_dataset_row_display_values.forEach((item) => {
+              baseHtml += `<td><strong>${item.value}</strong></td>`;
+            });
+            baseHtml += '<td><span class="base-tag">Baseline</span></td></tr>';
+            document.getElementById("base-penguin-row-body").innerHTML = baseHtml;
+            const baseIdSpan = document.getElementById("selected-base-id");
+            if (baseIdSpan) baseIdSpan.innerText = selectedRow;
+          }
+
+          // 8. Counterfactuals Table
+          const cfTableBody = document.getElementById("cf-table-body");
+          if (cfTableBody && data.counterfactual_rows) {
+            cfTableBody.innerHTML = "";
+            if (data.counterfactual_rows.length === 0) {
+              cfTableBody.innerHTML = `<tr><td colspan="${data.dataset_columns.length + 1}">No counterfactuals found after sampling ${data.counterfactual_attempted_rows} local variations.</td></tr>`;
+            } else {
+              data.counterfactual_rows.forEach((row) => {
+                const tr = document.createElement("tr");
+                let rowHtml = "";
+                data.dataset_columns.forEach((col) => {
+                  const val = row.display_values[col];
+                  const diff = row.diffs && row.diffs[col];
+                  if (diff && diff.changed) {
+                    rowHtml += `<td><span class="diff-badge changed">${val} (${diff.delta_text})</span></td>`;
+                  } else {
+                    rowHtml += `<td>${val}</td>`;
+                  }
+                });
+                rowHtml += `<td><strong>${row.distance}</strong></td>`;
+                tr.innerHTML = rowHtml;
+                cfTableBody.appendChild(tr);
+              });
+            }
+          }
+
+          window.history.replaceState({}, "", `?lambda=${lambda}&theta=${theta}&model-type=${modelType}&desired-class=${desiredClass}&selected-row=${selectedRow}&trace-row=${traceRow}&dataset-page=${datasetPage}&tree-page=${treePage}&feature-effect-feature=${featureEffectFeature}`);
+        });
+    }
   </script>
 </div>
 {% endblock %}
