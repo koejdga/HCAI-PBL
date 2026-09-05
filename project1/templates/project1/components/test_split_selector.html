@@ -1,0 +1,11 @@
+<div class="test-split-selector-row">
+  <label for="v2_test_size" class="test-split-label">Test split</label>
+  <select id="v2_test_size" class="test-split-select">
+    <option value="10" {% if test_size_percent == 10 %}selected{% endif %}>10%</option>
+    <option value="20" {% if test_size_percent == 20 or not test_size_percent %}selected{% endif %}>20%</option>
+    <option value="30" {% if test_size_percent == 30 %}selected{% endif %}>30%</option>
+    <option value="40" {% if test_size_percent == 40 %}selected{% endif %}>40%</option>
+    <option value="50" {% if test_size_percent == 50 %}selected{% endif %}>50%</option>
+  </select>
+  <span class="test-split-info-span">(Percent of rows held out to measure performance)</span>
+</div>

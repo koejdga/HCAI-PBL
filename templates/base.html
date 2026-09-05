@@ -97,9 +97,21 @@
 
                 const originalFetch = window.fetch;
                 if (originalFetch) {
-                    window.fetch = function () {
-                        showLoading();
-                        return originalFetch.apply(this, arguments).finally(hideLoading);
+                    window.fetch = function (url, options) {
+                        const headers = options && options.headers;
+                        const skipGlobalLoading = headers instanceof Headers
+                            ? headers.get("X-No-Global-Loading") === "true"
+                            : !!(headers && (headers["X-No-Global-Loading"] === "true" || headers["x-no-global-loading"] === "true"));
+
+                        if (!skipGlobalLoading) {
+                            showLoading();
+                        }
+
+                        return originalFetch.apply(this, arguments).finally(function () {
+                            if (!skipGlobalLoading) {
+                                hideLoading();
+                            }
+                        });
                     };
                 }
 

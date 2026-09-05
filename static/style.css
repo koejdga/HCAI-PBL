@@ -133,7 +133,7 @@ figcaption {
   width: 95%;
   max-width: 1180px;
   display: grid;
-  grid-template-rows: 150px auto auto;
+  grid-template-rows: auto auto auto;
   margin: 20px auto 40px;
   overflow: visible;
   border: 1px solid var(--border);
@@ -145,7 +145,7 @@ figcaption {
 
 .title-container {
   display: table;
-  margin: 20px 0 0;
+  margin: 25px 20px 0 0;
   text-align: center;
 }
 
@@ -173,119 +173,6 @@ figcaption {
 .main-text {
   margin: 10px 5% 0;
   font-size: 20px;
-}
-
-.workflow-progress {
-  width: min(1180px, calc(100% - 64px));
-  margin: 6px auto 24px;
-  padding: 18px 20px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: linear-gradient(90deg, #f8fbff 0%, #f1f8fb 100%);
-  box-shadow: 0 3px 12px rgba(27, 39, 64, 0.07);
-}
-
-.workflow-progress ol {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.workflow-step {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  color: #637083;
-  font-weight: 650;
-}
-
-.workflow-step:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  top: 50%;
-  left: calc(50px + 50%);
-  right: 14px;
-  height: 3px;
-  border-radius: 3px;
-  background-color: #cad4e1;
-  transform: translateY(-50%);
-}
-
-.workflow-marker {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  flex: 0 0 48px;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  border: 2px solid #91a3bd;
-  border-radius: 50%;
-  background-color: #ffffff;
-  color: var(--tuhh-navy);
-  font-size: 20px;
-  font-weight: 800;
-  transition: border-color 160ms ease, background-color 160ms ease;
-}
-
-.workflow-check {
-  position: absolute;
-  right: -5px;
-  bottom: -2px;
-  display: none;
-  width: 19px;
-  height: 19px;
-  place-items: center;
-  border: 2px solid #ffffff;
-  border-radius: 50%;
-  background-color: #008da2;
-  color: #ffffff;
-  font-size: 12px;
-  line-height: 1;
-}
-
-.workflow-label {
-  position: relative;
-  z-index: 1;
-  padding-right: 12px;
-  background-color: #f5fafc;
-  white-space: nowrap;
-}
-
-.workflow-step-complete {
-  color: var(--tuhh-navy);
-}
-
-.workflow-step-complete .workflow-marker {
-  border-color: #54759d;
-}
-
-.workflow-step-complete .workflow-check {
-  display: grid;
-}
-
-.workflow-step-complete:not(:last-child)::after {
-  background-color: #7da6b7;
-}
-
-.workflow-step-active {
-  color: #007f93;
-}
-
-.workflow-step-active .workflow-marker {
-  border-color: #008da2;
-  background-color: #008da2;
-  color: #ffffff;
-  box-shadow: 0 0 0 5px rgba(0, 141, 162, 0.12);
-}
-
-.workflow-step-active .workflow-label {
-  font-weight: 800;
 }
 
 .title-note {
@@ -369,6 +256,17 @@ button:hover {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.45;
+}
+
+.inline-loading-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #d7e6ef;
+  border-top-color: var(--tuhh-cyan);
+  border-radius: 50%;
+  display: inline-block;
+  animation: loading-spin 0.85s linear infinite;
+  flex-shrink: 0;
 }
 
 @keyframes loading-spin {
@@ -522,12 +420,6 @@ button:disabled {
   margin: 0;
 }
 
-.session-note {
-  margin-top: 6px !important;
-  color: var(--muted);
-  font-size: 15px;
-}
-
 .clear-session-form {
   flex: 0 0 auto;
 }
@@ -577,6 +469,7 @@ button:disabled {
   grid-template-columns: minmax(130px, max-content) minmax(220px, 360px);
   gap: 12px 16px;
   align-items: center;
+  padding-top: 13px;
 }
 
 .dataset-config-grid select,
@@ -697,7 +590,6 @@ button:disabled {
 }
 
 .dataset-config-form button {
-  width: 230px;
   margin: 0;
 }
 
@@ -708,12 +600,16 @@ button:disabled {
   z-index: 20;
   display: flex;
   flex-direction: column;
-  width: 180px;
-  overflow: hidden;
+  width: 200px;
+  /* overflow: hidden; */
   border: 1px solid #b8c2d3;
   border-radius: 0;
   background-color: var(--surface);
   box-shadow: 0 2px 6px rgba(27, 39, 64, 0.16);
+  max-height: calc(100% - 16px);
+  overflow-y: auto;             /* Adds vertical scrollbar only when needed */
+  overflow-x: hidden;           /* Prevents horizontal overflow */
+  /* padding-right: 0.5rem;        Keeps content from overlapping the scrollbar */
 }
 
 .section-nav-toggle {
@@ -741,17 +637,40 @@ button:disabled {
 .section-nav-links {
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
 }
 
 .section-nav-links-collapsed {
   display: none;
 }
 
+.section-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.section-nav-heading {
+  font-weight: 600;
+}
+
+.section-nav-sublinks {
+  display: flex;
+  flex-direction: column;
+  padding-left: 1rem; /* Indents the subsections */
+  gap: 0.25rem;
+}
+
+.section-nav-sublink {
+  font-size: 0.9em;
+  opacity: 0.85;
+}
+
 .section-nav a {
   display: block;
   padding: 8px 10px;
   color: var(--tuhh-navy);
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.2;
   text-decoration: none;
 }
@@ -759,6 +678,65 @@ button:disabled {
 .section-nav a:hover {
   background-color: #eef7f9;
   text-decoration: none;
+}
+
+.correlation-matrix-container {
+  position: relative;
+  max-height: 70vh;
+  overflow: auto;
+  margin-top: 0;
+  margin-bottom: 24px;
+  border: 1px solid var(--border);
+  background-color: #ffffff;
+}
+
+.correlation-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 100%;
+  background-color: #ffffff;
+  font-size: 13px;
+}
+
+.correlation-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background-color: #f7fafc;
+  border-bottom: 2px solid var(--border);
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+
+.correlation-table thead th:first-child,
+.correlation-table tbody td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background-color: #f7fafc;
+}
+
+.correlation-table tbody td:first-child {
+  background-color: #ffffff;
+  font-weight: 600;
+  box-shadow: inset -1px 0 0 var(--border);
+}
+
+.correlation-table th,
+.correlation-table td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+.correlation-table thead th:first-child {
+  z-index: 4;
+  background-color: #f7fafc;
+}
+
+.correlation-table tbody td {
+  background-color: #ffffff;
 }
 
 .plot-section {
@@ -1335,40 +1313,9 @@ button.remove-plot-button:hover {
     padding: 1px 10px;
   }
 
-  .workflow-progress {
-    width: calc(100% - 28px);
-    padding: 14px;
-  }
-
-  .workflow-progress ol {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .workflow-step:not(:last-child)::after {
-    top: 42px;
-    bottom: -14px;
-    left: 20px;
-    right: auto;
-    width: 3px;
-    height: auto;
-    transform: none;
-  }
-
-  .workflow-marker {
-    flex-basis: 42px;
-    width: 42px;
-    height: 42px;
-    font-size: 18px;
-  }
-
-  .workflow-label {
-    white-space: normal;
-  }
-
   .box {
     width: 100%;
-    grid-template-rows: 130px auto auto;
+    /* grid-template-rows: 100px auto auto; */
   }
 
   .title {

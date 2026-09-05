@@ -1,0 +1,71 @@
+<div class="scatter-builder-section">
+  <h4 class="subheading data-audit-subheading" id="2d-scatter-plots">2D Scatter Plot Builder (Feature vs. Target or Feature X vs. Feature Y)</h4>
+  
+  <!-- First Row: Feature vs Target -->
+  <div class="plot-control feature-target-plot-control" data-plot-type="feature_target" data-gallery-id="feature-target-gallery">
+    {% csrf_token %}
+    <label for="feature">Feature</label>
+    <select id="feature" name="feature" required class="feature-select">
+      {% for col in column_config_options %}
+      <option value="{{ col.name }}" {% if col.name == selected_feature %}selected{% endif %}>
+        {{ col.name }} ({{ col.type }})
+      </option>
+      {% endfor %}
+    </select>
+    <span class="target-label-span">vs Target: <strong id="dynamic-target-label">{{ dataset_summary.target }}</strong></span>
+    <button type="button" onclick="createFeaturePlot()" class="build-plot-btn">
+      Build a plot
+    </button>
+  </div>
+  
+  <!-- Gallery for Feature vs Target plots -->
+  <div class="plot-gallery feature-target-gallery" id="feature-target-gallery">
+    {% for visualization in feature_target_plots %}
+    <div class="plot-card {% if visualization.highlight %}plot-card-duplicate{% endif %}" data-plot-key="{{ visualization.key }}">
+      <button type="button" class="remove-plot-button" aria-label="Remove plot" title="Remove plot" onclick="removeFeaturePlot('{{ visualization.feature|escapejs }}')">
+        &times;
+      </button>
+      <img src="{{ visualization.url }}" alt="{{ visualization.title }}" class="generated-plot" onclick="openPlotModal('{{ visualization.url|escapejs }}', '{{ visualization.title|escapejs }}')" />
+    </div>
+    {% endfor %}
+  </div>
+  
+  <!-- Second Row: Feature X vs Feature Y -->
+  <div class="plot-control scatter-plot-control" data-plot-type="scatter" data-gallery-id="scatter-gallery">
+    {% csrf_token %}
+    <label for="x_feature">X feature</label>
+    <select id="x_feature" name="x_feature" required class="x-feature-select">
+      {% for col in column_config_options %}
+      <option value="{{ col.name }}" {% if col.name == selected_x_feature %}selected{% endif %}>
+        {{ col.name }} ({{ col.type }})
+      </option>
+      {% endfor %}
+    </select>
+    
+    <label for="y_feature">vs Y feature</label>
+    <select id="y_feature" name="y_feature" required class="y-feature-select">
+      {% for col in column_config_options %}
+      <option value="{{ col.name }}" {% if col.name == selected_y_feature %}selected{% endif %}>
+        {{ col.name }} ({{ col.type }})
+      </option>
+      {% endfor %}
+    </select>
+    
+    <button type="button" onclick="createScatterPlot()" class="build-plot-btn">
+      Build a plot
+    </button>
+    <p class="scatter-selection-note" id="scatter-selection-note" aria-live="polite"></p>
+  </div>
+  
+  <!-- Gallery for Feature X vs Feature Y plots -->
+  <div class="plot-gallery scatter-gallery" id="scatter-gallery">
+    {% for visualization in scatter_plots %}
+    <div class="plot-card {% if visualization.highlight %}plot-card-duplicate{% endif %}" data-plot-key="{{ visualization.key }}">
+      <button type="button" class="remove-plot-button" aria-label="Remove plot" title="Remove plot" onclick="removeScatterPlot('{{ visualization.x_feature|escapejs }}', '{{ visualization.y_feature|escapejs }}')">
+        &times;
+      </button>
+      <img src="{{ visualization.url }}" alt="{{ visualization.title }}" class="generated-plot" onclick="openPlotModal('{{ visualization.url|escapejs }}', '{{ visualization.title|escapejs }}')" />
+    </div>
+    {% endfor %}
+  </div>
+</div>

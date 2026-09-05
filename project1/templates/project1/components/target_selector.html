@@ -1,0 +1,10 @@
+<div class="dataset-config-grid">
+  <label for="target">Prediction target</label>
+  <select id="target" name="target">
+    {% for column in column_config_options %}
+    <option value="{{ column.name }}" {% if column.is_target %}selected{% endif %}>
+      {{ column.name }} ({{ column.type }})
+    </option>
+    {% endfor %}
+  </select>
+</div>

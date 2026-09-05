@@ -1,0 +1,76 @@
+<!-- Subsection: Train All and Compare -->
+<div class="compare-all-subsection">
+  <h3 class="subheading model-training-subheading" id="train-all-and-compare">Train All and Compare</h3>
+  <p class="data-management-text">Train all suitable models concurrently and view their scores relative to the baseline.</p>
+  
+  <form method="post" class="compare-train-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="compare_all" />
+    <input type="hidden" name="test_size" id="compare-test-size-input" value="20" />
+    
+    <button type="submit" class="compare-all-btn">
+      Train & Compare All
+    </button>
+    <div id="compare-loading-message" role="status" aria-live="polite" style="display: none;">
+      <span class="inline-loading-spinner" aria-hidden="true"></span>
+      <span>Training all models and comparing results...</span>
+      <button type="button" class="compare-cancel-button" aria-label="Cancel comparison">
+        Cancel
+      </button>
+    </div>
+  </form>
+
+  {% if comparison_results %}
+  <div class="comparison-results-box">
+    <strong class="comparison-table-heading">Model Comparison Table</strong>
+    <table class="comparison-table">
+      <thead>
+        <tr class="comparison-table-header-row">
+          <th>Rank</th>
+          <th>Model Algorithm</th>
+          <th>Best Hyperparameter</th>
+          {% if task_type == "classification" %}
+          <th>Accuracy</th>
+          <th>Balanced Accuracy</th>
+          <th>F1-Score</th>
+          {% else %}
+          <th>R² Score</th>
+          <th>RMSE</th>
+          {% endif %}
+          <th>Fit Time</th>
+          <th>Verdict</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for res in comparison_results %}
+        <tr class="comparison-table-row {% if forloop.first %}best-model-row{% endif %}">
+          <td>#{{ forloop.counter }}</td>
+          <td>{{ res.model_name }}</td>
+          <td>{{ res.best_param }}</td>
+          <td class="comparison-score-cell {% if forloop.first %}best-score{% endif %}">{{ res.display_score }}</td>
+          {% if task_type == "classification" %}
+          <td class="comparison-table-cell-gray">{{ res.display_balanced_accuracy }}</td>
+          <td class="comparison-table-cell-gray">{{ res.display_f1_score }}</td>
+          {% else %}
+          <td class="comparison-table-cell-red">{{ res.display_rmse }}</td>
+          {% endif %}
+          <td class="comparison-table-cell-blue">{{ res.display_training_time }}</td>
+          <td>
+            <span class="badge result-summary-{{ res.comparison.status }} comparison-badge">
+              {{ res.comparison.headline }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="comparison-table-note">* The best-performing model is highlighted in green.</p>
+    <a href="{% url 'project1:report' %}" class="preset-btn comparison-pdf-btn">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+        <path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/>
+      </svg>
+      <span>PDF Summary Report</span>
+    </a>
+  </div>
+  {% endif %}
+</div>

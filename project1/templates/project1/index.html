@@ -1,0 +1,1054 @@
+{% extends 'base.html' %} {% load static %} {% block site_context %}Project 1{% endblock %}
+{% block header_actions %}
+<!-- Explicit home navigation avoids browser-history traps after form steps. -->
+<a class="home-link" href="{% url 'home:index' %}">Back to Home</a>
+{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'project1/style.css' %}" />
+{% endblock extra_css %} {% block content %}
+
+<div class="box">
+  {% include "components/content_menu.html" with menu_items=content_menu_items %}
+
+  <div class="title-container">
+    <div class="title">Supervised Learning Interface</div>
+  </div>
+
+  <div class="main-text">
+    {% include "project1/components/dataset_selector.html" %}
+
+    {% if dataset_summary %}
+      {% include "project1/components/dataset_audit.html" %}
+      {% include "project1/components/model_training.html" %}
+    {% endif %}
+
+    {% if error %}
+    <p id="plot-error" style="color: red">{{ error }}</p>
+    {% else %}
+    <p id="plot-error" style="color: red"></p>
+    {% endif %}
+    <br /><br />
+  </div>
+</div>
+
+{% endblock %} {% block script %}
+<script>
+  let activeToastTimeout = null;
+
+  function showToast(message, duration = 4500) {
+    let toast = document.getElementById("custom-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "custom-toast";
+      toast.className = "custom-toast";
+
+      const closeButton = document.createElement("button");
+      closeButton.type = "button";
+      closeButton.className = "custom-toast-close";
+      closeButton.setAttribute("aria-label", "Close notification");
+      closeButton.textContent = "×";
+      closeButton.addEventListener("click", hideToast);
+      toast.appendChild(closeButton);
+
+      const messageElement = document.createElement("div");
+      messageElement.className = "custom-toast-message";
+      toast.appendChild(messageElement);
+
+      const progress = document.createElement("div");
+      progress.className = "custom-toast-progress";
+      toast.appendChild(progress);
+
+      document.body.appendChild(toast);
+    }
+
+    const messageElement = toast.querySelector(".custom-toast-message");
+    const progress = toast.querySelector(".custom-toast-progress");
+    messageElement.textContent = message;
+
+    toast.classList.add("custom-toast-visible");
+    progress.style.transition = "none";
+    progress.style.width = "100%";
+
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(function () {
+        progress.style.transition = `width ${duration}ms linear`;
+        progress.style.width = "0%";
+      });
+    });
+
+    if (activeToastTimeout) {
+      clearTimeout(activeToastTimeout);
+    }
+    activeToastTimeout = setTimeout(function () {
+      hideToast();
+    }, duration);
+  }
+
+  function hideToast() {
+    const toast = document.getElementById("custom-toast");
+    if (activeToastTimeout) {
+      clearTimeout(activeToastTimeout);
+      activeToastTimeout = null;
+    }
+    if (toast) {
+      toast.classList.remove("custom-toast-visible");
+    }
+  }
+
+  function findPlotCard(key) {
+    const cards = document.querySelectorAll("[data-plot-key]");
+    for (const card of cards) {
+      if (card.dataset.plotKey === key) {
+        return card;
+      }
+    }
+    return null;
+  }
+
+  function setPlotError(message) {
+    const errorElement = document.getElementById("plot-error");
+    if (errorElement) {
+      errorElement.textContent = message || "";
+    }
+  }
+
+  function csrfToken() {
+    const input = document.querySelector("input[name='csrfmiddlewaretoken']");
+    return input ? input.value : "";
+  }
+
+  function createRemoveButton(plotType, plot) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "remove-plot-button";
+    button.setAttribute("aria-label", "Remove plot");
+    button.title = "Remove plot";
+    button.textContent = "×";
+    Object.assign(button.style, {
+      position: "absolute",
+      top: "8px",
+      right: "8px",
+      zIndex: "10",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "30px",
+      height: "30px",
+      minWidth: "30px",
+      margin: "0",
+      padding: "0",
+      border: "1px solid #d7dfec",
+      borderRadius: "50%",
+      backgroundColor: "#ffffff",
+      color: "#8a2130",
+      fontSize: "24px",
+      fontWeight: "600",
+      lineHeight: "1",
+      opacity: "1",
+      boxShadow: "0 1px 4px rgba(27, 39, 64, 0.16)",
+    });
+    button.addEventListener("mouseenter", function () {
+      button.style.backgroundColor = "#b3263b";
+      button.style.borderColor = "#b3263b";
+      button.style.color = "#ffffff";
+    });
+    button.addEventListener("mouseleave", function () {
+      button.style.backgroundColor = "#ffffff";
+      button.style.borderColor = "#d7dfec";
+      button.style.color = "#8a2130";
+    });
+    if (plotType === "feature_target") {
+      button.addEventListener("click", function () {
+        removeFeaturePlot(plot.feature);
+      });
+    } else if (plotType === "univariate") {
+      button.addEventListener("click", function () {
+        removeUnivariatePlot(plot.feature);
+      });
+    } else {
+      button.addEventListener("click", function () {
+        removeScatterPlot(plot.x_feature, plot.y_feature);
+      });
+    }
+    return button;
+  }
+
+  function createPlotCard(plotType, plot) {
+    const card = document.createElement("div");
+    card.className = "plot-card";
+    card.dataset.plotKey = plot.key;
+    card.style.position = "relative";
+    card.style.isolation = "isolate";
+    card.appendChild(createRemoveButton(plotType, plot));
+
+    const image = document.createElement("img");
+    image.src = plot.url;
+    image.alt = plot.title;
+    image.className = "generated-plot";
+    image.addEventListener("click", function () {
+      openPlotModal(plot.url, plot.title);
+    });
+    card.appendChild(image);
+
+    return card;
+  }
+
+  function requestBody(fields) {
+    const data = new FormData();
+    data.append("csrfmiddlewaretoken", csrfToken());
+    data.append("ajax", "1");
+
+    Object.keys(fields).forEach(function (name) {
+      data.append(name, fields[name]);
+    });
+
+    return data;
+  }
+
+  async function postPlotAction(fields) {
+    let response;
+    let data;
+
+    try {
+      response = await fetch(window.location.href, {
+        method: "POST",
+        body: requestBody(fields),
+        credentials: "same-origin",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRFToken": csrfToken(),
+          Accept: "application/json",
+        },
+      });
+      data = await response.json();
+    } catch (error) {
+      setPlotError("The plot action could not be completed. Please try again.");
+      return;
+    }
+
+    return { response, data };
+  }
+
+  function handlePlotResponse(response, data, galleryId) {
+    if (!response.ok || data.status === "error") {
+      setPlotError(data.message || "Something went wrong.");
+      return;
+    }
+    setPlotError("");
+
+    if (data.status === "duplicate") {
+      const card = findPlotCard(data.key);
+      if (card) {
+        card.classList.add("plot-card-duplicate");
+      }
+      showToast(data.message);
+      return;
+    }
+
+    if (data.status === "created") {
+      const gallery = document.getElementById(galleryId);
+      if (gallery) {
+        gallery.prepend(createPlotCard(data.plot_type, data.plot));
+      }
+    }
+  }
+
+  async function createFeaturePlot() {
+    const featureSelect = document.getElementById("feature");
+    if (!featureSelect) {
+      return;
+    }
+
+    const result = await postPlotAction({
+      action: "feature_target",
+      feature: featureSelect.value,
+    });
+    if (result) {
+      handlePlotResponse(
+        result.response,
+        result.data,
+        "feature-target-gallery",
+      );
+    }
+  }
+
+  async function createScatterPlot() {
+    const xFeatureSelect = document.getElementById("x_feature");
+    const yFeatureSelect = document.getElementById("y_feature");
+    if (!xFeatureSelect || !yFeatureSelect) {
+      return;
+    }
+    if (xFeatureSelect.value === yFeatureSelect.value) {
+      setPlotError("Please choose two different features for a scatter plot.");
+      showToast("Choose a different Y feature before building the scatter plot.");
+      return;
+    }
+
+    const result = await postPlotAction({
+      action: "scatter",
+      x_feature: xFeatureSelect.value,
+      y_feature: yFeatureSelect.value,
+    });
+    if (result) {
+      handlePlotResponse(result.response, result.data, "scatter-gallery");
+    }
+  }
+
+  async function createUnivariatePlot() {
+    const featureSelect = document.getElementById("univariate_feature");
+    if (!featureSelect) {
+      return;
+    }
+
+    const result = await postPlotAction({
+      action: "univariate",
+      feature: featureSelect.value,
+    });
+    if (result) {
+      handlePlotResponse(
+        result.response,
+        result.data,
+        "univariate-gallery",
+      );
+    }
+  }
+
+  function updateScatterFeatureOptions() {
+    const xFeatureSelect = document.getElementById("x_feature");
+    const yFeatureSelect = document.getElementById("y_feature");
+    const note = document.getElementById("scatter-selection-note");
+    if (!xFeatureSelect || !yFeatureSelect) {
+      return;
+    }
+
+    Array.from(yFeatureSelect.options).forEach(function (option) {
+      option.disabled = option.value === xFeatureSelect.value;
+    });
+
+    if (xFeatureSelect.value === yFeatureSelect.value) {
+      const nextOption = Array.from(yFeatureSelect.options).find(function (option) {
+        return !option.disabled;
+      });
+      if (nextOption) {
+        yFeatureSelect.value = nextOption.value;
+      }
+      if (note) {
+        note.textContent = "Y feature was changed automatically so X and Y stay different.";
+      }
+    } else if (note) {
+      note.textContent = "";
+    }
+  }
+
+  async function removeFeaturePlot(feature) {
+    if (!confirm("Are you sure you want to delete this plot?")) {
+      return;
+    }
+
+    const result = await postPlotAction({
+      action: "remove_feature_target",
+      feature: feature,
+    });
+    if (result) {
+      handleRemoveResponse(result.response, result.data);
+    }
+  }
+
+  async function removeScatterPlot(xFeature, yFeature) {
+    if (!confirm("Are you sure you want to delete this plot?")) {
+      return;
+    }
+
+    const result = await postPlotAction({
+      action: "remove_scatter",
+      x_feature: xFeature,
+      y_feature: yFeature,
+    });
+    if (result) {
+      handleRemoveResponse(result.response, result.data);
+    }
+  }
+
+  async function removeUnivariatePlot(feature) {
+    if (!confirm("Are you sure you want to delete this plot?")) {
+      return;
+    }
+
+    const result = await postPlotAction({
+      action: "remove_univariate",
+      feature: feature,
+    });
+    if (result) {
+      handleRemoveResponse(result.response, result.data);
+    }
+  }
+
+  function handleRemoveResponse(response, data) {
+    if (!response.ok || data.status === "error") {
+      setPlotError(data.message || "Something went wrong.");
+      return;
+    }
+
+    setPlotError("");
+    const card = findPlotCard(data.key);
+    if (card) {
+      card.remove();
+    }
+  }
+
+  const MISSING_FEATURES_STORAGE_KEY = "hcai-hide-non-missing";
+  const CORRELATION_MATRIX_STORAGE_KEY = "hcai-hide-feature-correlation-matrix";
+
+  function updateMissingFeaturesToggleUI(toggleBtn, isHidden) {
+    if (!toggleBtn) return;
+
+    const textSpan = toggleBtn.querySelector(".btn-text");
+    const openEye = toggleBtn.querySelector(".eye-icon-open");
+    const closedEye = toggleBtn.querySelector(".eye-icon-closed");
+    const rows = document.querySelectorAll(".audit-table tbody tr");
+
+    toggleBtn.classList.toggle("hiding-non-missing", isHidden);
+    localStorage.setItem(MISSING_FEATURES_STORAGE_KEY, String(isHidden));
+
+    if (isHidden) {
+      rows.forEach(function (row) {
+        const missingSpan = row.querySelector(".col-missing-value");
+        const hasMissing = missingSpan && missingSpan.getAttribute("data-missing") === "true";
+        if (!hasMissing) {
+          row.style.display = "none";
+        }
+      });
+      if (textSpan) textSpan.textContent = "Show non-missing features";
+      if (openEye) openEye.style.display = "inline";
+      if (closedEye) closedEye.style.display = "none";
+    } else {
+      rows.forEach(function (row) {
+        row.style.display = "";
+      });
+      if (textSpan) textSpan.textContent = "Hide non-missing features";
+      if (openEye) openEye.style.display = "none";
+      if (closedEye) closedEye.style.display = "inline";
+    }
+  }
+
+  function updateCorrelationMatrixToggleUI(toggleCorrBtn, isHidden) {
+    if (!toggleCorrBtn) return;
+
+    const textSpan = toggleCorrBtn.querySelector(".btn-text");
+    const openEye = toggleCorrBtn.querySelector(".eye-icon-open");
+    const closedEye = toggleCorrBtn.querySelector(".eye-icon-closed");
+    const container = document.querySelector(".correlation-matrix-container");
+
+    toggleCorrBtn.classList.toggle("hiding-matrix", isHidden);
+    localStorage.setItem(CORRELATION_MATRIX_STORAGE_KEY, String(isHidden));
+
+    if (isHidden) {
+      if (container) container.style.display = "none";
+      if (textSpan) textSpan.textContent = "Show feature correlation matrix";
+      if (openEye) openEye.style.display = "inline";
+      if (closedEye) closedEye.style.display = "none";
+    } else {
+      if (container) container.style.display = "";
+      if (textSpan) textSpan.textContent = "Hide feature correlation matrix";
+      if (openEye) openEye.style.display = "none";
+      if (closedEye) closedEye.style.display = "inline";
+    }
+  }
+
+  function applySavedToggleStates() {
+    const missingToggleBtn = document.getElementById("toggle-missing-features-btn");
+    const correlationToggleBtn = document.getElementById("toggle-correlation-matrix-btn");
+
+    const shouldHideMissing = localStorage.getItem(MISSING_FEATURES_STORAGE_KEY) === "true";
+    const shouldHideMatrix = localStorage.getItem(CORRELATION_MATRIX_STORAGE_KEY) === "true";
+
+    updateMissingFeaturesToggleUI(missingToggleBtn, shouldHideMissing);
+    updateCorrelationMatrixToggleUI(correlationToggleBtn, shouldHideMatrix);
+  }
+
+  applySavedToggleStates();
+
+  document.addEventListener("click", function (event) {
+    document.querySelectorAll(".plot-card-duplicate").forEach(function (card) {
+      card.classList.remove("plot-card-duplicate");
+    });
+
+    // Event delegation for the toggle-missing-features button
+    const toggleBtn = event.target.closest("#toggle-missing-features-btn");
+    if (toggleBtn) {
+      const shouldHide = !toggleBtn.classList.contains("hiding-non-missing");
+      updateMissingFeaturesToggleUI(toggleBtn, shouldHide);
+    }
+
+    // Event delegation for the toggle-correlation-matrix button
+    const toggleCorrBtn = event.target.closest("#toggle-correlation-matrix-btn");
+    if (toggleCorrBtn) {
+      const shouldHide = !toggleCorrBtn.classList.contains("hiding-matrix");
+      updateCorrelationMatrixToggleUI(toggleCorrBtn, shouldHide);
+    }
+
+    // Event delegation for the feature list sorting buttons
+    const sortBtn = event.target.closest(".sort-features-btn");
+    if (sortBtn) {
+      const grid = document.querySelector(".feature-option-grid");
+      if (grid) {
+        const options = Array.from(grid.querySelectorAll(".feature-option"));
+        const sortBy = sortBtn.getAttribute("data-sort-by"); // "relevance" or "order"
+        
+        options.sort(function (a, b) {
+          if (sortBy === "relevance") {
+            const relA = parseFloat(a.getAttribute("data-relevance") || 0);
+            const relB = parseFloat(b.getAttribute("data-relevance") || 0);
+            return relB - relA; // Descending
+          } else {
+            const ordA = parseInt(a.getAttribute("data-order") || 0);
+            const ordB = parseInt(b.getAttribute("data-order") || 0);
+            return ordA - ordB; // Ascending
+          }
+        });
+        
+        // Re-append in sorted order
+        options.forEach(function (opt) {
+          grid.appendChild(opt);
+        });
+        
+        // Update button active state styling
+        document.querySelectorAll(".sort-features-btn").forEach(function (btn) {
+          btn.classList.remove("active");
+        });
+        sortBtn.classList.add("active");
+      }
+    }
+
+    // Event delegation for the feature presets buttons
+    const presetBtn = event.target.closest(".preset-btn");
+    if (presetBtn) {
+      const grid = document.querySelector(".feature-option-grid");
+      if (grid) {
+        const checkboxes = getActiveFeatureCheckboxes();
+        const preset = presetBtn.getAttribute("data-preset");
+        
+        if (preset === "all") {
+          checkboxes.forEach(function (cb) {
+            cb.checked = true;
+          });
+        } else if (preset === "top5") {
+          // Deselect all first
+          checkboxes.forEach(function (cb) {
+            cb.checked = false;
+          });
+          // Sort options by relevance and select top 5
+          const options = getActiveFeatureOptions();
+          options.sort(function (a, b) {
+            const relA = parseFloat(a.getAttribute("data-relevance") || 0);
+            const relB = parseFloat(b.getAttribute("data-relevance") || 0);
+            return relB - relA;
+          });
+          options.slice(0, 5).forEach(function (opt) {
+            const cb = opt.querySelector("input[type='checkbox']");
+            if (cb) cb.checked = true;
+          });
+        } else if (preset === "filter-low") {
+          // Select all except low correlation: check >= 0.1, uncheck < 0.1
+          const options = getActiveFeatureOptions();
+          options.forEach(function (opt) {
+            const rel = parseFloat(opt.getAttribute("data-relevance") || 0);
+            const cb = opt.querySelector("input[type='checkbox']");
+            if (cb) {
+              if (rel >= 0.1) {
+                cb.checked = true;
+              } else {
+                cb.checked = false;
+              }
+            }
+          });
+        }
+        
+        initializeButtons();
+      }
+    }
+
+    // Event delegation for clicking preloaded or uploaded dataset cards
+    const card = event.target.closest(".dataset-card");
+    if (card) {
+      const grid = card.closest(".dataset-grid");
+      if (grid) {
+        const form = grid.closest("form");
+        const cards = grid.querySelectorAll(".dataset-card");
+        cards.forEach(function (c) { c.classList.remove("selected"); });
+        card.classList.add("selected");
+        
+        if (form) {
+          const selectedInput = form.querySelector("input[name='dataset_name']");
+          const selectBtn = form.querySelector("button[type='submit']");
+          if (selectedInput && selectBtn) {
+            selectedInput.value = card.getAttribute("data-filename");
+            selectBtn.disabled = false;
+          }
+        }
+      }
+    }
+  });
+
+  const PREDICTION_TARGET_STORAGE_KEY = "hcai-selected-prediction-target";
+
+  function getActiveFeatureOptions() {
+    return Array.from(document.querySelectorAll(".feature-option")).filter(function (option) {
+      return option.style.display !== "none";
+    });
+  }
+
+  function getActiveFeatureCheckboxes() {
+    return getActiveFeatureOptions()
+      .map(function (option) {
+        return option.querySelector("input[type='checkbox']");
+      })
+      .filter(function (checkbox) {
+        return checkbox && !checkbox.disabled;
+      });
+  }
+
+  function syncFeatureOptionsWithPredictionTarget(targetValue) {
+    document.querySelectorAll(".feature-option").forEach(function (option) {
+      const checkbox = option.querySelector("input[type='checkbox']");
+      if (!checkbox) return;
+
+      const featureName = option.getAttribute("data-feature-name");
+      const isSelectedTarget = featureName === targetValue;
+      const wasPreviousTarget = checkbox.dataset.wasPredictionTarget === "true";
+
+      option.style.display = isSelectedTarget ? "none" : "";
+      checkbox.disabled = isSelectedTarget;
+
+      if (isSelectedTarget) {
+        checkbox.checked = false;
+        checkbox.dataset.wasPredictionTarget = "true";
+      } else if (wasPreviousTarget) {
+        const isLikelyId = option.getAttribute("data-likely-id") === "true";
+        checkbox.checked = !isLikelyId;
+        checkbox.dataset.wasPredictionTarget = "false";
+      }
+    });
+  }
+
+  function restorePersistedPredictionTarget() {
+    const targetSelect = document.getElementById("target");
+    if (!targetSelect) return;
+
+    const savedTarget = localStorage.getItem(PREDICTION_TARGET_STORAGE_KEY);
+    if (!savedTarget) {
+      const targetLabel = document.getElementById("dynamic-target-label");
+      if (targetLabel) {
+        targetLabel.textContent = targetSelect.value;
+      }
+      return;
+    }
+
+    const availableValues = Array.from(targetSelect.options).map(function (option) {
+      return option.value;
+    });
+
+    if (availableValues.includes(savedTarget)) {
+      targetSelect.value = savedTarget;
+      const targetLabel = document.getElementById("dynamic-target-label");
+      if (targetLabel) {
+        targetLabel.textContent = savedTarget;
+      }
+    }
+  }
+
+  function initializeButtons() {
+    restorePersistedPredictionTarget();
+    const targetSelect = document.getElementById("target");
+    if (targetSelect) {
+      syncFeatureOptionsWithPredictionTarget(targetSelect.value);
+    }
+
+    // Check feature checkboxes to enable/disable Apply button
+    const applyBtn = document.getElementById("apply-setup-btn");
+    if (applyBtn) {
+      const checkedCount = getActiveFeatureCheckboxes().filter(function (checkbox) {
+        return checkbox.checked;
+      }).length;
+      applyBtn.disabled = checkedCount === 0;
+    }
+
+    // Check custom CSV input file selection
+    const fileInput = document.getElementById("csv-file-input");
+    const uploadBtn = document.getElementById("upload-csv-btn");
+    if (fileInput && uploadBtn) {
+      uploadBtn.disabled = !fileInput.files || fileInput.files.length === 0;
+    }
+
+    // Sync test split size inputs
+    const v2Select = document.getElementById("v2_test_size");
+    if (v2Select) {
+      const manualInput = document.getElementById("manual-test-size-input");
+      if (manualInput) manualInput.value = v2Select.value;
+      const compareInput = document.getElementById("compare-test-size-input");
+      if (compareInput) compareInput.value = v2Select.value;
+    }
+  }
+
+  document.addEventListener("change", function (event) {
+    // Checkbox changed in setup section
+    if (event.target && event.target.matches(".feature-option input[type='checkbox']")) {
+      initializeButtons();
+    }
+
+    // File input changed in custom upload section
+    if (event.target && event.target.id === "csv-file-input") {
+      initializeButtons();
+    }
+
+    // Target select dropdown changed
+    if (event.target && event.target.id === "target") {
+      localStorage.setItem(PREDICTION_TARGET_STORAGE_KEY, event.target.value);
+      const targetLabel = document.getElementById("dynamic-target-label");
+      if (targetLabel) {
+        targetLabel.textContent = event.target.value;
+      }
+      syncFeatureOptionsWithPredictionTarget(event.target.value);
+      initializeButtons();
+    }
+
+    // Test split changed (synchronize selects and inputs)
+    if (event.target && event.target.id === "v2_test_size") {
+      const legacySelect = document.getElementById("test_size");
+      if (legacySelect) legacySelect.value = event.target.value;
+      initializeButtons();
+    }
+    if (event.target && event.target.id === "test_size") {
+      const newSelect = document.getElementById("v2_test_size");
+      if (newSelect) newSelect.value = event.target.value;
+      initializeButtons();
+    }
+  });
+
+  let activeCompareAbortController = null;
+  let activeManualTrainAbortController = null;
+
+  document.addEventListener("click", function (event) {
+    const compareCancel = event.target.closest(".compare-cancel-button");
+    if (compareCancel) {
+      const form = compareCancel.closest(".compare-train-form");
+      const compareLoadingMessage = form ? form.querySelector("#compare-loading-message") : null;
+      if (compareCancel) compareCancel.style.display = "none";
+      if (compareLoadingMessage) compareLoadingMessage.style.display = "none";
+      if (activeCompareAbortController) {
+        activeCompareAbortController.abort();
+      }
+      return;
+    }
+
+    const manualCancel = event.target.closest(".manual-cancel-button");
+    if (manualCancel) {
+      const form = manualCancel.closest(".manual-train-form");
+      const manualLoadingMessage = form ? form.querySelector("#manual-loading-message") : null;
+      if (manualCancel) manualCancel.style.display = "none";
+      if (manualLoadingMessage) manualLoadingMessage.style.display = "none";
+      if (activeManualTrainAbortController) {
+        activeManualTrainAbortController.abort();
+      }
+      return;
+    }
+  });
+
+  document.addEventListener("submit", async function (event) {
+    const form = event.target;
+    // Intercept forms to prevent page reloads
+    if (form.classList.contains("upload-form") || 
+        form.classList.contains("select-example-form") || 
+        form.classList.contains("dataset-config-form") || 
+        form.classList.contains("manual-train-form") || 
+        form.classList.contains("compare-train-form") || 
+        form.classList.contains("clear-session-form")) {
+      
+      event.preventDefault();
+
+      const isCompareForm = form.classList.contains("compare-train-form");
+      const isManualTrainForm = form.classList.contains("manual-train-form");
+      
+      const compareButton = form.querySelector("button[type='submit']");
+      const compareCancelButton = form.querySelector(".compare-cancel-button");
+      const compareLoadingMessage = form.querySelector("#compare-loading-message");
+      
+      const manualButton = form.querySelector("button[type='submit']");
+      const manualCancelButton = form.querySelector(".manual-cancel-button");
+      const manualLoadingMessage = form.querySelector("#manual-loading-message");
+      
+      const loadingOverlay = document.querySelector(".loading-overlay");
+
+      if (isCompareForm) {
+        if (compareButton) compareButton.disabled = true;
+        if (compareCancelButton) compareCancelButton.style.display = "inline-flex";
+        if (compareLoadingMessage) {
+          compareLoadingMessage.style.display = "flex";
+          compareLoadingMessage.setAttribute("data-active", "true");
+        }
+      } else if (isManualTrainForm) {
+        if (manualButton) manualButton.disabled = true;
+        if (manualCancelButton) manualCancelButton.style.display = "inline-flex";
+        if (manualLoadingMessage) {
+          manualLoadingMessage.style.display = "flex";
+          manualLoadingMessage.setAttribute("data-active", "true");
+        }
+      } else if (loadingOverlay) {
+        loadingOverlay.style.display = "flex";
+      }
+      
+      try {
+        const formData = new FormData(form);
+        const headers = {
+          "X-CSRFToken": csrfToken()
+        };
+        const requestOptions = {
+          method: "POST",
+          body: formData,
+          headers: headers
+        };
+        if (isCompareForm) {
+          headers["X-No-Global-Loading"] = "true";
+          activeCompareAbortController = new AbortController();
+          requestOptions.signal = activeCompareAbortController.signal;
+        } else if (isManualTrainForm) {
+          headers["X-No-Global-Loading"] = "true";
+          activeManualTrainAbortController = new AbortController();
+          requestOptions.signal = activeManualTrainAbortController.signal;
+        }
+
+        const response = await fetch(window.location.href, requestOptions);
+        
+        if (response.ok) {
+          const htmlText = await response.text();
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(htmlText, "text/html");
+          
+          const newBox = doc.querySelector(".box");
+          const currentBox = document.querySelector(".box");
+          if (newBox && currentBox) {
+            currentBox.outerHTML = newBox.outerHTML;
+            initializeButtons();
+            initializeManualModelExplorer();
+            
+            // Re-apply content menu collapsed/expanded state if defined
+            if (typeof applySectionNavState === "function") {
+              applySectionNavState();
+            }
+            
+            // Re-initialize scatter feature options if present in new DOM
+            const xFeatureSelect = document.getElementById("x_feature");
+            const yFeatureSelect = document.getElementById("y_feature");
+            if (xFeatureSelect && yFeatureSelect) {
+              updateScatterFeatureOptions();
+              xFeatureSelect.addEventListener("change", updateScatterFeatureOptions);
+              yFeatureSelect.addEventListener("change", updateScatterFeatureOptions);
+            }
+          }
+        } else {
+          showToast("An error occurred. Please try again.");
+        }
+      } catch (err) {
+        console.error(err);
+        if (err && err.name === "AbortError") {
+          showToast("Training canceled.");
+          return;
+        }
+        showToast("An error occurred. Please try again.");
+      } finally {
+        if (isCompareForm) {
+          if (compareButton) compareButton.disabled = false;
+          if (compareCancelButton) compareCancelButton.style.display = "none";
+          if (compareLoadingMessage) {
+            compareLoadingMessage.style.display = "none";
+            compareLoadingMessage.removeAttribute("data-active");
+          }
+          activeCompareAbortController = null;
+        } else if (isManualTrainForm) {
+          if (manualButton) manualButton.disabled = false;
+          if (manualCancelButton) manualCancelButton.style.display = "none";
+          if (manualLoadingMessage) {
+            manualLoadingMessage.style.display = "none";
+            manualLoadingMessage.removeAttribute("data-active");
+          }
+          activeManualTrainAbortController = null;
+        } else if (loadingOverlay) {
+          loadingOverlay.style.display = "none";
+        }
+      }
+    }
+  });
+
+  const parameterGrids = {
+    "logistic_regression": {
+      name: "C",
+      values: [0.1, 1, 10]
+    },
+    "svc": {
+      name: "C",
+      values: [0.1, 1, 10]
+    },
+    "svr": {
+      name: "C",
+      values: [0.1, 1, 10]
+    },
+    "ridge_regression": {
+      name: "alpha",
+      values: [0.1, 1, 10]
+    },
+    "lasso_regression": {
+      name: "alpha",
+      values: [0.1, 1, 10]
+    },
+    "knn_classifier": {
+      name: "k",
+      values: [3, 5, 7]
+    },
+    "knn_regressor": {
+      name: "k",
+      values: [3, 5, 7]
+    },
+    "random_forest_classifier": {
+      name: "n_estimators",
+      values: [50, 100, 200]
+    },
+    "random_forest_regressor": {
+      name: "n_estimators",
+      values: [50, 100, 200]
+    }
+  };
+
+  const hyperparameterHelpText = {
+    "C": "A higher C value makes the model fit the training data more closely and can increase overfitting.",
+    "alpha": "Higher alpha values increase regularization and shrink the learned coefficients more strongly.",
+    "k": "This sets how many nearby points are used to make each prediction.",
+    "n_estimators": "More trees usually make the model more stable, but they also take longer to train."
+  };
+
+  function updateHyperparametersGrid(modelVal, containerVisible) {
+    const sweepsFields = document.getElementById("hyperparameters-sweeps-fields");
+    if (sweepsFields) {
+      sweepsFields.innerHTML = "";
+      const grid = parameterGrids[modelVal];
+      if (grid) {
+        const helpText = hyperparameterHelpText[grid.name] || "This setting changes how strongly the model adapts to the training data.";
+        let html = `<div style="display: flex; flex-direction: column; gap: 6px;">`;
+        html += `<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">`;
+        html += `<label for="manual-param-select" style="font-size: 13.5px; font-weight: 500; color: var(--tuhh-navy);">${grid.name} value:</label>`;
+        html += `<select name="hyperparameters" id="manual-param-select" style="padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 13.5px; background-color: #ffffff; min-width: 100px;">`;
+        const selectedParamInput = document.getElementById("manual-selected-param-input");
+        const lastSelectedValue = selectedParamInput ? selectedParamInput.value : "";
+        grid.values.forEach(function (val) {
+          const isSelected = String(val) === String(lastSelectedValue);
+          html += `<option value="${val}" ${isSelected ? "selected" : ""}>${val}</option>`;
+        });
+        html += `</select></div>`;
+        html += `<div style="font-size: 12px; line-height: 1.4; color: #5f6f85; max-width: 420px;">${helpText}</div>`;
+        html += `</div>`;
+        sweepsFields.innerHTML = html;
+      } else {
+        sweepsFields.innerHTML = `<p style="font-size: 13.5px; color: #718096; font-style: italic;">No hyperparameters to configure for this model.</p>`;
+      }
+    }
+    
+    // Checkbox for Polynomial expansion
+    const polyField = document.getElementById("polynomial-expansion-field");
+    if (polyField) {
+      const isLinearOrLogistic = ["linear_regression", "logistic_regression", "ridge_regression", "lasso_regression"].includes(modelVal);
+      polyField.style.display = isLinearOrLogistic ? "flex" : "none";
+    }
+
+    const container = document.getElementById("hyperparameters-container");
+    if (container && containerVisible) {
+      container.style.display = "block";
+    }
+
+    const trainBtn = document.getElementById("manual-train-btn");
+    if (trainBtn) {
+      if (modelVal) {
+        trainBtn.disabled = false;
+      } else {
+        trainBtn.disabled = true;
+      }
+    }
+  }
+
+  function initializeManualModelExplorer() {
+    const modelInput = document.getElementById("manual-model-input");
+    const trainBtn = document.getElementById("manual-train-btn");
+    const container = document.getElementById("hyperparameters-container");
+    if (modelInput && modelInput.value) {
+      const modelVal = modelInput.value;
+      const card = document.querySelector(`.model-choice-btn[data-model-value="${modelVal}"]`);
+      if (card) {
+        document.querySelectorAll(".model-choice-btn").forEach(function (b) {
+          b.classList.remove("selected");
+        });
+        card.classList.add("selected");
+      }
+      
+      // Populate hidden form field
+      const hiddenInput = document.getElementById("manual-model-hidden-input");
+      if (hiddenInput) hiddenInput.value = modelVal;
+      
+      // Update parameter fields (keep checkbox values if already checked)
+      updateHyperparametersGrid(modelVal, false);
+      if (trainBtn) trainBtn.disabled = false;
+    } else {
+      if (trainBtn) trainBtn.disabled = true;
+      if (container) container.style.display = "none";
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const xFeatureSelect = document.getElementById("x_feature");
+    const yFeatureSelect = document.getElementById("y_feature");
+    if (xFeatureSelect && yFeatureSelect) {
+      updateScatterFeatureOptions();
+      xFeatureSelect.addEventListener("change", updateScatterFeatureOptions);
+      yFeatureSelect.addEventListener("change", updateScatterFeatureOptions);
+    }
+
+    initializeButtons();
+    initializeManualModelExplorer();
+  });
+
+  // Event delegation for model choice buttons
+  document.addEventListener("click", function (event) {
+    const btn = event.target.closest(".model-choice-btn");
+    if (btn && !btn.classList.contains("disabled")) {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      document.querySelectorAll(".model-choice-btn").forEach(function (b) {
+        b.classList.remove("selected");
+      });
+      btn.classList.add("selected");
+      
+      const modelVal = btn.getAttribute("data-model-value");
+      
+      // Update inputs
+      const modelInput = document.getElementById("manual-model-input");
+      if (modelInput) modelInput.value = modelVal;
+      const hiddenInput = document.getElementById("manual-model-hidden-input");
+      if (hiddenInput) hiddenInput.value = modelVal;
+      
+      // Automatically update and show hyperparameters container
+      updateHyperparametersGrid(modelVal, true);
+    }
+  });
+
+  function onMissingPolicyChange() {
+    const selectedRadio = document.querySelector('input[name="missing_policy"]:checked');
+    const settingsDiv = document.getElementById("manual-imputation-settings");
+    if (settingsDiv) {
+      if (selectedRadio && selectedRadio.value === "impute_manual") {
+        settingsDiv.style.display = "block";
+      } else {
+        settingsDiv.style.display = "none";
+      }
+    }
+  }
+
+</script>
+{% endblock script %}
