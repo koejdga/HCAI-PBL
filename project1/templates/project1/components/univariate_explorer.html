@@ -21,7 +21,7 @@
     {% for visualization in univariate_plots %}
     <div class="plot-card {% if visualization.highlight %}plot-card-duplicate{% endif %}" data-plot-key="{{ visualization.key }}">
       <button type="button" class="remove-plot-button" aria-label="Remove plot" title="Remove plot" onclick="removeUnivariatePlot('{{ visualization.feature|escapejs }}')">
-        &times;
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
       <img src="{{ visualization.url }}" alt="{{ visualization.title }}" class="generated-plot" onclick="openPlotModal('{{ visualization.url|escapejs }}', '{{ visualization.title|escapejs }}')" />
     </div>

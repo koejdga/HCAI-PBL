@@ -27,52 +27,46 @@
   --p1-surface-teal: #e6fffa;
 }
 
-.box .main-text .plot-card > button.remove-plot-button {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--p1-border);
-  border-radius: 50%;
-  background-color: var(--p1-surface);
-  color: var(--p1-danger-dark);
-  font-size: 24px;
-  font-weight: 600;
-  line-height: 1;
-  opacity: 1;
-  box-shadow: 0 1px 4px rgba(27, 39, 64, 0.16);
-  appearance: none;
-}
-
-.box .main-text .plot-card > button.remove-plot-button:hover {
-  background-color: var(--p1-danger) ;
-  border-color: var(--p1-danger) ;
-  color: var(--p1-surface) ;
-  opacity: 1 ;
-}
 
 .box .main-text .data-management-section,
 .box .main-text .dataset-config-panel {
-  padding: 24px ;
-  margin: 24px 0 ;
-  background-color: #fafcfd ;
-  border: 1px solid var(--border) ;
-  border-radius: 8px ;
+  padding: 24px;
+  margin: 20px 0;
+  background-color: #fafcfd;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.box .main-text .manual-explorer-subsection,
+.box .main-text .dataset-examples-section,
+.box .main-text .custom-upload-section,
+.box .main-text .hyperparameters-container,
+.box .main-text .training-result-v2-container,
+.box .main-text .comparison-results-box,
+.box .main-text .dataset-config-heading {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 @media (max-width: 900px) {
   .box .main-text .data-management-section,
   .box .main-text .dataset-config-panel {
-    padding: 18px ;
-    margin: 16px 0 ;
+    padding: 16px 14px;
+    margin: 16px 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .box .main-text .data-management-section,
+  .box .main-text .dataset-config-panel {
+    padding: 12px 10px;
+    margin: 12px 0;
   }
 }
 
@@ -111,9 +105,19 @@
 
 .dataset-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
   margin: 16px 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+@media (max-width: 520px) {
+  .dataset-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .dataset-card {
@@ -305,6 +309,11 @@
 .audit-table-container {
   margin: -20px 0 24px 0;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .audit-table {
@@ -462,6 +471,9 @@
   justify-content: flex-start ;
   text-align: left ;
   width: 100% ;
+  max-width: 100% ;
+  box-sizing: border-box ;
+  padding: 8px 10px ;
 }
 
 .box .main-text .model-choice-btn.disabled {
@@ -722,7 +734,12 @@
 .correlation-matrix-container {
   margin-top: 0;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   margin-bottom: 24px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .correlation-table {
@@ -995,7 +1012,12 @@
 
 .training-result-table-container {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   margin-bottom: 20px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .training-result-table {
@@ -1173,6 +1195,12 @@
   border-radius: 8px;
   padding: 16px;
   background-color: #f8fafc;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
 }
 
 .comparison-table-heading {
@@ -1306,17 +1334,29 @@
 }
 
 /* Model selection table styles */
+.box .main-text .model-selection-table-container {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-block: 16px;
+  box-sizing: border-box;
+}
+
 .box .main-text .model-selection-table {
   width: 100%;
+  min-width: 560px;
   border-collapse: collapse;
   border: 1px solid var(--border);
-  font-size: 13.5px;
+  font-size: 13px;
   background-color: var(--p1-surface);
   text-align: left;
 }
 
 .box .main-text .model-selection-table th {
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-bottom: 2px solid var(--border);
   font-weight: 600;
   text-align: left;
@@ -1324,23 +1364,27 @@
 
 .box .main-text .model-selection-table th.col-alg,
 .box .main-text .model-selection-table td.model-selection-table-cell-alg {
-  width: 25%;
+  width: 22%;
+  min-width: 125px;
 }
 
 .box .main-text .model-selection-table th.col-classification {
-  width: 35%;
+  width: 36%;
+  min-width: 165px;
 }
 
 .box .main-text .model-selection-table th.col-regression {
   width: 30%;
+  min-width: 165px;
 }
 
 .box .main-text .model-selection-table th.col-scaling {
-  width: 10%;
+  width: 12%;
+  min-width: 80px;
 }
 
 .box .main-text .model-selection-table td {
-  padding: 12px;
+  padding: 8px 10px;
   vertical-align: top;
 }
 
@@ -1452,4 +1496,11 @@
   color: #2d3748;
   transform: none;
   box-shadow: none;
+}
+
+@media (max-width: 800px) {
+  .box .main-text .model-selection-table th,
+  .box .main-text .model-selection-table td {
+    padding: 8px 10px;
+  }
 }

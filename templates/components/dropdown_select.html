@@ -1,0 +1,32 @@
+{% comment %}
+  Shared Dropdown Select Component
+  Parameters:
+    id: Element ID (optional)
+    name: Form field name (optional)
+    options: List of options (each option must be a dict/object with 'value' and 'label')
+    selected_value: The currently selected value (optional)
+    placeholder: Default/empty choice text (optional, e.g. "Choose a class")
+    select_class: Additional CSS class(es) (optional)
+    required: Boolean (optional)
+    disabled: Boolean (optional)
+    aria_label: Accessible label (optional)
+    onchange: JavaScript onchange handler (optional)
+{% endcomment %}
+<select
+  {% if id %}id="{{ id }}"{% endif %}
+  {% if name %}name="{{ name }}"{% endif %}
+  class="custom-dropdown-select{% if select_class %} {{ select_class }}{% endif %}"
+  {% if aria_label %}aria-label="{{ aria_label }}"{% endif %}
+  {% if required %}required{% endif %}
+  {% if disabled %}disabled{% endif %}
+  {% if onchange %}onchange="{{ onchange }}"{% endif %}
+>
+  {% if placeholder %}
+  <option value="">{{ placeholder }}</option>
+  {% endif %}
+  {% for option in options %}
+  <option value="{{ option.value }}" {% if selected_value == option.value or selected_value|stringformat:"s" == option.value|stringformat:"s" %}selected{% endif %}>
+    {{ option.label }}
+  </option>
+  {% endfor %}
+</select>

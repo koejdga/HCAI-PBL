@@ -686,7 +686,18 @@ def build_project3_results(request):
     )
     human_strategy = request.GET.get("human-expert-strategy") or "balanced_uncertainty"
     human_limit = parse_sample_size(request.GET.get("human-expert-budget"), 6)
-    include_l2d = request.GET.get("include-l2d") == "1"
+    if "include-l2d" in request.GET:
+        include_l2d = request.GET.get("include-l2d") == "1"
+        if hasattr(request, "session"):
+            request.session["project3_include_l2d"] = include_l2d
+    elif "train-size" in request.GET:
+        include_l2d = False
+        if hasattr(request, "session"):
+            request.session["project3_include_l2d"] = False
+    elif hasattr(request, "session"):
+        include_l2d = request.session.get("project3_include_l2d", False)
+    else:
+        include_l2d = False
     
     if hasattr(request, "session"):
         prev_strategy = request.session.get("project3_human_strategy")

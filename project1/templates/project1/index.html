@@ -123,40 +123,7 @@
     button.className = "remove-plot-button";
     button.setAttribute("aria-label", "Remove plot");
     button.title = "Remove plot";
-    button.textContent = "×";
-    Object.assign(button.style, {
-      position: "absolute",
-      top: "8px",
-      right: "8px",
-      zIndex: "10",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      width: "30px",
-      height: "30px",
-      minWidth: "30px",
-      margin: "0",
-      padding: "0",
-      border: "1px solid #d7dfec",
-      borderRadius: "50%",
-      backgroundColor: "#ffffff",
-      color: "#8a2130",
-      fontSize: "24px",
-      fontWeight: "600",
-      lineHeight: "1",
-      opacity: "1",
-      boxShadow: "0 1px 4px rgba(27, 39, 64, 0.16)",
-    });
-    button.addEventListener("mouseenter", function () {
-      button.style.backgroundColor = "#b3263b";
-      button.style.borderColor = "#b3263b";
-      button.style.color = "#ffffff";
-    });
-    button.addEventListener("mouseleave", function () {
-      button.style.backgroundColor = "#ffffff";
-      button.style.borderColor = "#d7dfec";
-      button.style.color = "#8a2130";
-    });
+    button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
     if (plotType === "feature_target") {
       button.addEventListener("click", function () {
         removeFeaturePlot(plot.feature);

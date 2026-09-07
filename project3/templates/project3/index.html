@@ -11,14 +11,7 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'project3/style.css' %}" />
 <style>
-  .human-label-card {
-    grid-template-columns: minmax(0, 1fr) auto 180px 150px !important;
-  }
-  .human-label-card label {
-    justify-self: end !important;
-    margin-right: 8px !important;
-    white-space: nowrap !important;
-  }
+  
 </style>
 {% endblock %}
 
@@ -521,26 +514,26 @@
     <p class="explanation-note" style="margin-block: 0; line-height: 1.5;">You are acting as the expert for queries chosen by the active learning strategy. Check the <strong>'Sample Test Examples'</strong> section below to see benchmark texts for each class.</p>
 
     <!-- Human Expert Query Settings Form -->
-    <div class="light-frame" style="padding: 16px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--border); border-radius: 6px; background-color: #fafafa;">
-      <h4 style="margin: 0; color: var(--tuhh-navy);">Human Expert Query Settings</h4>
-      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px;">
-        <div style="display: flex; flex-direction: column; gap: 6px;">
-          <label for="human-expert-budget" style="font-weight: 700; color: var(--tuhh-navy);">Query Budget:</label>
-          <input type="number" id="human-expert-budget" value="{{ human_expert_budget|default:6 }}" min="1" max="50" style="width: 100px; padding: 6px 10px; border: 1px solid var(--border);" />
+    <div class="light-frame human-expert-settings-panel">
+      <h4>Human Expert Query Settings</h4>
+      <div class="human-expert-settings-row">
+        <div class="human-expert-field-group">
+          <label for="human-expert-budget">Query Budget:</label>
+          <input type="number" id="human-expert-budget" value="{{ human_expert_budget|default:6 }}" min="1" max="50" />
         </div>
         
-        <div style="display: flex; flex-direction: column; gap: 6px;">
-          <span style="font-weight: 700; color: var(--tuhh-navy);">Query Strategy:</span>
-          <div style="display: flex; gap: 16px; align-items: center; height: 32px;">
-            <label style="cursor: pointer;">
+        <div class="human-expert-field-group">
+          <span>Query Strategy:</span>
+          <div class="human-expert-strategies-group">
+            <label>
               <input type="radio" name="human-expert-strategy" value="balanced_uncertainty" {% if human_expert_strategy == "balanced_uncertainty" or not human_expert_strategy %}checked{% endif %} />
               Balanced uncertainty
             </label>
-            <label style="cursor: pointer;">
+            <label>
               <input type="radio" name="human-expert-strategy" value="uncertainty" {% if human_expert_strategy == "uncertainty" %}checked{% endif %} />
               Uncertainty only
             </label>
-            <label style="cursor: pointer;">
+            <label>
               <input type="radio" name="human-expert-strategy" value="random" {% if human_expert_strategy == "random" %}checked{% endif %} />
               Random sample
             </label>
@@ -552,11 +545,11 @@
     </div>
 
     <!-- Live Status Display -->
-    <div id="human-live-status-container" style="margin-block: 15px; text-align: center; font-size: 1.1rem; color: var(--tuhh-navy);">
+    <div id="human-live-status-container">
       <span id="human-live-status-text" data-budget="{{ human_expert_budget|default:6 }}" data-strategy="{% if human_expert_strategy == "uncertainty" %}Uncertainty only{% elif human_expert_strategy == "random" %}Random sample{% else %}Balanced uncertainty{% endif %}">0/{{ human_expert_budget|default:6 }} Answered, Strategy: {% if human_expert_strategy == "uncertainty" %}Uncertainty only{% elif human_expert_strategy == "random" %}Random sample{% else %}Balanced uncertainty{% endif %}</span>
     </div>
 
-    <div class="human-expert-summary" id="human-expert-summary-box" style="margin-bottom: 20px; display: {% if human_expert.answered > 0 %}flex{% else %}none{% endif %}; align-items: center; gap: 20px;">
+    <div class="human-expert-summary" id="human-expert-summary-box" {% if human_expert.answered == 0 %}style="display: none;"{% endif %}>
       <span>Answered: <strong id="human-answered-count">{{ human_expert.answered }}</strong> / <span id="human-total-count">{{ human_expert.total }}</span></span>
       <span>Correct: <strong id="human-correct-count">{{ human_expert.correct }}</strong></span>
       <span>Accuracy: <strong id="human-accuracy-percent">{{ human_expert.accuracy_percent }}</strong>%</span>
@@ -568,23 +561,18 @@
       <div class="human-label-list" id="human-label-cards-list">
         {% for row in human_expert.rows %}
         <article class="human-label-card" {% if row.answered %}{% if row.correct %}style="background-color: #e6f4ea;"{% else %}style="background-color: #fce8e6;"{% endif %}{% endif %}>
-          <p class="collapsible-comment">{{ row.text }}</p>
-          <label for="human-label-{{ row.key }}">Your label</label>
-          <select id="human-label-{{ row.key }}" name="human_label_{{ row.key }}">
-            <option value="">Choose a class</option>
-            {% for option in human_expert.class_options %}
-              <option value="{{ option.value }}" {% if row.selected_label == option.value %}selected{% endif %}>
-                {{ option.label }}
-              </option>
-            {% endfor %}
-          </select>
-          {% if row.answered %}
-            <span class="{% if row.correct %}label-result-correct{% else %}label-result-wrong{% endif %}">
-              Correct: {{ row.true_class }}
-            </span>
-          {% else %}
-            <div></div>
-          {% endif %}
+          <div class="human-label-card-text">
+            <p class="collapsible-comment">{{ row.text }}</p>
+          </div>
+          <div class="human-label-card-controls">
+            <label for="human-label-{{ row.key }}">Your label</label>
+            {% include "components/dropdown_select.html" with id="human-label-"|add:row.key name="human_label_"|add:row.key options=human_expert.class_options selected_value=row.selected_label placeholder="Choose a class" select_class="human-label-select" %}
+            {% if row.answered %}
+              <span class="{% if row.correct %}label-result-correct{% else %}label-result-wrong{% endif %}">
+                Correct: {{ row.true_class }}
+              </span>
+            {% endif %}
+          </div>
         </article>
         {% endfor %}
       </div>
@@ -647,7 +635,7 @@
         </div>
       </div>
       
-      <div style="display: flex; gap: 15px;">
+      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
         <button type="submit" id="download-pdf-report-btn" class="compact-action-button" {% if not saved_configs %}disabled{% endif %}>
           Download PDF Report
         </button>
@@ -1402,6 +1390,30 @@
 
       updateBudgetFieldsVisibility();
 
+      const includeL2DCheckbox = document.getElementById("include-l2d");
+      if (includeL2DCheckbox) {
+        const currentUrlParams = new URLSearchParams(window.location.search);
+        if (!currentUrlParams.has("include-l2d") && !currentUrlParams.has("train-size")) {
+          const savedL2D = localStorage.getItem("includeL2D");
+          if (savedL2D !== null) {
+            includeL2DCheckbox.checked = savedL2D === "1";
+          }
+        } else {
+          localStorage.setItem("includeL2D", includeL2DCheckbox.checked ? "1" : "0");
+        }
+
+        includeL2DCheckbox.addEventListener("change", function () {
+          localStorage.setItem("includeL2D", this.checked ? "1" : "0");
+          const url = new URL(window.location.href);
+          if (this.checked) {
+            url.searchParams.set("include-l2d", "1");
+          } else {
+            url.searchParams.delete("include-l2d");
+          }
+          window.history.replaceState({}, "", url.toString());
+        });
+      }
+
       let currentAllocationByPolicy = JSON.parse(document.getElementById('allocation-data-initial').textContent);
       let currentActiveLearningByStrategy = JSON.parse(document.getElementById('active-learning-by-strategy-initial').textContent);
       let currentScatterPlots = JSON.parse(document.getElementById('scatter-plots-initial').textContent);
@@ -1573,7 +1585,7 @@
 
             const resultHtml = row.answered
               ? `<span class="${row.correct ? 'label-result-correct' : 'label-result-wrong'}">
-                  Reference: ${row.true_class}
+                  Correct: ${row.true_class}
                  </span>`
               : '<div></div>';
 
@@ -1583,13 +1595,17 @@
 
             return `
               <article class="human-label-card" ${bgStyle}>
-                <p class="collapsible-comment">${row.text}</p>
-                <label for="human-label-${row.key}">Your label</label>
-                <select id="human-label-${row.key}" name="human_label_${row.key}">
-                  <option value="">Choose a class</option>
-                  ${optionsHtml}
-                </select>
-                ${resultHtml}
+                <div class="human-label-card-text">
+                  <p class="collapsible-comment">${row.text}</p>
+                </div>
+                <div class="human-label-card-controls">
+                  <label for="human-label-${row.key}">Your label</label>
+                  <select id="human-label-${row.key}" name="human_label_${row.key}" class="custom-dropdown-select human-label-select">
+                    <option value="">Choose a class</option>
+                    ${optionsHtml}
+                  </select>
+                  ${resultHtml}
+                </div>
               </article>
             `;
           }).join('');
