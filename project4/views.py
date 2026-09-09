@@ -33,7 +33,6 @@ def landing(request):
     content_menu_items = [
         {"label": "Overview", "href": "#project4-overview"},
         {"label": "Study Protocol", "href": "#study-protocol"},
-        {"label": "Report", "href": "#report-download"},
         {"label": "Transparency Notes", "href": "#hcai-notes"},
     ]
     context = {
