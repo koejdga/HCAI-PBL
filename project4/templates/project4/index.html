@@ -3,6 +3,10 @@
 
 {% block site_context %}Project 4{% endblock %}
 
+{% block header_actions %}
+<a class="home-link" href="{% url 'home:index' %}">Back to Home</a>
+{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'project4/style.css' %}" />
 {% endblock %}
@@ -13,29 +17,28 @@
 
   {% if not is_study %}
   <section class="project4-landing" id="project4-overview">
-    <div class="landing-copy">
-      <p class="eyebrow">Project 4</p>
-      <h1 class="project4-title">Preference Elicitation Study</h1>
-      <p class="landing-summary">
+    <div class="title-container landing-copy">
+      <div class="title">Preference Elicitation Study</div>
+      <p class="centered-text explanation landing-summary">
         Compare two human-centered ways of learning movie preferences: short pairwise choices and a drag-to-rank task.
         The page provides the required report download and a participant-ready study interface.
       </p>
     </div>
 
     <div class="landing-actions" aria-label="Project 4 actions">
-      <a class="action-button action-button-primary" href="{% url 'project4:report' %}">
+      <a class="action-button action-button-primary" href="{% url 'project4:study' %}">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        Start Study
+      </a>
+      <a class="action-button" href="{% url 'project4:report' %}">
         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
           <polyline points="7 10 12 15 17 10"></polyline>
           <line x1="12" y1="15" x2="12" y2="3"></line>
         </svg>
         Download PDF Report
-      </a>
-      <a class="action-button" href="{% url 'project4:study' %}">
-        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="5 3 19 12 5 21 5 3"></polygon>
-        </svg>
-        Start Study
       </a>
     </div>
   </section>
@@ -72,16 +75,10 @@
         genres, directors, year, duration, rating, language, country, IMDB score, and popularity.
       </p>
     </div>
-    <dl>
-      <div>
-        <dt>Movies</dt>
-        <dd>{{ feature_summary.movie_count }}</dd>
-      </div>
-      <div>
-        <dt>Model features</dt>
-        <dd>{{ feature_summary.feature_count }}</dd>
-      </div>
-    </dl>
+    <div class="inline-summary-metrics" aria-label="Dataset summary">
+      <span><strong>Movies:</strong> {{ feature_summary.movie_count }}</span>
+      <span><strong>Model features:</strong> {{ feature_summary.feature_count }}</span>
+    </div>
   </section>
 
   <section class="hcai-notes" id="hcai-notes" aria-label="Study transparency notes">
@@ -95,17 +92,15 @@
   </section>
   {% else %}
   <section class="study-header" id="participant-consent">
-    <div>
-      <p class="eyebrow">Participant Interface</p>
-      <h1 class="project4-title">Movie Preference Study</h1>
-      <p class="landing-summary">
+    <div class="title-container">
+      <div class="title">Movie Preference Study</div>
+      <p class="centered-text explanation landing-summary">
         This prototype records your choices for the current browser session so the system can estimate a movie preference vector.
         Do not enter personal information. You can reset the session at any time.
       </p>
     </div>
     <div class="landing-actions">
       <a class="action-button" href="{% url 'project4:index' %}">Back to Overview</a>
-      <a class="action-button" href="{% url 'project4:report' %}">Download Report</a>
       <button type="button" class="secondary-button" id="reset-study-button">
         <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 12a9 9 0 1 0 3-6.7"></path>
@@ -120,21 +115,15 @@
     <div>
       <p class="eyebrow">Session Setup</p>
       <h2>Random Movie Sample</h2>
-      <p>
+      <p class="single-line-summary">
         This page uses 20 session-local movies: 10 for pairwise comparisons and 10 for ranking.
-        Already shown movies should be excluded from the final recommendations.
       </p>
+      <p class="single-line-summary">Already shown movies should be excluded from the final recommendations.</p>
     </div>
-    <dl>
-      <div>
-        <dt>Movies</dt>
-        <dd>{{ feature_summary.movie_count }}</dd>
-      </div>
-      <div>
-        <dt>Model features</dt>
-        <dd>{{ feature_summary.feature_count }}</dd>
-      </div>
-    </dl>
+    <div class="inline-summary-metrics" aria-label="Dataset summary">
+      <span><strong>Movies:</strong> {{ feature_summary.movie_count }}</span>
+      <span><strong>Model features:</strong> {{ feature_summary.feature_count }}</span>
+    </div>
   </section>
 
   <div id="status-message" class="status-message" role="status" aria-live="polite" hidden></div>
@@ -350,6 +339,20 @@
         <label for="feedback-note">Optional note</label>
         <textarea id="feedback-note" name="feedback_note" rows="3" placeholder="What felt clear or difficult?"></textarea>
       </form>
+    </section>
+
+    <section class="report-panel" id="report-download">
+      <div>
+        <p class="eyebrow">Report</p>
+        <h2>Download Project Report</h2>
+        <p>
+          After reviewing or completing the study flow, download the report for
+          the method explanation, study protocol, and design motivation.
+        </p>
+      </div>
+      <a class="action-button action-button-primary" href="{% url 'project4:report' %}">
+        Download PDF Report
+      </a>
     </section>
   </div>
   {% endif %}

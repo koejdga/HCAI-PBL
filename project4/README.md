@@ -14,11 +14,11 @@ recommendation result after the participant submits both tasks.
 
 1. Start the Django server from the repository root.
 2. Open <http://127.0.0.1:8000/project4/>.
-3. Use **Download PDF Report** to inspect the assignment coverage.
-4. Use **Start Study** to open the participant interface.
-5. Complete the five pairwise choices.
-6. Reorder the ten ranking movies and submit.
-7. Review the recommended movies and explanation labels.
+3. Use **Start Study** to open the participant interface.
+4. Complete the five pairwise choices.
+5. Reorder the ten ranking movies and submit.
+6. Review the recommended movies and explanation labels.
+7. Download the PDF report from the final report section, or from the landing page.
 8. Use **Reset Study** to clear the session and sample a fresh set.
 
 ## Assignment Coverage
@@ -31,12 +31,13 @@ recommendation result after the participant submits both tasks.
 - **Task 3:** the report defines the user-study hypothesis, within-subject
   design, counterbalancing, recruitment plan, metrics, feedback phase, and
   privacy handling.
-- **Task 4:** the Django UI provides the landing page, PDF download, study
-  interface, session reset, backend submission endpoints, and recommendations.
+- **Task 4:** the Django UI provides the landing page, study interface, PDF
+  download, session reset, backend submission endpoints, and recommendations.
 
 ## Human-Centric Design Choices
 
-- The landing page separates study entry from report access.
+- The landing page makes the participant study the primary action while keeping
+  the PDF report accessible for evaluation.
 - The participant sees that choices are stored only for the browser session.
 - Movies already used during elicitation are excluded from recommendations.
 - Recommendation labels expose the feature signals behind the score.

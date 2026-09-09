@@ -25,6 +25,7 @@ def landing(request):
     content_menu_items = [
         {"label": "Overview", "href": "#project4-overview"},
         {"label": "Study Protocol", "href": "#study-protocol"},
+        {"label": "Report", "href": "#report-download"},
         {"label": "Transparency Notes", "href": "#hcai-notes"},
     ]
     context = {
@@ -58,6 +59,7 @@ def study(request):
         {"label": "Pairwise Selection", "href": "#design-1-section"},
         {"label": "Ranking Interface", "href": "#design-2-section"},
         {"label": "Recommendations", "href": "#recommendation-results"},
+        {"label": "Report", "href": "#report-download"},
     ]
 
     context = {
