@@ -125,8 +125,11 @@ python manage.py test project1 --verbosity 1
 ## Suggested Evaluation Path
 
 1. Open the Project 1 page.
-2. Upload an Iris-style CSV file.
-3. Review the dataset setup and assumptions.
-4. Generate one feature plot and one scatter plot.
-5. Train a classification model.
-6. Compare the trained model result with the simple baseline.
+2. Select a built-in example dataset or upload a custom CSV file.
+3. Confirm the current dataset and review the dataset setup options.
+4. Review the dataset audit, assumptions, and data-quality messages.
+5. Generate a feature-versus-target plot, a distribution plot, and a scatter
+   plot.
+6. Train a supervised model and compare it with the simple baseline.
+7. Use "Train All and Compare" to compare candidate models and export a
+   summary if needed.
