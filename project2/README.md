@@ -17,7 +17,7 @@ Project page: <http://127.0.0.1:8000/project2/>
 4. **Counterfactuals:** generate local counterfactual explanations.
 5. **Feature effects:** implement PDP and ALE plots for numeric features.
 
-Tasks 1-5 are fully implemented, along with advanced lecture-grounded explainability extensions and bonus features from Lectures 2, 3, and 4.
+Tasks 1-5 are implemented, along with lecture-grounded explainability extensions from Lectures 2, 3, and 4.
 
 ## Implemented Functionality
 
@@ -46,7 +46,7 @@ Tasks 1-5 are fully implemented, along with advanced lecture-grounded explainabi
   - Quantifies the fraction of candidate models whose test accuracy is within $\theta$ of the optimal model:
     $$\mathcal{R}_{ratio}(\theta) = \frac{|\mathcal{R}(\theta)|}{|\mathcal{F}|}$$
   - Renders a dedicated Rashomon banner and visual badges identifying all candidates in the Rashomon set.
-  - Proves the foundational insight from Breiman (2001) and Rudin & Semenova (2019): when the Rashomon ratio is large, there almost always exists a simpler, highly interpretable model that performs on par with complex models.
+  - Illustrates the lecture idea that several models can perform similarly, so a simpler interpretable model can often be chosen without giving up much accuracy.
 
 ### Task 3: Logistic Regression Interpretability (Lecture 2)
 
@@ -89,6 +89,7 @@ These design choices follow concepts from the explainability and interpretabilit
 - **Log-Odds & Odds Ratios (Lecture 2):** Providing mathematically grounded, human-comprehensible descriptions of linear model weights.
 - **Actionability & Plausibility (Lecture 3):** Ensuring counterfactual interventions respect real-world immutability constraints.
 - **Feature Effect Distinctions (Lecture 3):** Explaining the mathematical trade-offs between PDP, M-Plot, and ALE.
+- **Appropriate trust:** The interface notes that PDP, M-Plot, ALE, counterfactuals, and tree paths explain model behavior in this dataset; they should not be read as causal proof.
 
 ## Directory Structure
 
@@ -107,12 +108,34 @@ HCAI-PBL/
     `-- static/project2/style.css     # Tooltip, SVG glow, and interactive layout styling
 ```
 
+## Run the Project
+
+From the repository root:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python manage.py runserver
+```
+
+Open <http://127.0.0.1:8000/project2/>.
+
 ## Check and Test
 
 Run all unit tests:
 
-```bash
-MPLCONFIGDIR=.matplotlib_cache python manage.py test project2 --verbosity 2
+```powershell
+$env:MPLCONFIGDIR = ".matplotlib_cache"
+python manage.py test project2 --verbosity 1
 ```
 
 The test suite contains 16 automated unit tests covering dataset cleaning, readable feature labels, decision tree metrics, candidate selection, M-Plots, ALE/PDP, tree path tracing, rule list extraction, MAD categorical penalties, Rashomon ratio calculations, logistic regression odds ratios, and page template rendering.
+
+## Suggested Evaluation Path
+
+1. Open the Project 2 page.
+2. Review the data-transparency panel for target, classes, features, encoding, and removed missing rows.
+3. Inspect the decision tree, accuracy, number of leaves, and rule list.
+4. Move the lambda slider and apply the preference to compare accuracy against model simplicity.
+5. Switch between decision tree and logistic regression to compare different interpretable model families.
+6. Select a penguin and target species to generate counterfactual examples.
+7. Choose a numeric feature and update PDP, M-Plot, and ALE feature-effect plots.
