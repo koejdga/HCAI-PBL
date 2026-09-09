@@ -66,4 +66,13 @@
       Use columns that are reasonable inputs for prediction. Avoid ID columns or columns that directly reveal the target because they can make the model look better than it really is.
     </div>
   </div>
+  <div class="info-explainer-popup mt-12">
+    <button type="button" class="info-explainer-trigger" aria-expanded="false">
+      {% include "components/info_icon.svg" %}
+      <span>What should I check before trusting the data?</span>
+    </button>
+    <div class="info-explainer-content">
+      Data cleaning and model comparison make the workflow more transparent, but they do not automatically remove dataset bias. Check whether important groups, cases, or measurement conditions are missing or underrepresented before using the result.
+    </div>
+  </div>
 </fieldset>

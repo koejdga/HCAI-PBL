@@ -13,16 +13,18 @@
     </head>
     <body>
         <header class="site-header">
-            <a class="site-brand" href="{% url 'home:index' %}">
-                <img src="{% static 'images/tuhh-logo.svg' %}" alt="TUHH logo" class="site-logo">
-                <span>Human-Centric AI PBL</span>
-            </a>
-            <nav class="site-actions" aria-label="Page navigation">
-                {% block header_actions %}{% endblock %}
-            </nav>
-            <span class="site-context">
-                {% block site_context %}Course project hub{% endblock %}
-            </span>
+            <div class="site-header-inner">
+                <a class="site-brand" href="{% url 'home:index' %}">
+                    <img src="{% static 'images/tuhh-logo.svg' %}" alt="TUHH logo" class="site-logo">
+                    <span>Human-Centric AI PBL</span>
+                </a>
+                <nav class="site-actions" aria-label="Page navigation">
+                    {% block header_actions %}{% endblock %}
+                </nav>
+                <span class="site-context">
+                    {% block site_context %}Course project hub{% endblock %}
+                </span>
+            </div>
         </header>
         <main class="grid-parent">
             {% block content %}

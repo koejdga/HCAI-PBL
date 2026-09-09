@@ -13,9 +13,13 @@
       {% endfor %}
     </select>
     <span class="target-label-span">vs Target: <strong id="dynamic-target-label">{{ dataset_summary.target }}</strong></span>
-    <button type="button" onclick="createFeaturePlot()" class="build-plot-btn">
-      Build a plot
+    <button type="button" onclick="createFeaturePlot()" class="build-plot-btn" id="feature-target-plot-btn">
+      Build Plot
     </button>
+    <span class="plot-loading-message" id="feature-target-loading-message" role="status" aria-live="polite">
+      <span class="inline-loading-spinner" aria-hidden="true"></span>
+      Creating plot...
+    </span>
   </div>
   
   <!-- Gallery for Feature vs Target plots -->
@@ -51,9 +55,13 @@
       {% endfor %}
     </select>
     
-    <button type="button" onclick="createScatterPlot()" class="build-plot-btn">
-      Build a plot
+    <button type="button" onclick="createScatterPlot()" class="build-plot-btn" id="scatter-plot-btn">
+      Build Plot
     </button>
+    <span class="plot-loading-message" id="scatter-loading-message" role="status" aria-live="polite">
+      <span class="inline-loading-spinner" aria-hidden="true"></span>
+      Creating plot...
+    </span>
     <p class="scatter-selection-note" id="scatter-selection-note" aria-live="polite"></p>
   </div>
   

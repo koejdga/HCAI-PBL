@@ -72,18 +72,21 @@
 
 .data-management-heading {
   color: var(--p1-navy);
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
+  line-height: 1.25;
   border-bottom: 2px solid var(--border);
   padding-bottom: 10px;
   margin-top: 0;
   margin-bottom: 20px;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .subheading {
   color: var(--p1-navy);
-  font-weight: 750;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .data-management-subheading {
@@ -93,7 +96,7 @@
 }
 
 .data-audit-subheading {
-  font-size: 16px;
+  font-size: 17px;
   margin: 0;
 }
 
@@ -121,6 +124,7 @@
 }
 
 .dataset-card {
+  position: relative;
   padding: 16px;
   border: 2px solid var(--border);
   border-radius: 6px;
@@ -153,7 +157,7 @@
   line-height: 1.4;
 }
 
-.box .main-text .data-management-section button[type="submit"],
+.box .main-text .data-management-section button[type="submit"]:not(.delete-uploaded-dataset-btn),
 .box .main-text .apply-setup-btn {
   margin: 12px 0 0 0 ;
   width: 220px ;
@@ -170,14 +174,14 @@
   transition: background-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease ;
 }
 
-.box .main-text .data-management-section button[type="submit"]:hover,
+.box .main-text .data-management-section button[type="submit"]:not(.delete-uploaded-dataset-btn):hover,
 .box .main-text .apply-setup-btn:hover {
   background-color: var(--p1-blue) ;
   box-shadow: 0 6px 14px rgba(12, 36, 60, 0.16) ;
   transform: translateY(-1px) ;
 }
 
-.box .main-text .data-management-section button[type="submit"]:disabled,
+.box .main-text .data-management-section button[type="submit"]:not(.delete-uploaded-dataset-btn):disabled,
 .box .main-text .apply-setup-btn:disabled {
   background-color: #a1b4d4 ;
   color: var(--p1-surface) ;
@@ -230,6 +234,62 @@
   font-size: 14.5px;
   color: #718096;
   margin-bottom: 12px;
+}
+
+.current-dataset-note {
+  display: inline-block;
+  margin: 0 0 18px;
+  padding: 8px 12px;
+  border: 1px solid #cbe5eb;
+  border-left: 4px solid var(--tuhh-cyan);
+  border-radius: 6px;
+  background-color: #f0f7f9;
+  color: var(--p1-navy);
+  font-size: 14.5px;
+}
+
+.current-dataset-note strong {
+  font-weight: 750;
+}
+
+.delete-uploaded-dataset-form {
+  display: none;
+}
+
+.delete-uploaded-dataset-btn {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 2;
+  display: inline;
+  width: auto ;
+  min-width: 0 ;
+  min-height: 0 ;
+  margin: 0 ;
+  padding: 0 ;
+  border: none ;
+  border-radius: 0 ;
+  background: transparent ;
+  color: #64748b ;
+  cursor: pointer;
+  font-size: 16px ;
+  font-weight: 700 ;
+  line-height: 1 ;
+  box-shadow: none ;
+  opacity: 0.75;
+  transform: none ;
+}
+
+.your-datasets-section .dataset-card {
+  padding-right: 34px;
+}
+
+.delete-uploaded-dataset-btn:hover {
+  background: transparent;
+  color: var(--p1-danger);
+  box-shadow: none;
+  transform: none;
+  opacity: 1;
 }
 
 .box .main-text .p1-missing-policy-fieldset {
@@ -298,7 +358,19 @@
 .box .main-text .dataset-config-panel legend,
 .box .main-text .dataset-config-panel h2,
 .box .main-text .dataset-config-panel h3 {
-  font-weight: 600 ;
+  font-weight: 700 ;
+}
+
+.box .main-text .dataset-config-panel h2 {
+  font-size: 24px ;
+  font-weight: 800 ;
+  line-height: 1.25 ;
+}
+
+.box .main-text .dataset-config-panel h3 {
+  font-size: 20px ;
+  font-weight: 750 ;
+  line-height: 1.3 ;
 }
 
 .box .main-text .dataset-config-panel label:not(.feature-option):not(.missing-policy-option) {
@@ -521,10 +593,6 @@
   opacity: 0.8 ;
 }
 
-.box .main-text .site-context {
-  margin-right: 220px ;
-}
-
 /* Custom properties class wrappers extracted from template inline styles */
 
 .audit-table-header {
@@ -676,20 +744,35 @@
 }
 
 .build-plot-btn {
-  background-color: var(--tuhh-cyan);
+  background-color: var(--p1-navy);
   color: var(--p1-surface);
-  font-weight: bold;
+  font-weight: 700;
   border: none;
   padding: 10px 20px;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
-  box-shadow: 0 4px 6px rgba(0, 141, 162, 0.2);
-  transition: background-color 0.2s, transform 0.1s;
+  font-size: 15px;
+  box-shadow: 0 4px 10px rgba(12, 36, 60, 0.12);
+  transition: background-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
 }
 
 .build-plot-btn:hover, .train-model-submit-btn:hover, .compare-all-btn:hover {
-  background-color: #008da2;
+  background-color: var(--p1-blue);
+  box-shadow: 0 6px 14px rgba(12, 36, 60, 0.16);
+  transform: translateY(-1px);
+}
+
+.plot-loading-message {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  color: var(--p1-navy);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.plot-loading-message.is-visible {
+  display: inline-flex;
 }
 
 .plot-gallery {
@@ -927,8 +1010,10 @@
 .hyperparameters-subheading {
   margin-top: 0;
   margin-bottom: 12px;
-  font-size: 15px;
+  font-size: 17px;
   color: var(--p1-navy);
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .manual-train-form {
@@ -963,21 +1048,21 @@
 }
 
 .train-model-submit-btn {
-  background-color: var(--tuhh-cyan);
+  background-color: var(--p1-navy);
   color: var(--p1-surface);
-  font-weight: bold;
+  font-weight: 700;
   border: none;
   padding: 12px 24px;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 15px;
-  box-shadow: 0 4px 6px rgba(0, 141, 162, 0.2);
+  font-size: 16px;
+  box-shadow: 0 4px 10px rgba(12, 36, 60, 0.12);
   margin-bottom: 20px;
 }
 
 .train-model-submit-btn:disabled {
-  background-color: #99d6df;
-  color: var(--p1-surface-blue);
+  background-color: #a1b4d4;
+  color: var(--p1-surface);
   box-shadow: none;
   cursor: not-allowed;
   transform: none;
@@ -992,11 +1077,12 @@
 }
 
 .training-result-v2-heading {
-  font-size: 14.5px;
+  font-size: 20px;
   color: var(--p1-navy);
   margin-top: 0;
   margin-bottom: 16px;
-  font-weight: bold;
+  font-weight: 750;
+  line-height: 1.3;
 }
 
 .text-cyan {
@@ -1006,8 +1092,10 @@
 .training-result-v2-subheading {
   margin-top: 0;
   margin-bottom: 12px;
-  font-size: 15px;
+  font-size: 17px;
   color: var(--p1-navy);
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .training-result-table-container {
@@ -1124,8 +1212,10 @@
 .reproducibility-heading {
   margin-top: 0;
   margin-bottom: 12px;
-  font-size: 15px;
+  font-size: 17px;
   color: var(--p1-navy);
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .reproducibility-text {
@@ -1159,15 +1249,15 @@
 }
 
 .compare-all-btn {
-  background-color: var(--tuhh-cyan);
+  background-color: var(--p1-navy);
   color: var(--p1-surface);
-  font-weight: bold;
+  font-weight: 700;
   border: none;
   padding: 10px 20px;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
-  box-shadow: 0 4px 6px rgba(0, 141, 162, 0.2);
+  font-size: 15px;
+  box-shadow: 0 4px 10px rgba(12, 36, 60, 0.12);
 }
 
 .compare-cancel-button {
@@ -1205,9 +1295,11 @@
 
 .comparison-table-heading {
   display: block;
-  font-size: 15px;
+  font-size: 17px;
   margin-bottom: 12px;
   color: var(--p1-navy);
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .comparison-table {

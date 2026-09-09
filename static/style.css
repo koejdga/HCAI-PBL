@@ -25,6 +25,7 @@ body {
 
 p {
   color: var(--text);
+  font-size: 16px;
   line-height: 1.55;
   text-align: left;
 }
@@ -39,8 +40,65 @@ ul li {
 
 label {
   color: var(--tuhh-navy);
+  font-size: 16px;
   font-weight: 600;
   text-align: left;
+}
+
+.box h2,
+.project-section-box h2,
+.tree-section h2,
+.section-heading-row h2,
+.hcai-notes h2,
+.feedback-panel h2 {
+  color: var(--tuhh-navy);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.box h3,
+.project-section-box h3,
+.transparency-panel h3,
+.task-two-panel h3,
+.budget-convergence-panel h3,
+.completion-view h3,
+.recommendation-card h3 {
+  color: var(--tuhh-navy);
+  font-size: 20px;
+  font-weight: 750;
+  line-height: 1.3;
+}
+
+.box h4,
+.human-expert-settings-panel h4,
+.theoretical-qa-card h4 {
+  color: var(--tuhh-navy);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.alert-warning,
+.quality-warning,
+.transparency-warning,
+.default-expert-message {
+  padding: 14px 16px;
+  border: 1px solid #fbd38d;
+  border-left: 5px solid #c05621;
+  border-radius: 6px;
+  background-color: #fffaf0;
+  color: #744510;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.alert-warning strong,
+.quality-warning strong,
+.transparency-warning strong,
+.default-expert-message strong {
+  color: #744510;
+  font-weight: 750;
 }
 
 figcaption {
@@ -58,15 +116,22 @@ figcaption {
 .site-header {
   position: relative;
   z-index: 20;
+  padding: 0 16px;
+  border-top: 6px solid var(--tuhh-cyan);
+  border-bottom: 1px solid var(--border);
+  background-color: var(--surface);
+}
+
+.site-header-inner {
   display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: 24px;
+  width: 100%;
+  max-width: 1120px;
   min-height: 72px;
-  padding: 16px clamp(20px, 4vw, 56px);
-  border-top: 6px solid var(--tuhh-cyan);
-  border-bottom: 1px solid var(--border);
-  background-color: var(--surface);
+  margin: 0 auto;
+  padding: 16px 0;
 }
 
 .site-brand {
@@ -89,7 +154,7 @@ figcaption {
   font-size: 15px;
   font-weight: 600;
   margin-left: auto;
-  margin-right: 180px;
+  margin-right: 0;
   text-align: right;
 }
 
@@ -1365,7 +1430,7 @@ button.remove-plot-button:hover {
 }
 
 @media (max-width: 700px) {
-  .site-header {
+  .site-header-inner {
     align-items: flex-start;
     flex-direction: column;
   }

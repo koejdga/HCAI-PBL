@@ -1,10 +1,19 @@
   <section class="data-management-section">
-    <h2 class="data-management-heading" id="data-management">1. DATA MANAGEMENT</h2>
-    
+    <h2 class="data-management-heading" id="data-management">1. Data Management</h2>
+
+    {% if active_dataset_name %}
+    <p class="current-dataset-note">
+      Current dataset: <strong>{{ active_dataset_name }}</strong>
+    </p>
+    {% endif %}
+
     <!-- Subheading: Dataset Examples -->
     <div class="dataset-examples-section">
       <h3 class="subheading data-management-subheading" id="dataset-examples">Dataset Examples</h3>
-      <p class="data-management-text">Choose a model from a list of preloaded datasets:</p>
+      <p class="data-management-text">
+        Optional: use a built-in dataset to test the full workflow without uploading a CSV.
+        Uploaded files appear separately under Uploaded Datasets.
+      </p>
       
       <form method="post" id="select-example-form" class="select-example-form">
         {% csrf_token %}
@@ -62,11 +71,11 @@
 
     {% include "project1/components/dashed_separator.html" %}
 
-    <!-- Subheading: Your Datasets -->
+    <!-- Subheading: Uploaded Datasets -->
     <div class="your-datasets-section" style="padding-top: 20px;">
-      <h3 class="subheading data-management-subheading" id="your-datasets">Your Datasets</h3>
+      <h3 class="subheading data-management-subheading" id="your-datasets">Uploaded Datasets</h3>
       {% if uploaded_datasets %}
-      <p class="data-management-text">Choose from your uploaded datasets:</p>
+      <p class="data-management-text">Choose from CSV files uploaded in this browser session:</p>
       <form method="post" id="select-uploaded-form" class="select-example-form">
         {% csrf_token %}
         <input type="hidden" name="action" value="select_uploaded" />
@@ -75,6 +84,15 @@
         <div class="dataset-grid">
           {% for ds in uploaded_datasets %}
           <div class="dataset-card {% if active_dataset_name == ds.name %}selected{% endif %}" data-filename="{{ ds.name }}">
+            <button
+              type="button"
+              class="delete-uploaded-dataset-btn"
+              data-delete-form="delete-uploaded-dataset-{{ forloop.counter }}"
+              title="Remove uploaded dataset"
+              aria-label="Remove {{ ds.name }}"
+            >
+              &times;
+            </button>
             <div class="dataset-name">{{ ds.name }}</div>
             <div class="dataset-info">{{ ds.info }}</div>
           </div>
@@ -83,6 +101,13 @@
         
         <button type="submit" id="select-uploaded-btn" disabled>Select</button>
       </form>
+      {% for ds in uploaded_datasets %}
+      <form method="post" id="delete-uploaded-dataset-{{ forloop.counter }}" class="delete-uploaded-dataset-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="delete_uploaded" />
+        <input type="hidden" name="dataset_name" value="{{ ds.name }}" />
+      </form>
+      {% endfor %}
       {% else %}
       <p class="data-management-text" style="font-style: italic;">No uploaded datasets yet.</p>
       {% endif %}

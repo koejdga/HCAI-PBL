@@ -440,6 +440,18 @@ def upload_csv(request):
     if request.method == "POST":
         action = request.POST.get("action", "upload")
 
+        if action == "delete_uploaded":
+            dataset_name = request.POST.get("dataset_name")
+            uploaded_list = request.session.get("project1_uploaded_datasets", [])
+            request.session["project1_uploaded_datasets"] = [
+                item for item in uploaded_list if item.get("name") != dataset_name
+            ]
+            active_dataset = request.session.get("project1_dataset")
+            if active_dataset and active_dataset.get("name") == dataset_name:
+                request.session.pop("project1_dataset", None)
+                reset_project1_outputs(request)
+            return redirect("project1:index")
+
         if action == "select_example":
             dataset_name = request.POST.get("dataset_name")
             if dataset_name in ["iris.csv", "diabetes.csv", "breast_cancer.csv", "wine.csv", "housing.csv", "auto-mpg.csv"]:
@@ -853,7 +865,7 @@ def upload_csv(request):
 
     content_menu_items = [
         {
-            "label": "1. DATA MANAGEMENT",
+            "label": "1. Data Management",
             "href": "#data-management",
             "children": [
                 {"label": "Dataset Examples", "href": "#dataset-examples"},
@@ -862,7 +874,7 @@ def upload_csv(request):
             ],
         },
         {
-            "label": "2. DATASET AUDIT",
+            "label": "2. Dataset Audit",
             "href": "#dataset-audit",
             "children": [
                 {"label": "Column Statistics", "href": "#column-statistics"},
@@ -874,7 +886,7 @@ def upload_csv(request):
             ],
         },
         {
-            "label": "3. MODEL TRAINING",
+            "label": "3. Model Training",
             "href": "#model-training",
             "children": [
                 {"label": "Manual Explorer", "href": "#manual-explorer"},

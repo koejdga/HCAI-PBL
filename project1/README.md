@@ -18,6 +18,23 @@ Tasks 1-4 are implemented.
 
 ## Implemented Functionality
 
+## How to Use the Interface
+
+Project 1 is organized as a step-by-step page:
+
+1. **Data Management** lets the user either choose a built-in example dataset
+   or upload a custom CSV file. Example datasets are stored in
+   `project1/example_datasets/` and can run the full workflow without upload.
+   Uploaded files appear separately under **Uploaded Datasets**.
+2. **Dataset Audit** appears after a dataset is selected. It shows column
+   statistics, missing-value information, correlation information, feature
+   plots, and scatter/distribution plot tools.
+3. **Model Training** appears after dataset setup. It lets the user select a
+   model, adjust available hyperparameters, train the model, compare against a
+   baseline, and run the "Train All and Compare" workflow.
+4. The right-side **Contents** menu provides direct navigation between the main
+   sections and subsections.
+
 ### CSV Upload and Dataset Review
 
 - Accepts CSV files with a header row.
@@ -32,6 +49,7 @@ Tasks 1-4 are implemented.
 - Shows dataset summary information and data-quality warnings.
 - Generates feature-versus-target plots.
 - Generates scatter plots for two selected features.
+- Generates univariate feature distributions and a numeric correlation matrix.
 - Prevents selecting the same feature for both scatter-plot axes.
 - Lets users click plots to view them larger.
 
@@ -40,11 +58,16 @@ Tasks 1-4 are implemented.
 - Supports classification and regression workflows.
 - Uses a held-out test split selected by the user.
 - Compares several model settings:
-  - Logistic Regression and K-Nearest Neighbors for classification.
-  - Ridge Regression and K-Nearest Neighbors for regression.
+  - Logistic Regression, K-Nearest Neighbors, Support Vector Machines,
+    Random Forest, and Gaussian Naive Bayes for classification.
+  - Linear Regression, Ridge Regression, Lasso Regression,
+    K-Nearest Neighbors, Support Vector Machines, and Random Forest for
+    regression.
 - Shows the trained model result next to a simple baseline:
   - majority-class baseline for classification;
   - mean-target baseline for regression.
+- Includes a "Train All and Compare" view plus a PDF summary report for the
+  model comparison.
 
 ## HCAI Concepts Applied
 
@@ -58,16 +81,25 @@ Tasks 1-4 are implemented.
   plain language.
 - **User-centered interaction:** the page follows a clear workflow from upload
   to review, visualization, training, and comparison.
+- **Bias awareness:** the interface shows data-quality warnings and reminds the
+  user that cleaning, visualization, and model comparison do not automatically
+  remove dataset bias or representation bias.
 
 ## Directory Structure
 
 ```text
 project1/
-|-- forms.py                       # CSV upload validation
-|-- views.py                       # Data parsing, plots, training, results
+|-- core/
+|   |-- dataset.py                 # CSV parsing, dataset configuration, audits
+|   |-- training.py                # Model training, baselines, comparison logic
+|   `-- visualization.py           # Matplotlib plot generation
+|-- example_datasets/              # Built-in demo datasets
+|-- static/project1/style.css      # Project-specific styling
+|-- templates/project1/index.html  # Main Project 1 page
+|-- templates/project1/components/ # Reusable UI sections
 |-- tests.py                       # Automated Project 1 tests
 |-- urls.py
-`-- templates/project1/upload.html # Project 1 interface
+`-- views.py                       # Django views and session workflow
 ```
 
 Generated plot images are written to `media/project1/` at runtime.

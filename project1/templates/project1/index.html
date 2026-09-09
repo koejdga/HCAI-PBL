@@ -196,6 +196,17 @@
     return { response, data };
   }
 
+  function setPlotLoading(buttonId, messageId, isLoading) {
+    const button = document.getElementById(buttonId);
+    const message = document.getElementById(messageId);
+    if (button) {
+      button.disabled = isLoading;
+    }
+    if (message) {
+      message.classList.toggle("is-visible", isLoading);
+    }
+  }
+
   function handlePlotResponse(response, data, galleryId) {
     if (!response.ok || data.status === "error") {
       setPlotError(data.message || "Something went wrong.");
@@ -226,16 +237,21 @@
       return;
     }
 
-    const result = await postPlotAction({
-      action: "feature_target",
-      feature: featureSelect.value,
-    });
-    if (result) {
-      handlePlotResponse(
-        result.response,
-        result.data,
-        "feature-target-gallery",
-      );
+    setPlotLoading("feature-target-plot-btn", "feature-target-loading-message", true);
+    try {
+      const result = await postPlotAction({
+        action: "feature_target",
+        feature: featureSelect.value,
+      });
+      if (result) {
+        handlePlotResponse(
+          result.response,
+          result.data,
+          "feature-target-gallery",
+        );
+      }
+    } finally {
+      setPlotLoading("feature-target-plot-btn", "feature-target-loading-message", false);
     }
   }
 
@@ -251,13 +267,18 @@
       return;
     }
 
-    const result = await postPlotAction({
-      action: "scatter",
-      x_feature: xFeatureSelect.value,
-      y_feature: yFeatureSelect.value,
-    });
-    if (result) {
-      handlePlotResponse(result.response, result.data, "scatter-gallery");
+    setPlotLoading("scatter-plot-btn", "scatter-loading-message", true);
+    try {
+      const result = await postPlotAction({
+        action: "scatter",
+        x_feature: xFeatureSelect.value,
+        y_feature: yFeatureSelect.value,
+      });
+      if (result) {
+        handlePlotResponse(result.response, result.data, "scatter-gallery");
+      }
+    } finally {
+      setPlotLoading("scatter-plot-btn", "scatter-loading-message", false);
     }
   }
 
@@ -267,16 +288,21 @@
       return;
     }
 
-    const result = await postPlotAction({
-      action: "univariate",
-      feature: featureSelect.value,
-    });
-    if (result) {
-      handlePlotResponse(
-        result.response,
-        result.data,
-        "univariate-gallery",
-      );
+    setPlotLoading("univariate-plot-btn", "univariate-loading-message", true);
+    try {
+      const result = await postPlotAction({
+        action: "univariate",
+        feature: featureSelect.value,
+      });
+      if (result) {
+        handlePlotResponse(
+          result.response,
+          result.data,
+          "univariate-gallery",
+        );
+      }
+    } finally {
+      setPlotLoading("univariate-plot-btn", "univariate-loading-message", false);
     }
   }
 
@@ -535,6 +561,17 @@
       }
     }
 
+    const deleteDatasetBtn = event.target.closest(".delete-uploaded-dataset-btn");
+    if (deleteDatasetBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const deleteForm = document.getElementById(deleteDatasetBtn.dataset.deleteForm);
+      if (deleteForm) {
+        deleteForm.submit();
+      }
+      return;
+    }
+
     // Event delegation for clicking preloaded or uploaded dataset cards
     const card = event.target.closest(".dataset-card");
     if (card) {
@@ -547,7 +584,7 @@
         
         if (form) {
           const selectedInput = form.querySelector("input[name='dataset_name']");
-          const selectBtn = form.querySelector("button[type='submit']");
+          const selectBtn = form.querySelector("#select-example-btn, #select-uploaded-btn");
           if (selectedInput && selectBtn) {
             selectedInput.value = card.getAttribute("data-filename");
             selectBtn.disabled = false;
@@ -646,6 +683,17 @@
     if (fileInput && uploadBtn) {
       uploadBtn.disabled = !fileInput.files || fileInput.files.length === 0;
     }
+
+    // Enable Select when a dataset card is already selected after page reload.
+    document.querySelectorAll(".select-example-form").forEach(function (form) {
+      const selectedCard = form.querySelector(".dataset-card.selected");
+      const selectedInput = form.querySelector("input[name='dataset_name']");
+      const selectBtn = form.querySelector("#select-example-btn, #select-uploaded-btn");
+      if (selectedCard && selectedInput && selectBtn) {
+        selectedInput.value = selectedCard.getAttribute("data-filename");
+        selectBtn.disabled = false;
+      }
+    });
 
     // Sync test split size inputs
     const v2Select = document.getElementById("v2_test_size");

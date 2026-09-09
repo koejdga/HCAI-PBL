@@ -11,9 +11,13 @@
       </option>
       {% endfor %}
     </select>
-    <button type="button" onclick="createUnivariatePlot()" class="build-plot-btn">
-      Show distribution plot
+    <button type="button" onclick="createUnivariatePlot()" class="build-plot-btn" id="univariate-plot-btn">
+      Show Distribution Plot
     </button>
+    <span class="plot-loading-message" id="univariate-loading-message" role="status" aria-live="polite">
+      <span class="inline-loading-spinner" aria-hidden="true"></span>
+      Creating plot...
+    </span>
   </div>
   
   <!-- Gallery for Univariate plots -->

@@ -89,14 +89,14 @@
 }
 
 .action-button-primary {
-  border-color: var(--tuhh-blue);
-  background: var(--tuhh-blue);
+  border-color: var(--tuhh-navy);
+  background: var(--tuhh-navy);
   color: #ffffff;
 }
 
 .action-button-primary:hover {
-  border-color: var(--tuhh-navy);
-  background: var(--tuhh-navy);
+  border-color: var(--tuhh-blue);
+  background: var(--tuhh-blue);
   color: #ffffff;
 }
 
