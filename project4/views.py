@@ -19,6 +19,14 @@ SAMPLE_SESSION_KEY = "project4_sample_movie_ids"
 PAIRWISE_SESSION_KEY = "project4_pairwise_choices"
 RANKING_SESSION_KEY = "project4_ranking"
 FEEDBACK_SESSION_KEY = "project4_feedback"
+TIMING_SESSION_KEY = "project4_timing"
+PROJECT4_SESSION_KEYS = [
+    SAMPLE_SESSION_KEY,
+    PAIRWISE_SESSION_KEY,
+    RANKING_SESSION_KEY,
+    FEEDBACK_SESSION_KEY,
+    TIMING_SESSION_KEY,
+]
 
 
 def landing(request):
@@ -97,11 +105,11 @@ def submit_pairwise(request):
         return JsonResponse({"error": "Please complete all five pairwise comparisons before submitting."}, status=400)
 
     request.session[PAIRWISE_SESSION_KEY] = choices
+    save_design_metadata(request, "pairwise", payload)
     request.session.modified = True
 
     response = {"message": "Pairwise choices saved for this browser session."}
-    if request.session.get(RANKING_SESSION_KEY):
-        response.update(build_recommendation_payload(request, matrix))
+    response.update(build_recommendation_payload(request, matrix))
     return JsonResponse(response)
 
 
@@ -126,7 +134,7 @@ def submit_ranking(request):
         return JsonResponse({"error": "Ranking must contain the ten movies from the current ranking task."}, status=400)
 
     request.session[RANKING_SESSION_KEY] = ranking
-    request.session[FEEDBACK_SESSION_KEY] = payload.get("feedback", {})
+    save_design_metadata(request, "ranking", payload)
     request.session.modified = True
 
     response = {"message": "Ranking saved for this browser session."}
@@ -142,7 +150,7 @@ def recommendations(request):
 
 @require_POST
 def reset_study(request):
-    for key in [SAMPLE_SESSION_KEY, PAIRWISE_SESSION_KEY, RANKING_SESSION_KEY, FEEDBACK_SESSION_KEY]:
+    for key in PROJECT4_SESSION_KEYS:
         request.session.pop(key, None)
     request.session.modified = True
     return JsonResponse({"message": "Project 4 study session reset."})
@@ -183,6 +191,7 @@ def get_or_create_sample_ids(request, matrix):
     request.session.pop(PAIRWISE_SESSION_KEY, None)
     request.session.pop(RANKING_SESSION_KEY, None)
     request.session.pop(FEEDBACK_SESSION_KEY, None)
+    request.session.pop(TIMING_SESSION_KEY, None)
     request.session.modified = True
     return sampled_ids
 
@@ -198,18 +207,139 @@ def clean_submitted_id(value):
     return str(value or "").strip()
 
 
+def save_design_metadata(request, design, payload):
+    timing = sanitize_timing(payload)
+    feedback_by_design = sanitize_feedback(payload, design)
+
+    if timing:
+        timings = dict(request.session.get(TIMING_SESSION_KEY, {}))
+        timings[design] = timing
+        request.session[TIMING_SESSION_KEY] = timings
+
+    if feedback_by_design:
+        existing_feedback = dict(request.session.get(FEEDBACK_SESSION_KEY, {}))
+        for key, value in feedback_by_design.items():
+            existing_feedback[key] = value
+        request.session[FEEDBACK_SESSION_KEY] = existing_feedback
+
+
+def sanitize_timing(payload):
+    raw_timing = payload.get("timing", {})
+    if not isinstance(raw_timing, dict):
+        raw_timing = {}
+
+    duration = (
+        raw_timing.get("duration_seconds")
+        or payload.get("duration_seconds")
+        or raw_timing.get("task_duration_seconds")
+    )
+    if duration is None:
+        duration_ms = raw_timing.get("duration_ms") or payload.get("duration_ms") or raw_timing.get("task_duration_ms")
+        if duration_ms is not None:
+            try:
+                duration = float(duration_ms) / 1000
+            except (TypeError, ValueError):
+                duration = None
+
+    timing = {}
+    if duration is not None:
+        try:
+            timing["duration_seconds"] = round(max(float(duration), 0.0), 2)
+        except (TypeError, ValueError):
+            pass
+
+    for key in ["started_at", "submitted_at"]:
+        value = raw_timing.get(key) or payload.get(key)
+        if isinstance(value, str) and value.strip():
+            timing[key] = value.strip()[:64]
+
+    return timing
+
+
+def sanitize_feedback(payload, design):
+    raw_feedback = payload.get("feedback", {})
+    if not isinstance(raw_feedback, dict):
+        return {}
+
+    if any(isinstance(raw_feedback.get(key), dict) for key in ["pairwise", "ranking"]):
+        feedback_by_design = {}
+        for feedback_design in ["pairwise", "ranking"]:
+            if isinstance(raw_feedback.get(feedback_design), dict):
+                feedback_by_design[feedback_design] = sanitize_feedback_values(raw_feedback[feedback_design])
+        overall_feedback = {
+            key: value
+            for key, value in raw_feedback.items()
+            if key not in ["pairwise", "ranking"]
+        }
+        if overall_feedback:
+            feedback_by_design["overall"] = sanitize_feedback_values(overall_feedback)
+        return {key: value for key, value in feedback_by_design.items() if value}
+
+    feedback = sanitize_feedback_values(raw_feedback)
+    return {design: feedback} if feedback else {}
+
+
+def sanitize_feedback_values(raw_feedback):
+    feedback = {}
+    for key, value in raw_feedback.items():
+        if isinstance(value, (str, int, float, bool)):
+            feedback[str(key)[:64]] = str(value).strip()[:500]
+    return {key: value for key, value in feedback.items() if value != ""}
+
+
 def build_recommendation_payload(request, matrix):
     pairwise_choices = request.session.get(PAIRWISE_SESSION_KEY, [])
     ranking = request.session.get(RANKING_SESSION_KEY, [])
     sampled_ids = request.session.get(SAMPLE_SESSION_KEY, [])
     if not pairwise_choices and not ranking:
-        return {"recommendations": [], "summary": {"model_note": "No preferences submitted yet."}, "assumptions": []}
+        return {
+            "recommendations": [],
+            "recommendation_groups": {},
+            "summary": {"model_note": "No preferences submitted yet."},
+            "assumptions": [],
+            "telemetry": build_telemetry_payload(request),
+        }
 
-    result = learn_and_recommend(
-        feature_table=matrix.features,
+    groups = {}
+    if pairwise_choices:
+        groups["pairwise"] = build_recommendation_group(
+            matrix,
+            pairwise_choices=pairwise_choices,
+            rankings=None,
+            shown_movie_ids=sampled_ids,
+        )
+    if ranking:
+        groups["ranking"] = build_recommendation_group(
+            matrix,
+            pairwise_choices=None,
+            rankings=ranking,
+            shown_movie_ids=sampled_ids,
+        )
+
+    groups["combined"] = build_recommendation_group(
+        matrix,
         pairwise_choices=pairwise_choices,
         rankings=ranking,
         shown_movie_ids=sampled_ids,
+    )
+    combined = groups["combined"]
+
+    return {
+        "recommendations": combined["recommendations"],
+        "recommendation_groups": groups,
+        "summary": combined["summary"],
+        "assumptions": combined["assumptions"],
+        "warnings": combined["warnings"],
+        "telemetry": build_telemetry_payload(request),
+    }
+
+
+def build_recommendation_group(matrix, pairwise_choices=None, rankings=None, shown_movie_ids=None):
+    result = learn_and_recommend(
+        feature_table=matrix.features,
+        pairwise_choices=pairwise_choices,
+        rankings=rankings,
+        shown_movie_ids=shown_movie_ids,
         top_n=8,
         feature_columns=matrix.feature_columns,
         feature_labels=matrix.feature_labels,
@@ -234,6 +364,14 @@ def build_recommendation_payload(request, matrix):
         },
         "assumptions": result.fit.assumptions + result.assumptions,
         "warnings": result.fit.warnings + result.warnings,
+    }
+
+
+def build_telemetry_payload(request):
+    return {
+        "timing": request.session.get(TIMING_SESSION_KEY, {}),
+        "feedback": request.session.get(FEEDBACK_SESSION_KEY, {}),
+        "storage": "session-local",
     }
 
 

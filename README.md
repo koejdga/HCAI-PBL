@@ -179,19 +179,21 @@ Implemented assignment tasks:
 1. Feature representation for the IMDB 5000 Movie Dataset.
 2. Report explanation of Bradley-Terry for pairwise choices and Plackett-Luce
    as a ranking extension.
-3. User study protocol covering hypothesis, within-subject design,
-   counterbalancing, recruitment, metrics, and privacy.
-4. Participant interface for pairwise selection and drag-to-rank ordering.
+3. User study protocol covering formal hypotheses, within-subject design,
+   counterbalancing, six-step procedure, piloting, exclusion criteria, planned
+   tests, metrics, and privacy/GDPR handling.
+4. Participant interface for pairwise selection, drag-to-rank ordering, ranking
+   buttons, per-task timing, split feedback, and recommendations.
 
 Backend study endpoints:
 
 ```text
 POST /project4/api/pairwise/
-Payload: {"design": "pairwise", "choices": [{"pair_index": 1, "winner_id": "...", "loser_id": "..."}]}
+Payload: {"design": "pairwise", "choices": [{"pair_index": 1, "winner_id": "...", "loser_id": "..."}], "timing": {"duration_seconds": 42}}
 Response: {"message": "...", "recommendations": []}
 
 POST /project4/api/ranking/
-Payload: {"design": "ranking", "ranking": [{"rank": 1, "movie_id": "..."}, ...], "feedback": {...}}
+Payload: {"design": "ranking", "ranking": [{"rank": 1, "movie_id": "..."}, ...], "feedback": {"pairwise": {...}, "ranking": {...}}, "timing": {"duration_seconds": 75}}
 Response: {"message": "...", "recommendations": [{"title": "...", "director": "...", "year": 2008, "score": 0.72, "explanations": ["genre: Action"]}]}
 
 POST /project4/api/recommendations/

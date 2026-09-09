@@ -144,6 +144,10 @@
       <p class="subtitle">
         Select the movie you would rather watch. Each answer becomes a winner-loser comparison for estimating the preference vector.
       </p>
+      <div class="task-meter" aria-live="polite">
+        <span>Timing starts when the first pair is shown.</span>
+        <strong id="pairwise-duration-label">Not submitted yet</strong>
+      </div>
 
       <div class="progress-container" id="d1-progress-container">
         <span class="progress-text" id="d1-progress-text">Step 1 of 5</span>
@@ -219,6 +223,7 @@
       <div id="d1-completion" class="completion-view" hidden>
         <h3>Pairwise Selection Completed</h3>
         <p>Your pairwise preferences have been saved for this browser session. Continue to the ranking task for the second study condition.</p>
+        <p class="completion-metric" id="pairwise-completion-time"></p>
         <button type="button" class="secondary-button" onclick="restartDesign1()">Restart Pairwise Task</button>
       </div>
 
@@ -244,8 +249,12 @@
       <p class="subtitle">
         Drag movies from most preferred to least preferred. A ranking gives the backend a richer ordered preference signal.
       </p>
+      <div class="task-meter" aria-live="polite">
+        <span>Timing starts when the ranking list is shown.</span>
+        <strong id="ranking-duration-label">Not submitted yet</strong>
+      </div>
 
-      <div class="drag-instruction">Drag and drop movies inside the list to reorder them before submitting.</div>
+      <div class="drag-instruction">Drag movies inside the list, or use the Up and Down buttons, before submitting.</div>
 
       <div class="ranking-list" id="sortable-list">
         {% for movie in design2_movies %}
@@ -264,7 +273,7 @@
           <div class="ranking-movie-info">
             <div>
               <div class="ranking-movie-title">{{ movie.title }}</div>
-              <div class="ranking-movie-director">{{ movie.director }} · {{ movie.year }}</div>
+              <div class="ranking-movie-director">{{ movie.director }} - {{ movie.year }}</div>
             </div>
             <div class="ranking-meta-group">
               <div class="ranking-movie-genres">
@@ -279,6 +288,10 @@
                 {{ movie.imdb_score }}
               </div>
             </div>
+          </div>
+          <div class="ranking-controls" aria-label="Move {{ movie.title }} in ranking">
+            <button type="button" class="rank-move-button" data-rank-action="up" aria-label="Move {{ movie.title }} up">Up</button>
+            <button type="button" class="rank-move-button" data-rank-action="down" aria-label="Move {{ movie.title }} down">Down</button>
           </div>
         </div>
         {% endfor %}
@@ -305,6 +318,7 @@
       </div>
       <p class="subtitle">
         After the elicitation tasks are submitted, recommendations show scored movies and short feature-based reasons.
+        If available, the study can compare pairwise-only, ranking-only, and combined outputs.
       </p>
       <div id="recommendation-list" class="recommendation-list empty-state">
         Submit the pairwise and ranking tasks to generate recommendation results.
@@ -314,9 +328,55 @@
 
     <section class="feedback-panel" id="study-feedback">
       <h2>Participant Feedback</h2>
-      <p class="subtitle">A real study should collect perceived effort and recommendation relevance after the interaction.</p>
+      <p class="subtitle">A real study should collect effort, clarity, timing, and recommendation relevance separately for each design.</p>
       <form id="feedback-form" class="feedback-form">
-        <label for="relevance-rating">Recommendation relevance</label>
+        <fieldset class="feedback-group">
+          <legend>Pairwise selection</legend>
+          <label for="pairwise-effort-rating">Effort</label>
+          <select id="pairwise-effort-rating" name="pairwise_effort_rating">
+            <option value="">Select rating</option>
+            <option value="1">1 - Very low</option>
+            <option value="2">2 - Low</option>
+            <option value="3">3 - Medium</option>
+            <option value="4">4 - High</option>
+            <option value="5">5 - Very high</option>
+          </select>
+
+          <label for="pairwise-clarity-rating">Clarity</label>
+          <select id="pairwise-clarity-rating" name="pairwise_clarity_rating">
+            <option value="">Select rating</option>
+            <option value="1">1 - Very unclear</option>
+            <option value="2">2 - Unclear</option>
+            <option value="3">3 - Neutral</option>
+            <option value="4">4 - Clear</option>
+            <option value="5">5 - Very clear</option>
+          </select>
+        </fieldset>
+
+        <fieldset class="feedback-group">
+          <legend>Ranking interface</legend>
+          <label for="ranking-effort-rating">Effort</label>
+          <select id="ranking-effort-rating" name="ranking_effort_rating">
+            <option value="">Select rating</option>
+            <option value="1">1 - Very low</option>
+            <option value="2">2 - Low</option>
+            <option value="3">3 - Medium</option>
+            <option value="4">4 - High</option>
+            <option value="5">5 - Very high</option>
+          </select>
+
+          <label for="ranking-clarity-rating">Clarity</label>
+          <select id="ranking-clarity-rating" name="ranking_clarity_rating">
+            <option value="">Select rating</option>
+            <option value="1">1 - Very unclear</option>
+            <option value="2">2 - Unclear</option>
+            <option value="3">3 - Neutral</option>
+            <option value="4">4 - Clear</option>
+            <option value="5">5 - Very clear</option>
+          </select>
+        </fieldset>
+
+        <label for="relevance-rating">Overall recommendation relevance</label>
         <select id="relevance-rating" name="relevance_rating">
           <option value="">Select rating</option>
           <option value="1">1 - Not relevant</option>
@@ -326,14 +386,12 @@
           <option value="5">5 - Very relevant</option>
         </select>
 
-        <label for="effort-rating">Task effort</label>
-        <select id="effort-rating" name="effort_rating">
-          <option value="">Select rating</option>
-          <option value="1">1 - Very low</option>
-          <option value="2">2 - Low</option>
-          <option value="3">3 - Medium</option>
-          <option value="4">4 - High</option>
-          <option value="5">5 - Very high</option>
+        <label for="attention-check">Attention check: to confirm you are reading carefully, choose Disagree.</label>
+        <select id="attention-check" name="attention_check">
+          <option value="">Select option</option>
+          <option value="agree">Agree</option>
+          <option value="neutral">Neutral</option>
+          <option value="disagree">Disagree</option>
         </select>
 
         <label for="feedback-note">Optional note</label>
@@ -370,6 +428,14 @@
   let dragEl = null;
   let pairwiseSubmitted = false;
   let rankingSubmitted = false;
+  const designStartTimes = {
+    pairwise: performance.now(),
+    ranking: performance.now(),
+  };
+  const designDurations = {
+    pairwise: null,
+    ranking: null,
+  };
 
   function getCookie(name) {
     const value = `; ${document.cookie}`;
@@ -423,6 +489,17 @@
     };
   }
 
+  function getTimingPayload(design) {
+    const started = designStartTimes[design] || performance.now();
+    const durationMs = Math.max(Math.round(performance.now() - started), 0);
+    designDurations[design] = Math.max(1, Math.round(durationMs / 1000));
+    return {
+      duration_ms: durationMs,
+      duration_seconds: designDurations[design],
+      submitted_at: new Date().toISOString(),
+    };
+  }
+
   function selectMovie(cardElement) {
     const parentContainer = cardElement.closest('.pair-container');
     const pairIdx = parentContainer.dataset.pairIdx;
@@ -462,9 +539,12 @@
     const payload = {
       design: 'pairwise',
       choices: Object.values(selections).sort((a, b) => a.pair_index - b.pair_index),
+      timing: getTimingPayload('pairwise'),
     };
     const data = await postJSON(studyArea.dataset.pairwiseEndpoint, payload);
     pairwiseSubmitted = true;
+    document.getElementById('pairwise-duration-label').textContent = `${designDurations.pairwise}s submitted`;
+    document.getElementById('pairwise-completion-time').textContent = `Recorded pairwise time: ${designDurations.pairwise} seconds.`;
     showStatus(data.message || 'Pairwise choices submitted.', 'success');
     renderResponse(data);
     await maybeLoadRecommendations();
@@ -497,6 +577,8 @@
     Object.keys(selections).forEach((key) => delete selections[key]);
     pairwiseSubmitted = false;
     currentPairIdx = 1;
+    designStartTimes.pairwise = performance.now();
+    designDurations.pairwise = null;
 
     document.querySelectorAll('.movie-card').forEach((card) => {
       card.classList.remove('selected');
@@ -510,19 +592,55 @@
     document.getElementById('d1-progress-container').hidden = false;
     document.getElementById('d1-question-text').hidden = false;
     document.getElementById('d1-navigation').hidden = false;
+    document.getElementById('pairwise-duration-label').textContent = 'Not submitted yet';
+    document.getElementById('pairwise-completion-time').textContent = '';
     updatePairProgress();
     showStatus('Pairwise task restarted for this session.', 'info');
   }
 
   function updateRankings() {
-    document.querySelectorAll('.ranking-item').forEach((item, idx) => {
+    const rankingItems = Array.from(document.querySelectorAll('.ranking-item'));
+    rankingItems.forEach((item, idx) => {
       item.querySelector('.rank-number').innerText = idx + 1;
+      const upButton = item.querySelector('[data-rank-action="up"]');
+      const downButton = item.querySelector('[data-rank-action="down"]');
+      if (upButton) upButton.disabled = idx === 0;
+      if (downButton) downButton.disabled = idx === rankingItems.length - 1;
     });
+  }
+
+  function moveRankingItem(button) {
+    const item = button.closest('.ranking-item');
+    if (!item) return;
+
+    if (button.dataset.rankAction === 'up' && item.previousElementSibling) {
+      sortableList.insertBefore(item, item.previousElementSibling);
+    }
+    if (button.dataset.rankAction === 'down' && item.nextElementSibling) {
+      sortableList.insertBefore(item.nextElementSibling, item);
+    }
+    updateRankings();
+    item.scrollIntoView({ block: 'nearest' });
   }
 
   function getFeedbackPayload() {
     const form = document.getElementById('feedback-form');
-    return Object.fromEntries(new FormData(form).entries());
+    const values = Object.fromEntries(new FormData(form).entries());
+    return {
+      pairwise: {
+        effort_rating: values.pairwise_effort_rating,
+        clarity_rating: values.pairwise_clarity_rating,
+        duration_seconds: designDurations.pairwise,
+      },
+      ranking: {
+        effort_rating: values.ranking_effort_rating,
+        clarity_rating: values.ranking_clarity_rating,
+        duration_seconds: designDurations.ranking,
+      },
+      recommendation_relevance_rating: values.relevance_rating,
+      attention_check: values.attention_check,
+      note: values.feedback_note,
+    };
   }
 
   async function submitRankings() {
@@ -537,8 +655,10 @@
         design: 'ranking',
         ranking: rankedMovies,
         feedback: getFeedbackPayload(),
+        timing: getTimingPayload('ranking'),
       });
       rankingSubmitted = true;
+      document.getElementById('ranking-duration-label').textContent = `${designDurations.ranking}s submitted`;
       showStatus(data.message || 'Ranking submitted.', 'success');
       renderResponse(data);
       await maybeLoadRecommendations(true);
@@ -570,9 +690,35 @@
       summary.hidden = false;
       summary.textContent = data.summary.model_note || data.summary.fit_note || `Preference evidence used: ${data.summary.comparisons_used || 'available'}.`;
     }
+    const recommendationGroups = normalizeRecommendationGroups(data);
+    if (recommendationGroups.length) {
+      renderRecommendationGroups(recommendationGroups);
+      return;
+    }
+
     if (Array.isArray(data.recommendations) && data.recommendations.length) {
       renderRecommendations(data.recommendations);
     }
+  }
+
+  function normalizeRecommendationGroups(data) {
+    const source = data.recommendations_by_source || data.recommendation_groups || data.grouped_recommendations;
+    if (!source || typeof source !== 'object' || Array.isArray(source)) return [];
+
+    return [
+      ['pairwise', 'Pairwise-only'],
+      ['ranking', 'Ranking-only'],
+      ['combined', 'Combined'],
+    ].map(([key, label]) => {
+      const rawGroup = source[key] || source[`${key}_recommendations`] || [];
+      const items = Array.isArray(rawGroup) ? rawGroup : rawGroup.recommendations || [];
+      return {
+        key,
+        label,
+        items,
+        summary: rawGroup.summary || null,
+      };
+    }).filter((group) => Array.isArray(group.items) && group.items.length);
   }
 
   function recommendationReasons(movie) {
@@ -587,7 +733,32 @@
     const list = document.getElementById('recommendation-list');
     list.classList.remove('empty-state');
     document.getElementById('recommendation-status').textContent = `${recommendations.length} returned`;
-    list.innerHTML = recommendations.map((movie, index) => {
+    list.innerHTML = recommendationMarkup(recommendations);
+  }
+
+  function renderRecommendationGroups(groups) {
+    const list = document.getElementById('recommendation-list');
+    list.classList.remove('empty-state');
+    document.getElementById('recommendation-status').textContent = `${groups.length} models`;
+    list.innerHTML = groups.map((group) => `
+      <section class="recommendation-group" aria-label="${escapeHTML(group.label)} recommendations">
+        <h3>${escapeHTML(group.label)}</h3>
+        ${group.summary ? `<p>${escapeHTML(groupSummaryText(group.summary))}</p>` : ''}
+        <div class="recommendation-list">${recommendationMarkup(group.items)}</div>
+      </section>
+    `).join('');
+  }
+
+  function groupSummaryText(summary) {
+    const comparisons = summary.comparisons_used ?? 'available';
+    const sources = summary.source_counts ? Object.entries(summary.source_counts)
+      .map(([source, count]) => `${source}: ${count}`)
+      .join(', ') : '';
+    return sources ? `${comparisons} comparisons (${sources})` : `${comparisons} comparisons used`;
+  }
+
+  function recommendationMarkup(recommendations) {
+    return recommendations.map((movie, index) => {
       const reasonTags = recommendationReasons(movie)
         .slice(0, 3)
         .map((reason) => `<span class="reason-tag">${escapeHTML(reason)}</span>`)
@@ -599,7 +770,7 @@
           <div class="recommendation-rank">${index + 1}</div>
           <div>
             <h3>${escapeHTML(movie.title || movie.movie_id || 'Untitled movie')}</h3>
-            <p>${escapeHTML(movie.director || 'Feature-based match')}${movie.year ? ` · ${escapeHTML(movie.year)}` : ''}</p>
+            <p>${escapeHTML(movie.director || 'Feature-based match')}${movie.year ? ` - ${escapeHTML(movie.year)}` : ''}</p>
             <div class="reason-list">${reasonTags || '<span class="reason-tag">Preference match</span>'}</div>
           </div>
           ${score}
@@ -644,7 +815,13 @@
     updateRankings();
   });
 
+  sortableList.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-rank-action]');
+    if (button) moveRankingItem(button);
+  });
+
   updatePairProgress();
+  updateRankings();
 </script>
 {% endif %}
 {% endblock %}

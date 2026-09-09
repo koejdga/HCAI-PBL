@@ -202,7 +202,62 @@ class Project4ViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("five pairwise", response.json()["error"])
 
-    def test_pairwise_and_ranking_generate_recommendations(self):
+    def test_pairwise_endpoint_returns_pairwise_and_combined_recommendation_groups(self):
+        self.client.get(reverse("project4:study"))
+        sample = self.client.session["project4_sample_movie_ids"]
+        pairwise_choices = [
+            {"pair_index": index // 2 + 1, "winner_id": sample[index], "loser_id": sample[index + 1]}
+            for index in range(0, 10, 2)
+        ]
+
+        pairwise_response = self.post_json(
+            "project4:submit_pairwise",
+            {
+                "choices": pairwise_choices,
+                "timing": {"duration_ms": 42100},
+                "feedback": {"clarity_rating": "4"},
+            },
+        )
+        payload = pairwise_response.json()
+
+        self.assertEqual(pairwise_response.status_code, 200)
+        self.assertIn("pairwise", payload["recommendation_groups"])
+        self.assertIn("combined", payload["recommendation_groups"])
+        self.assertNotIn("ranking", payload["recommendation_groups"])
+        self.assertGreater(len(payload["recommendation_groups"]["pairwise"]["recommendations"]), 0)
+        self.assertEqual(payload["summary"]["source_counts"]["pairwise"], 5)
+        self.assertEqual(payload["telemetry"]["timing"]["pairwise"]["duration_seconds"], 42.1)
+        self.assertEqual(payload["telemetry"]["feedback"]["pairwise"]["clarity_rating"], "4")
+
+    def test_ranking_endpoint_returns_ranking_and_combined_recommendation_groups(self):
+        self.client.get(reverse("project4:study"))
+        sample = self.client.session["project4_sample_movie_ids"]
+
+        ranking_response = self.post_json(
+            "project4:submit_ranking",
+            {
+                "ranking": [{"rank": rank + 1, "movie_id": movie_id} for rank, movie_id in enumerate(sample[10:20])],
+                "timing": {"duration_seconds": 67.456},
+                "feedback": {
+                    "pairwise": {"clarity_rating": "5"},
+                    "ranking": {"relevance_rating": "4", "effort_rating": "3"},
+                    "attention_check": "disagree",
+                },
+            },
+        )
+        payload = ranking_response.json()
+
+        self.assertEqual(ranking_response.status_code, 200)
+        self.assertIn("ranking", payload["recommendation_groups"])
+        self.assertIn("combined", payload["recommendation_groups"])
+        self.assertNotIn("pairwise", payload["recommendation_groups"])
+        self.assertEqual(payload["summary"]["source_counts"]["ranking"], 45)
+        self.assertEqual(payload["telemetry"]["timing"]["ranking"]["duration_seconds"], 67.46)
+        self.assertEqual(payload["telemetry"]["feedback"]["pairwise"]["clarity_rating"], "5")
+        self.assertEqual(payload["telemetry"]["feedback"]["ranking"]["effort_rating"], "3")
+        self.assertEqual(payload["telemetry"]["feedback"]["overall"]["attention_check"], "disagree")
+
+    def test_pairwise_and_ranking_generate_combined_recommendations(self):
         self.client.get(reverse("project4:study"))
         sample = self.client.session["project4_sample_movie_ids"]
         pairwise_choices = [
@@ -215,7 +270,7 @@ class Project4ViewTests(TestCase):
             "project4:submit_ranking",
             {
                 "ranking": [{"rank": rank + 1, "movie_id": movie_id} for rank, movie_id in enumerate(sample[10:20])],
-                "feedback": {"relevance_rating": "4", "effort_rating": "3"},
+                "feedback": {"ranking": {"relevance_rating": "4", "effort_rating": "3"}},
             },
         )
         payload = ranking_response.json()
@@ -223,15 +278,30 @@ class Project4ViewTests(TestCase):
         self.assertEqual(pairwise_response.status_code, 200)
         self.assertEqual(ranking_response.status_code, 200)
         self.assertGreater(len(payload["recommendations"]), 0)
+        self.assertIn("pairwise", payload["recommendation_groups"])
+        self.assertIn("ranking", payload["recommendation_groups"])
+        self.assertIn("combined", payload["recommendation_groups"])
         self.assertTrue({movie["movie_id"] for movie in payload["recommendations"]}.isdisjoint(sample))
         self.assertIn("comparisons_used", payload["summary"])
+        self.assertEqual(payload["summary"]["source_counts"]["pairwise"], 5)
+        self.assertEqual(payload["summary"]["source_counts"]["ranking"], 45)
         self.assertIn("session-local", " ".join(payload["assumptions"]))
 
     def test_reset_study_clears_project4_session(self):
         self.client.get(reverse("project4:study"))
         self.assertIn("project4_sample_movie_ids", self.client.session)
+        session = self.client.session
+        session["project4_pairwise_choices"] = [{"winner_id": "A", "loser_id": "B"}]
+        session["project4_ranking"] = ["A", "B"]
+        session["project4_feedback"] = {"pairwise": {"clarity_rating": "4"}}
+        session["project4_timing"] = {"pairwise": {"duration_seconds": 12.0}}
+        session.save()
 
         response = self.post_json("project4:reset_study", {"reset": True})
 
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("project4_sample_movie_ids", self.client.session)
+        self.assertNotIn("project4_pairwise_choices", self.client.session)
+        self.assertNotIn("project4_ranking", self.client.session)
+        self.assertNotIn("project4_feedback", self.client.session)
+        self.assertNotIn("project4_timing", self.client.session)

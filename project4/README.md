@@ -16,10 +16,13 @@ recommendation result after the participant submits both tasks.
 2. Open <http://127.0.0.1:8000/project4/>.
 3. Use **Start Study** to open the participant interface.
 4. Complete the five pairwise choices.
-5. Reorder the ten ranking movies and submit.
-6. Review the recommended movies and explanation labels.
-7. Download the PDF report from the final report section, or from the landing page.
-8. Use **Reset Study** to clear the session and sample a fresh set.
+5. Reorder the ten ranking movies by dragging or using the Up and Down buttons.
+6. Add optional per-design feedback and submit the ranking task.
+7. Review the recommended movies and explanation labels.
+8. If the backend provides separate model outputs, compare pairwise-only,
+   ranking-only, and combined recommendation groups.
+9. Download the PDF report from the final report section, or from the landing page.
+10. Use **Reset Study** to clear the session and sample a fresh set.
 
 ## Assignment Coverage
 
@@ -29,16 +32,21 @@ recommendation result after the participant submits both tasks.
   Bradley-Terry. The prototype implements a lean pairwise-decomposition model
   for ranking observations.
 - **Task 3:** the report defines the user-study hypothesis, within-subject
-  design, counterbalancing, recruitment plan, metrics, feedback phase, and
-  privacy handling.
+  design, counterbalancing, recruitment plan, six-step protocol, pilot plan,
+  exclusion criteria, planned statistical tests, and privacy/GDPR handling.
 - **Task 4:** the Django UI provides the landing page, study interface, PDF
-  download, session reset, backend submission endpoints, and recommendations.
+  download, session reset, backend submission endpoints, per-task timing,
+  separated feedback, accessible ranking controls, and recommendations.
 
 ## Human-Centric Design Choices
 
 - The landing page makes the participant study the primary action while keeping
   the PDF report accessible for evaluation.
 - The participant sees that choices are stored only for the browser session.
+- Per-task timing and separate effort/clarity feedback make the comparison
+  more usable as a real user-study prototype.
+- Ranking works with drag-and-drop and buttons so the interface does not assume
+  one input style works for everyone.
 - Movies already used during elicitation are excluded from recommendations.
 - Recommendation labels expose the feature signals behind the score.
 - The model remains intentionally simple so the preference vector can be

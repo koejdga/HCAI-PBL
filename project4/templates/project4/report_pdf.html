@@ -125,51 +125,61 @@
     <a name="task-3"></a>
     <div class="section-heading-1" id="task-3">Task 3: User Study Design</div>
     <p>
-        The study compares two preference elicitation methods: pairwise selection and drag-to-rank ordering. The goal is not to run the study during the assignment, but to define a rigorous protocol and provide a participant-ready interface.
+        The study compares two preference elicitation methods: pairwise selection and drag-to-rank ordering. The goal is not to run the study during the assignment, but to define a rigorous experimental protocol and provide a participant-ready interface that could be used in practice.
     </p>
 
     <div class="info-callout">
-        <strong>Hypothesis:</strong>
-        Full ranking produces a more informative estimate of the preference vector per movie shown, but it creates higher cognitive workload than pairwise selection.
+        <strong>Research question:</strong>
+        Does the ten-movie ranking interface produce recommendations that participants perceive as more relevant than the five pairwise choices, and what extra effort does it require?
     </div>
 
     <table class="report-table">
         <thead>
             <tr>
-                <th>Study Element</th>
-                <th>Planned Design</th>
+                <th>Six-Step Study Structure</th>
+                <th>Project 4 Protocol</th>
             </tr>
         </thead>
         <tbody>
             <tr class="row-even">
-                <td>Design type</td>
-                <td>Within-subject comparison: every participant completes both pairwise and ranking tasks.</td>
+                <td>1. Research goal and biases</td>
+                <td>Compare elicitation efficiency, perceived workload, clarity, and recommendation relevance while acknowledging novelty effects, movie familiarity bias, fatigue, and order effects.</td>
             </tr>
             <tr class="row-odd">
-                <td>Counterbalancing</td>
-                <td>Half of participants start with pairwise selection; half start with ranking to reduce order effects.</td>
+                <td>2. Study design</td>
+                <td>Within-subject design: each participant completes both interfaces. Condition order is counterbalanced, with half starting pairwise and half starting ranking.</td>
             </tr>
             <tr class="row-even">
-                <td>Recruitment</td>
-                <td>Convenience sample of classmates or volunteers, ideally 10-20 participants for a small course study.</td>
+                <td>3. Materials and procedure</td>
+                <td>Consent/context page, short practice explanation, five pairwise choices, one ten-movie ranking, recommendation review, separate feedback for both interfaces, and debriefing.</td>
             </tr>
             <tr class="row-odd">
-                <td>Practical steps</td>
-                <td>Explain consent, complete first elicitation task, complete second task, inspect recommendations, answer short feedback questions.</td>
+                <td>4. Piloting</td>
+                <td>Run a pilot with 5-10 users to detect unclear wording, ranking-control problems, and timing bugs. Pilot data is excluded from the final analysis.</td>
             </tr>
             <tr class="row-even">
-                <td>Measured outcomes</td>
-                <td>Completion time, number of interactions, recommendation relevance rating, confidence in recommendations, and perceived workload.</td>
+                <td>5. Data collection and GDPR</td>
+                <td>Collect only session choices, timings, ratings, and optional comments. Do not collect names or contact details in the prototype; for a real study, provide controller contact, purpose, retention period, right to erasure, and consent withdrawal.</td>
             </tr>
             <tr class="row-odd">
-                <td>Ethics and privacy</td>
-                <td>Collect no personal information, store responses only for the browser session, and allow participants to restart at any time.</td>
+                <td>6. Analysis and exclusion criteria</td>
+                <td>Pre-register objective exclusions: incomplete sessions, duplicate movie IDs, impossible task times, repeated non-varying choices, failed attention check, or timing more than three standard deviations from the cohort mean.</td>
             </tr>
         </tbody>
     </table>
 
+    <div class="info-callout">
+        <strong>Formal hypotheses:</strong>
+        H0: mean perceived recommendation relevance is equal for ranking and pairwise elicitation.
+        H1: mean perceived recommendation relevance is higher for ranking than for pairwise elicitation.
+    </div>
+
     <p>
-        The primary quantitative comparison should report elicitation efficiency and subjective effort. The recommendation quality can be approximated through participant relevance ratings, while cognitive load can be measured using a short NASA-TLX inspired questionnaire covering effort, mental demand, frustration, and confidence.
+        The primary planned test is a paired Student's t-test on within-participant relevance-rating differences if the differences are approximately normal. If the Likert differences are clearly non-normal or strongly ordinal, the planned non-parametric alternative is a Wilcoxon signed-rank test. Secondary outcomes include task duration in seconds, number of interactions, clarity rating, perceived effort, and optional NASA-TLX inspired workload questions. If several secondary hypotheses are tested, the report should apply a Bonferroni correction to keep the family-wise error rate controlled.
+    </p>
+
+    <p>
+        Recruitment would use a convenience sample of classmates or volunteers for the course prototype, with a target of at least 10-20 participants for a small formative study and a larger sample if inferential claims are required. Participants should be adults, familiar enough with movies to make preference judgments, and informed that recommendations are exploratory estimates based only on their current-session answers.
     </p>
 
     <a name="task-4"></a>
@@ -179,8 +189,9 @@
     </p>
     <ul>
         <li><strong>Pairwise interface:</strong> five movie pairs, one selected winner per pair, and progress feedback.</li>
-        <li><strong>Ranking interface:</strong> ten movies reordered from most to least preferred using drag-and-drop.</li>
-        <li><strong>Recommendation area:</strong> receives backend recommendations with scores and short explanation tags.</li>
+        <li><strong>Ranking interface:</strong> ten movies reordered from most to least preferred using drag-and-drop or accessible Up and Down controls.</li>
+        <li><strong>Recommendation area:</strong> receives backend recommendations with scores and short explanation tags, and can display pairwise-only, ranking-only, and combined recommendation groups if returned by the backend.</li>
+        <li><strong>Timing and feedback:</strong> records per-task duration and asks separate effort and clarity questions for the pairwise and ranking designs.</li>
         <li><strong>Reset affordance:</strong> allows the participant to start over with a fresh session.</li>
     </ul>
 
