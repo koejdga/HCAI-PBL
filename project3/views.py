@@ -24,6 +24,21 @@ class NumpyJSONEncoder(DjangoJSONEncoder):
             return obj.tolist()
         return super().default(obj)
 
+
+def make_json_safe(value):
+    """Convert NumPy values before Django's template JSON helpers serialize them."""
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, dict):
+        return {make_json_safe(key): make_json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [make_json_safe(item) for item in value]
+    return value
+
 from .core.utils import (
     CLASS_NAMES,
     CLASS_IDS,
@@ -1017,6 +1032,10 @@ def build_expert_accuracy_payload(request):
 
 
 def index(request):
+    return render(request, "project3/landing.html")
+
+
+def study(request):
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "clear-human-labels":
@@ -1111,6 +1130,8 @@ def index(request):
         {"label": "less competent", "value": "less-competent"},
         {"label": "more competent", "value": "more-competent"},
     ]
+    for key in ("allocation_by_policy", "active_learning_by_strategy", "scatter_plots"):
+        results[key] = make_json_safe(results.get(key, {}))
     return render(request, "project3/index.html", results)
 
 def restore_session_query_params(request):
@@ -1157,7 +1178,7 @@ def report(request):
     if request.method == "POST" and request.POST.get("action") == "clear-configs":
         request.session["project3_saved_configs"] = []
         request.session.modified = True
-        return redirect("project3:index")
+        return redirect("project3:study")
 
     restore_session_query_params(request)
     results = build_project3_results(request)

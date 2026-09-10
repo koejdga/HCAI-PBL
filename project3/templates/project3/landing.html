@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block site_context %}Project 3{% endblock %}
+
+{% block header_actions %}
+<a class="home-link" href="{% url 'home:index' %}">Back to Home</a>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'project3/style.css' %}" />
+{% endblock %}
+
+{% block content %}
+<div class="box project3-box project3-landing-box">
+  <div class="title-container">
+    <div class="title">Active Learning for Learning-to-Defer</div>
+    <p class="centered-text explanation">
+      Download the project report or enter the participant-facing user study interface.
+    </p>
+  </div>
+
+  <section class="project3-section landing-panel" aria-labelledby="project3-landing-title">
+    <h2 id="project3-landing-title">Project 3 Materials</h2>
+    <p>
+      The PDF report explains the experiment setup, simulated expert choices,
+      learning-to-defer policies, active-learning strategy, design motivation,
+      and evaluation results.
+    </p>
+    <p>
+      The user study link opens the interface a participant would use to review
+      the task, configure or answer expert queries, and inspect the human-AI
+      collaboration results.
+    </p>
+
+    <div class="landing-actions-row">
+      <a class="landing-action primary-action" href="{% url 'project3:study' %}">
+        Enter User Study
+      </a>
+      <a class="landing-action secondary-action" href="{% url 'project3:report' %}">
+        Download PDF Report
+      </a>
+    </div>
+  </section>
+</div>
+{% endblock %}

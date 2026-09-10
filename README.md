@@ -18,7 +18,7 @@ central homepage and separate apps for Projects 1, 2, 3, and 4.
 | --- | --- | --- | --- |
 | Project 1 | Automated Machine Learning | `/project1/` | `project1/README.md` |
 | Project 2 | Explainability | `/project2/` | `project2/README.md` |
-| Project 3 | Active Learning for Learning-to-Defer | `/project3/` | `project3/README.md` |
+| Project 3 | Active Learning for Learning-to-Defer | `/project3/` landing, `/project3/study/` study | `project3/README.md` |
 | Project 4 | Preference Elicitation | `/project4/` | `project4/README.md` |
 
 ## Repository Structure
@@ -79,6 +79,7 @@ Open:
 - Project 1: <http://127.0.0.1:8000/project1/>
 - Project 2: <http://127.0.0.1:8000/project2/>
 - Project 3: <http://127.0.0.1:8000/project3/>
+- Project 3 study: <http://127.0.0.1:8000/project3/study/>
 - Project 4: <http://127.0.0.1:8000/project4/>
 
 Stop the server with `Ctrl+C`.
@@ -133,10 +134,11 @@ See `project2/README.md` for details.
 
 ## Project 3: Active Learning for Learning-to-Defer
 
-Project 3 implements human-AI collaboration on AG News classification. It
-trains a baseline classifier, simulates experts, compares learning-to-defer
-policies, uses active learning to estimate expert competence, and generates a
-PDF report.
+Project 3 implements human-AI collaboration on AG News classification. It has a
+landing page for downloading the PDF report and entering the user study, plus a
+participant-facing study interface that trains a baseline classifier, simulates
+experts, compares learning-to-defer policies, and uses active learning to
+estimate expert competence.
 
 Implemented assignment tasks:
 
@@ -154,6 +156,8 @@ Special implementation aspects:
 - Adds a bonus stream selective sampling strategy.
 - Shows query-budget convergence and recommended budget.
 - Provides PDF report generation from saved configurations.
+- Separates the professor-facing landing page from the participant-facing user
+  study interface.
 - Uses loading feedback and a fallback reload for long computations.
 
 Default and recommended quick demo settings:
@@ -247,6 +251,7 @@ Run project tests:
 python manage.py test project1 --verbosity 1
 python manage.py test project2 --verbosity 1
 python manage.py test project3 --verbosity 1
+python manage.py test project4 --verbosity 1
 ```
 
 Project 3 tests and larger Project 3 runs can take longer because text

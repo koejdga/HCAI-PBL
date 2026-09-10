@@ -116,9 +116,16 @@ class Project3ExperimentTests(SimpleTestCase):
 
 
 class Project3ViewTests(TestCase):
+    def test_project3_landing_page_loads(self):
+        response = self.client.get(reverse("project3:index"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Enter User Study")
+        self.assertContains(response, "Download PDF Report")
+
     def test_project3_page_loads(self):
         response = self.client.get(
-            reverse("project3:index"),
+            reverse("project3:study"),
             {"train-size": "40", "test-size": "20", "expert-one-type": "REALISTIC"},
         )
 
@@ -132,7 +139,7 @@ class Project3ViewTests(TestCase):
 
     def test_project3_page_loads_no_experts(self):
         response = self.client.get(
-            reverse("project3:index"),
+            reverse("project3:study"),
             {"train-size": "40", "test-size": "20"},
         )
 
@@ -224,13 +231,13 @@ class Project3ViewTests(TestCase):
         self.assertEqual(mocked_active_learning.call_count, 4)
 
     def test_expert_accuracy_preview_returns_json(self):
-        html_response = self.client.get(reverse("project3:index"), {"expert-one-type": "REALISTIC"})
+        html_response = self.client.get(reverse("project3:study"), {"expert-one-type": "REALISTIC"})
         self.assertEqual(html_response.status_code, 200)
         self.assertContains(html_response, 'class="table-wrap accuracy-preview-table-wrap"')
         self.assertContains(html_response, 'id="expert-class-accuracy-body"')
 
         response = self.client.get(
-            reverse("project3:index"),
+            reverse("project3:study"),
             {
                 "format": "json",
                 "expert-one": "TRIVIAL",
@@ -267,7 +274,7 @@ class Project3ViewTests(TestCase):
 
     def test_human_labels_can_be_submitted(self):
         response = self.client.get(
-            reverse("project3:index"),
+            reverse("project3:study"),
             {"train-size": "40", "test-size": "20", "expert-one-type": "REALISTIC"},
         )
         self.assertEqual(response.status_code, 200)
@@ -280,7 +287,7 @@ class Project3ViewTests(TestCase):
         self.assertEqual(label_inputs, ["key"])
         first_key = response.context["human_expert"]["rows"][0]["key"]
         response = self.client.post(
-            reverse("project3:index") + "?train-size=40&test-size=20",
+            reverse("project3:study") + "?train-size=40&test-size=20",
             {f"human_label_{first_key}": "1"},
         )
 
@@ -291,7 +298,7 @@ class Project3ViewTests(TestCase):
         session["project3_saved_configs"] = [{"id": "cfg_1", "label": "Demo config"}]
         session.save()
 
-        response = self.client.post(reverse("project3:index"), {"action": "clear-configs"})
+        response = self.client.post(reverse("project3:study"), {"action": "clear-configs"})
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.client.session.get("project3_saved_configs"), [])
 

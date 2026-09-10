@@ -644,7 +644,7 @@
         </button>
         
         {% if saved_configs %}
-        <button type="submit" name="action" value="clear-configs" formaction="{% url 'project3:index' %}" formmethod="post" formtarget="_self" class="compact-action-button danger-button" data-skip-report-loading="true">
+        <button type="submit" name="action" value="clear-configs" formaction="{% url 'project3:study' %}" formmethod="post" formtarget="_self" class="compact-action-button danger-button" data-skip-report-loading="true">
           Clear Config History
         </button>
         {% endif %}
@@ -1225,7 +1225,7 @@
                    clearBtn.type = "submit";
                    clearBtn.name = "action";
                    clearBtn.value = "clear-configs";
-                   clearBtn.setAttribute("formaction", "{% url 'project3:index' %}");
+                   clearBtn.setAttribute("formaction", "{% url 'project3:study' %}");
                    clearBtn.setAttribute("formmethod", "post");
                    clearBtn.setAttribute("formtarget", "_self");
                    clearBtn.dataset.skipReportLoading = "true";

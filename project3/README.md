@@ -5,7 +5,9 @@ trains a baseline classifier, simulates experts, compares learning-to-defer
 policies, uses active learning to estimate expert competence, and generates a
 PDF report from the interface.
 
-Project page: <http://127.0.0.1:8000/project3/>
+Project landing page: <http://127.0.0.1:8000/project3/>
+
+User study interface: <http://127.0.0.1:8000/project3/study/>
 
 ## Assignment Tasks
 
@@ -56,11 +58,16 @@ selective sampling strategy.
 - Lets the user act as the expert for selected active-learning queries.
 - Tracks answered labels, correctness, and human-expert accuracy.
 
-### PDF Report
+### Landing Page and PDF Report
 
-- The interface includes a PDF report section.
-- Users can save expert configurations and download a report containing the
-  experiment setup, design choices, tables, plots, and results.
+- The `/project3/` landing page lets the professor download the PDF report or
+  enter the participant-facing user study.
+- The PDF report explains the experiment setup, simulated expert choices,
+  learning-to-defer policies, active-learning strategy, design motivation,
+  tables, plots, and results.
+- The `/project3/study/` page contains the interface a participant would use:
+  experiment settings, simulated or human expert interaction, deferral results,
+  active-learning query analysis, and saved configurations for the report.
 
 ## HCAI Concepts Applied
 
@@ -76,6 +83,9 @@ selective sampling strategy.
   human-AI team performance.
 - **Interactive ML:** users can configure experts and optionally provide labels
   themselves.
+- **User-study readiness:** the landing page separates evaluation material from
+  the participant workflow, so the study can be run from the provided interface
+  without code changes.
 
 ## Runtime Notes
 
@@ -112,7 +122,8 @@ project3/
 |   `-- utils.py                     # Dataset loading and plot helpers
 |-- tests.py                         # Automated Project 3 tests
 |-- urls.py
-|-- templates/project3/index.html    # Main Project 3 interface
+|-- templates/project3/landing.html  # Report download and user study entry point
+|-- templates/project3/index.html    # Participant-facing user study interface
 |-- templates/project3/report_pdf.html
 `-- static/project3/style.css
 ```
@@ -128,7 +139,10 @@ From the repository root:
 python manage.py runserver
 ```
 
-Open <http://127.0.0.1:8000/project3/>.
+Open the landing page: <http://127.0.0.1:8000/project3/>.
+
+From there, click **Enter User Study** to open
+<http://127.0.0.1:8000/project3/study/> or download the PDF report.
 
 ## Check and Test
 
@@ -145,11 +159,13 @@ python manage.py test project3.tests.Project3ExperimentTests.test_stream_selecti
 
 ## Suggested Evaluation Path
 
-1. Open the Project 3 page.
-2. Use the recommended quick demo settings above.
-3. Review baseline classifier results.
-4. Configure a realistic expert and apply expert settings.
-5. Compare policy results and query allocation.
-6. Review active-learning strategy comparison.
-7. Try stream selective sampling in the active-learning strategy radio buttons.
-8. Save a configuration and download the PDF report.
+1. Open the Project 3 landing page.
+2. Download the PDF report to inspect the experiment motivation and design.
+3. Click **Enter User Study**.
+4. Use the recommended quick demo settings above.
+5. Review baseline classifier results.
+6. Configure a realistic expert and apply expert settings.
+7. Compare policy results and query allocation.
+8. Review active-learning strategy comparison.
+9. Try stream selective sampling in the active-learning strategy radio buttons.
+10. Save a configuration and download the updated PDF report.
