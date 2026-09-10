@@ -342,6 +342,10 @@
               <td>{% if row.improvement_percent == "baseline" %}baseline{% else %}{{ row.improvement_percent }}%{% endif %}</td>
               <td>{% if row.recommended %}Suggested{% else %}-{% endif %}</td>
             </tr>
+            {% empty %}
+            <tr>
+              <td colspan="4">Suggested-budget analysis will appear after applying expert settings.</td>
+            </tr>
             {% endfor %}
           </tbody>
         </table>
@@ -1056,6 +1060,14 @@
         }
       }
 
+      function setBudgetConvergenceStatus(message) {
+        const convergenceBody = document.getElementById("budget-convergence-body");
+        if (!convergenceBody) {
+          return;
+        }
+        convergenceBody.innerHTML = `<tr><td colspan="4">${message}</td></tr>`;
+      }
+
       function requestExpertAccuracy(options = {}) {
         const url = new URL(window.location.href);
         url.searchParams.set('format', 'json');
@@ -1109,7 +1121,9 @@
         }
 
         if (accuracyDisplay) {
-          accuracyDisplay.textContent = 'Evaluating expert accuracy...';
+          accuracyDisplay.textContent = skipBudgetConvergence
+            ? 'Applying the selected query budget to the existing experiment results...'
+            : 'Evaluating expert accuracy...';
         }
 
         // Keep result sections visible and show immediate feedback while the heavier metrics are recomputed.
@@ -1137,8 +1151,17 @@
         if (examplesBody) {
           examplesBody.innerHTML = '<tr><td colspan="5">Loading queried examples...</td></tr>';
         }
-        if (convergenceBody && !skipBudgetConvergence) {
-          convergenceBody.innerHTML = '<tr><td colspan="4">Estimating query-budget convergence...</td></tr>';
+        if (convergenceBody) {
+          if (skipBudgetConvergence) {
+            const hasRealRows = Array.from(convergenceBody.querySelectorAll("tr")).some((row) => {
+              return !row.textContent.includes("Estimating query-budget convergence");
+            });
+            if (!hasRealRows) {
+              setBudgetConvergenceStatus("Quick budget update applied. Use Apply expert's settings to refresh the suggested-budget table.");
+            }
+          } else {
+            setBudgetConvergenceStatus("Estimating query-budget convergence...");
+          }
         }
 
         const originalText = showAccuracyBtn.textContent;
@@ -1238,6 +1261,9 @@
 
              hasLoaded = true;
              updateVisibility();
+             if (skipBudgetConvergence && accuracyDisplay) {
+               accuracyDisplay.textContent = "Query budget applied. Results below are updated for the selected budget.";
+             }
              showAccuracyBtn.disabled = false;
              showAccuracyBtn.textContent = originalText;
              if (applyBudgetBtn) {

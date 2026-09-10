@@ -1036,6 +1036,18 @@ def index(request):
 
 
 def study(request):
+    if request.method == "GET" and request.GET.get("reset") == "1" and hasattr(request, "session"):
+        for key in (
+            "project3_human_labels",
+            "project3_saved_configs",
+            "project3_last_query_params",
+            "project3_include_l2d",
+            "project3_human_strategy",
+            "project3_human_limit",
+        ):
+            request.session.pop(key, None)
+        request.session.modified = True
+
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "clear-human-labels":
