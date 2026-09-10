@@ -4,8 +4,8 @@
 {% block site_context %}Project 3{% endblock %}
 
 {% block header_actions %}
-<!-- Explicit home navigation avoids browser-history traps after form steps. -->
-<a class="home-link" href="{% url 'home:index' %}">Back to Home</a>
+<!-- Explicit overview navigation avoids browser-history traps after form steps. -->
+<a class="home-link" href="{% url 'project3:index' %}">Back to Overview</a>
 {% endblock %}
 
 {% block extra_css %}
