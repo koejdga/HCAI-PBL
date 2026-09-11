@@ -18,7 +18,7 @@ Tasks 1-4 are implemented.
 
 ## Implemented Functionality
 
-## How to Use the Interface
+### How to Use the Interface
 
 Project 1 is organized as a step-by-step page:
 

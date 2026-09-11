@@ -263,14 +263,3 @@ Project 3 tests and larger Project 3 runs can take longer because text
 classification, learning-to-defer training, active-learning analysis, plot
 generation, and PDF report generation are more computationally intensive than
 Projects 1 and 2.
-
-## Evaluation Checklist
-
-1. Install dependencies and run `python manage.py check`.
-2. Open the homepage and verify links to all projects.
-3. Follow the suggested evaluation path in each project README.
-4. Try Project 3 first with the recommended quick demo settings.
-5. Open the app in Chrome and at least one other browser such as Edge or
-   Firefox.
-6. Resize the browser window and confirm that forms, tables, plots, and
-   navigation remain usable.
