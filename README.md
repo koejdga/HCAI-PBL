@@ -38,13 +38,14 @@ HCAI-PBL/
 `-- requirements.txt
 ```
 
-## Installation
+## How to Run
 
-Clone the repository and enter the repository root:
+Use the `main` branch and run the Django project from the repository root:
 
 ```powershell
 git clone https://github.com/koejdga/HCAI-PBL.git
 cd HCAI-PBL
+git switch main
 ```
 
 Create and activate a virtual environment:
@@ -83,6 +84,10 @@ Open:
 - Project 4: <http://127.0.0.1:8000/project4/>
 
 Stop the server with `Ctrl+C`.
+
+The homepage is the recommended starting point because it links to all four
+project interfaces. Project-specific details are documented in the README file
+inside each project folder.
 
 ## Project 1: Automated Machine Learning
 
